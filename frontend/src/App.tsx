@@ -1,122 +1,86 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+/**
+ * Roteador do aplicativo.
+ *
+ * Optei por um roteamento simples baseado em estado, em vez de react-router,
+ * para não adicionar dependência nova ao projeto: o Circula Book tem 8 telas
+ * com navegação linear, e isso mantém o `npm install` do grupo intacto.
+ * Se no futuro precisarem de URLs compartilháveis e histórico do navegador,
+ * a troca para react-router-dom fica isolada neste arquivo.
+ */
+import { useState } from "react";
+import Layout from "./components/Layout";
+import type { Perfil } from "./types";
 
-function App() {
-  const [count, setCount] = useState(0)
+import BuscaLivros, { type Filtros } from "./pages/BuscaLivros";
+import ResultadosBusca from "./pages/ResultadosBusca";
+import DetalhesLivro from "./pages/DetalhesLivro";
+import RegistrarEmprestimo from "./pages/RegistrarEmprestimo";
+import ReservarLivro from "./pages/ReservarLivro";
+import RegistrarDevolucao from "./pages/RegistrarDevolucao";
+import CadastrarExemplar from "./pages/CadastrarExemplar";
+import TransferenciasAdmin from "./pages/TransferenciasAdmin";
+
+export type Rota =
+  | { nome: "busca" }
+  | { nome: "resultados"; filtros: Filtros }
+  | { nome: "detalhesLivro"; livroId: number }
+  | { nome: "reserva"; livroId: number; bibliotecaId?: number }
+  | { nome: "emprestimo" }
+  | { nome: "devolucao" }
+  | { nome: "cadastrarExemplar" }
+  | { nome: "transferencias" };
+
+/** Ao trocar de perfil, cai na tela inicial daquele ator. */
+const TELA_INICIAL: Record<Perfil, Rota> = {
+  COMUM: { nome: "busca" },
+  BIBLIOTECARIO: { nome: "emprestimo" },
+  ADMIN: { nome: "transferencias" },
+};
+
+export default function App() {
+  const [perfil, setPerfil] = useState<Perfil>("COMUM");
+  const [rota, setRota] = useState<Rota>({ nome: "busca" });
+
+  function trocarPerfil(novo: Perfil) {
+    setPerfil(novo);
+    setRota(TELA_INICIAL[novo]);
+  }
+
+  function renderizar() {
+    switch (rota.nome) {
+      case "busca":
+        return <BuscaLivros navegar={setRota} />;
+      case "resultados":
+        return <ResultadosBusca filtros={rota.filtros} navegar={setRota} />;
+      case "detalhesLivro":
+        return <DetalhesLivro livroId={rota.livroId} navegar={setRota} />;
+      case "reserva":
+        return (
+          <ReservarLivro
+            livroId={rota.livroId}
+            bibliotecaId={rota.bibliotecaId}
+            navegar={setRota}
+          />
+        );
+      case "emprestimo":
+        return <RegistrarEmprestimo />;
+      case "devolucao":
+        return <RegistrarDevolucao />;
+      case "cadastrarExemplar":
+        return <CadastrarExemplar />;
+      case "transferencias":
+        return <TransferenciasAdmin />;
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <Layout
+      perfil={perfil}
+      rotaAtual={rota.nome}
+      navegar={setRota}
+      trocarPerfil={trocarPerfil}
+    >
+      {renderizar()}
+    </Layout>
+  );
 }
-
-export default App
