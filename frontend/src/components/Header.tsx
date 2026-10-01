@@ -1,36 +1,34 @@
 /**
- * Barra azul do topo, presente nas 8 telas.
- *
- * O menu muda conforme o perfil ativo, exatamente como no Figma:
- *  - COMUM         -> Buscar Livros / Meus Empréstimos / Minhas Reservas / Meu Histórico
- *  - BIBLIOTECARIO -> Painel / Registrar Empréstimo / Devolução / Transferência / Cadastrar
- *  - ADMIN         -> Dashboard / Solicitações / Catálogo / Bibliotecas / Relatórios
+ * Barra azul do topo, presente em todas as telas.
+ * O menu muda conforme o perfil e o item da página atual fica em destaque.
  */
+import { Link, NavLink, useLocation } from "react-router-dom";
 import type { Perfil } from "../types";
-import type { Rota } from "../App";
 
 interface ItemMenu {
   rotulo: string;
-  rota: Rota["nome"];
+  to: string;
+  /** Prefixos de URL que também devem marcar este item como ativo. */
+  tambem?: string[];
 }
 
 const MENUS: Record<Perfil, ItemMenu[]> = {
   COMUM: [
-    { rotulo: "Buscar Livros", rota: "busca" },
-    { rotulo: "Meus Empréstimos", rota: "busca" },
-    { rotulo: "Minhas Reservas", rota: "busca" },
-    { rotulo: "Meu Histórico", rota: "busca" },
+    { rotulo: "Buscar Livros", to: "/", tambem: ["/resultados", "/livro"] },
+    { rotulo: "Meus Empréstimos", to: "/meus-emprestimos" },
+    { rotulo: "Minhas Reservas", to: "/minhas-reservas" },
+    { rotulo: "Meu Histórico", to: "/historico" },
   ],
   BIBLIOTECARIO: [
-    { rotulo: "Painel da Biblioteca", rota: "busca" },
-    { rotulo: "Registrar Empréstimo", rota: "emprestimo" },
-    { rotulo: "Registrar Devolução", rota: "devolucao" },
-    { rotulo: "Cadastrar Exemplar", rota: "cadastrarExemplar" },
+    { rotulo: "Painel da Biblioteca", to: "/biblioteca" },
+    { rotulo: "Registrar Empréstimo", to: "/biblioteca/emprestimo" },
+    { rotulo: "Registrar Devolução", to: "/biblioteca/devolucao" },
+    { rotulo: "Cadastrar Exemplar", to: "/biblioteca/exemplares" },
   ],
   ADMIN: [
-    { rotulo: "Dashboard", rota: "busca" },
-    { rotulo: "Solicitações de Transferência", rota: "transferencias" },
-    { rotulo: "Catálogo de Livros", rota: "busca" },
+    { rotulo: "Dashboard", to: "/admin" },
+    { rotulo: "Solicitações de Transferência", to: "/admin/transferencias" },
+    { rotulo: "Catálogo de Livros", to: "/admin/catalogo" },
   ],
 };
 
@@ -42,38 +40,43 @@ const IDENTIFICACAO: Record<Perfil, string> = {
 
 export default function Header({
   perfil,
-  rotaAtual,
-  navegar,
   trocarPerfil,
 }: {
   perfil: Perfil;
-  rotaAtual: Rota["nome"];
-  navegar: (r: Rota) => void;
   trocarPerfil: (p: Perfil) => void;
 }) {
+  const { pathname } = useLocation();
+
   return (
     <header className="bg-[#1976d2] text-white">
       <div className="h-[76px] px-10 flex items-center justify-between gap-6">
         <div className="flex items-center gap-9 min-w-0">
-          <button
-            onClick={() => navegar({ nome: "busca" })}
-            className="text-[20px] font-bold shrink-0"
-          >
+          <Link to="/" className="text-[20px] font-bold shrink-0">
             📚 Circula Book
-          </button>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-7 min-w-0">
-            {MENUS[perfil].map((item) => (
-              <button
-                key={item.rotulo}
-                onClick={() => navegar({ nome: item.rota } as Rota)}
-                className={`text-[14px] whitespace-nowrap ${
-                  item.rota === rotaAtual ? "font-semibold" : "font-normal opacity-90"
-                }`}
-              >
-                {item.rotulo}
-              </button>
-            ))}
+            {MENUS[perfil].map((item) => {
+              const ativoExtra = item.tambem?.some((p) =>
+                pathname.startsWith(p),
+              );
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end
+                  className={({ isActive }) =>
+                    `text-[14px] whitespace-nowrap pb-1 border-b-2 ${
+                      isActive || ativoExtra
+                        ? "font-semibold border-white"
+                        : "font-normal opacity-90 border-transparent hover:opacity-100"
+                    }`
+                  }
+                >
+                  {item.rotulo}
+                </NavLink>
+              );
+            })}
           </nav>
         </div>
 
@@ -93,9 +96,15 @@ export default function Header({
             className="bg-white/15 border border-white/40 rounded-[8px] px-3 py-[6px]
                        text-[13px] text-white"
           >
-            <option className="text-[#2c3e50]" value="COMUM">Usuário</option>
-            <option className="text-[#2c3e50]" value="BIBLIOTECARIO">Bibliotecário</option>
-            <option className="text-[#2c3e50]" value="ADMIN">Admin</option>
+            <option className="text-[#2c3e50]" value="COMUM">
+              Usuário
+            </option>
+            <option className="text-[#2c3e50]" value="BIBLIOTECARIO">
+              Bibliotecário
+            </option>
+            <option className="text-[#2c3e50]" value="ADMIN">
+              Admin
+            </option>
           </select>
         </div>
       </div>

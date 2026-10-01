@@ -3,10 +3,18 @@
  * Coleta os filtros e navega para a tela de resultados.
  */
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { useNavigate } from "react-router-dom";
+import { api, qs } from "../api/client";
 import type { Categoria } from "../types";
-import type { Rota } from "../App";
-import { Botao, Campo, Card, Chip, Entrada, Selecao, TituloPagina } from "../components/ui";
+import {
+  Botao,
+  Campo,
+  Card,
+  Chip,
+  Entrada,
+  Selecao,
+  TituloPagina,
+} from "../components/ui";
 
 export interface Filtros {
   termo: string;
@@ -18,15 +26,22 @@ export interface Filtros {
 }
 
 const FILTROS_VAZIOS: Filtros = {
-  termo: "", autor: "", isbn: "", categoriaId: "", anoDe: "", anoAte: "",
+  termo: "",
+  autor: "",
+  isbn: "",
+  categoriaId: "",
+  anoDe: "",
+  anoAte: "",
 };
 
-export default function BuscaLivros({ navegar }: { navegar: (r: Rota) => void }) {
+export default function BuscaLivros() {
+  const navigate = useNavigate();
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
 
   useEffect(() => {
-    api.get<Categoria[]>("/categorias")
+    api
+      .get<Categoria[]>("/categorias")
       .then(setCategorias)
       .catch(() => setCategorias([]));
   }, []);
@@ -36,11 +51,11 @@ export default function BuscaLivros({ navegar }: { navegar: (r: Rota) => void })
   }
 
   function buscar() {
-    navegar({ nome: "resultados", filtros });
+    navigate("/resultados" + qs({ ...filtros }));
   }
 
   function buscarPorCategoria(id: number) {
-    navegar({ nome: "resultados", filtros: { ...FILTROS_VAZIOS, categoriaId: String(id) } });
+    navigate("/resultados" + qs({ categoriaId: id }));
   }
 
   return (
@@ -62,10 +77,14 @@ export default function BuscaLivros({ navegar }: { navegar: (r: Rota) => void })
             className="flex-1 h-[52px] rounded-[8px] border border-[#e0e0e0] bg-[#f5f7fa]
                        px-4 text-[15px] text-[#2c3e50] placeholder:text-[#66707d]"
           />
-          <Botao onClick={buscar} className="sm:w-[150px] h-[52px]">Buscar</Botao>
+          <Botao onClick={buscar} className="sm:w-[150px] h-[52px]">
+            Buscar
+          </Botao>
         </div>
 
-        <h2 className="text-[15px] font-semibold text-[#2c3e50]">Filtros avançados</h2>
+        <h2 className="text-[15px] font-semibold text-[#2c3e50]">
+          Filtros avançados
+        </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5">
           <Campo label="Gênero / Categoria">
@@ -75,7 +94,9 @@ export default function BuscaLivros({ navegar }: { navegar: (r: Rota) => void })
             >
               <option value="">Todos os gêneros</option>
               {categorias.map((c) => (
-                <option key={c.id} value={c.id}>{c.nome}</option>
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
               ))}
             </Selecao>
           </Campo>
@@ -116,7 +137,10 @@ export default function BuscaLivros({ navegar }: { navegar: (r: Rota) => void })
         </div>
 
         <div className="flex gap-3">
-          <Botao variante="secundario" onClick={() => setFiltros(FILTROS_VAZIOS)}>
+          <Botao
+            variante="secundario"
+            onClick={() => setFiltros(FILTROS_VAZIOS)}
+          >
             Limpar filtros
           </Botao>
           <Botao onClick={buscar}>Aplicar filtros</Botao>
@@ -124,16 +148,16 @@ export default function BuscaLivros({ navegar }: { navegar: (r: Rota) => void })
       </Card>
 
       <section className="flex flex-col gap-[14px]">
-        <h2 className="text-[17px] font-semibold text-[#2c3e50]">Categorias em destaque</h2>
+        <h2 className="text-[17px] font-semibold text-[#2c3e50]">
+          Categorias em destaque
+        </h2>
         <div className="flex flex-wrap gap-[10px]">
           {categorias.map((c) => (
             <Chip key={c.id} onClick={() => buscarPorCategoria(c.id)}>
               {c.nome}
             </Chip>
           ))}
-          <Chip onClick={() => navegar({ nome: "resultados", filtros: FILTROS_VAZIOS })}>
-            🔎 Ver todas
-          </Chip>
+          <Chip onClick={() => navigate("/resultados")}>🔎 Ver todas</Chip>
         </div>
       </section>
     </>

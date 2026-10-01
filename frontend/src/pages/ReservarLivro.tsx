@@ -3,26 +3,37 @@
  * Só faz sentido quando não há exemplar livre; o backend recusa o contrário.
  */
 import { useEffect, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Biblioteca, LivroResumo, Reserva } from "../types";
-import type { Rota } from "../App";
 import {
-  BadgeSituacao, Botao, Campo, CapaLivro, Callout, CardResumo, Carregando, DuasColunas,
-  Erro, LinhaResumo, SectionCard, Selecao, Sucesso, TituloPagina, Trilha,
+  BadgeSituacao,
+  Botao,
+  Campo,
+  CapaLivro,
+  Callout,
+  CardResumo,
+  Carregando,
+  DuasColunas,
+  Erro,
+  LinhaResumo,
+  SectionCard,
+  Selecao,
+  Sucesso,
+  TituloPagina,
+  Trilha,
 } from "../components/ui";
 
 // Na ausência de login, o usuário da comunidade é fixo (Ana Souza, id 6).
 const USUARIO_LOGADO = 6;
 
-export default function ReservarLivro({
-  livroId,
-  bibliotecaId,
-  navegar,
-}: {
-  livroId: number;
-  bibliotecaId?: number;
-  navegar: (r: Rota) => void;
-}) {
+export default function ReservarLivro() {
+  const { livroId: livroIdParam } = useParams();
+  const livroId = Number(livroIdParam);
+  const [searchParams] = useSearchParams();
+  const bibliotecaParam = searchParams.get("biblioteca");
+  const bibliotecaId = bibliotecaParam ? Number(bibliotecaParam) : undefined;
+
   const [livro, setLivro] = useState<LivroResumo | null>(null);
   const [bibliotecas, setBibliotecas] = useState<Biblioteca[]>([]);
   const [destino, setDestino] = useState<number | "">(bibliotecaId ?? "");
@@ -78,8 +89,8 @@ export default function ReservarLivro({
     <>
       <Trilha
         itens={[
-          { rotulo: "Buscar Livros", onClick: () => navegar({ nome: "busca" }) },
-          { rotulo: livro.titulo, onClick: () => navegar({ nome: "detalhesLivro", livroId }) },
+          { rotulo: "Buscar Livros", to: "/" },
+          { rotulo: livro.titulo, to: `/livro/${livroId}` },
           { rotulo: "Reservar" },
         ]}
       />
@@ -98,10 +109,16 @@ export default function ReservarLivro({
               <div className="flex items-center gap-5">
                 <CapaLivro tamanho="md" />
                 <div className="min-w-0">
-                  <h3 className="text-[18px] font-semibold text-[#2c3e50]">{livro.titulo}</h3>
-                  <p className="text-[14px] text-[#66707d] mt-1">{livro.autor}</p>
+                  <h3 className="text-[18px] font-semibold text-[#2c3e50]">
+                    {livro.titulo}
+                  </h3>
+                  <p className="text-[14px] text-[#66707d] mt-1">
+                    {livro.autor}
+                  </p>
                   <p className="text-[13px] text-[#66707d]">
-                    {[livro.categoria, livro.anoPublicacao].filter(Boolean).join(" · ")}
+                    {[livro.categoria, livro.anoPublicacao]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                   <div className="flex flex-wrap items-center gap-3 mt-3">
                     <BadgeSituacao situacao={livro.situacao} />
@@ -122,7 +139,9 @@ export default function ReservarLivro({
                   onChange={(e) => setDestino(Number(e.target.value))}
                 >
                   {bibliotecas.map((b) => (
-                    <option key={b.id} value={b.id}>{b.nome}</option>
+                    <option key={b.id} value={b.id}>
+                      {b.nome}
+                    </option>
                   ))}
                 </Selecao>
               </Campo>
@@ -140,14 +159,14 @@ export default function ReservarLivro({
         direita={
           <>
             <Callout tipo="info" titulo="Como funciona a fila de espera (RN03)">
-              Você ocupará a posição {posicao ?? "—"} na fila. Quando um exemplar for
-              devolvido, você terá 3 dias corridos para retirá-lo antes que a reserva
-              expire.
+              Você ocupará a posição {posicao ?? "—"} na fila. Quando um
+              exemplar for devolvido, você terá 3 dias corridos para retirá-lo
+              antes que a reserva expire.
             </Callout>
 
             <Callout tipo="aviso" titulo="Atenção ao prazo de retirada">
-              Reservas não retiradas em até 3 dias após a disponibilização voltam
-              automaticamente para a fila (RN03).
+              Reservas não retiradas em até 3 dias após a disponibilização
+              voltam automaticamente para a fila (RN03).
             </Callout>
 
             <CardResumo
@@ -164,7 +183,10 @@ export default function ReservarLivro({
             >
               <LinhaResumo rotulo="Livro" valor={livro.titulo} />
               <LinhaResumo rotulo="Biblioteca" valor={nomeDestino} />
-              <LinhaResumo rotulo="Posição na fila" valor={`${posicao ?? "—"}º lugar`} />
+              <LinhaResumo
+                rotulo="Posição na fila"
+                valor={`${posicao ?? "—"}º lugar`}
+              />
               <LinhaResumo rotulo="Prazo p/ retirada" valor="3 dias corridos" />
             </CardResumo>
           </>

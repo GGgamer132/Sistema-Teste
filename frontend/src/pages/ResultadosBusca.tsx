@@ -3,44 +3,44 @@
  * Lista os títulos com o badge de disponibilidade calculado pelo backend.
  */
 import { useEffect, useState } from "react";
-import { api, qs } from "../api/client";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { api } from "../api/client";
 import type { LivroResumo } from "../types";
-import type { Rota } from "../App";
-import type { Filtros } from "./BuscaLivros";
 import {
-  BadgeSituacao, Botao, Card, Carregando, CapaLivro, Erro, Trilha, Vazio,
+  BadgeSituacao,
+  Botao,
+  Card,
+  Carregando,
+  CapaLivro,
+  Erro,
+  Trilha,
+  Vazio,
 } from "../components/ui";
 
-export default function ResultadosBusca({
-  filtros,
-  navegar,
-}: {
-  filtros: Filtros;
-  navegar: (r: Rota) => void;
-}) {
+export default function ResultadosBusca() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [livros, setLivros] = useState<LivroResumo[] | null>(null);
   const [erro, setErro] = useState("");
+
+  // Os filtros vivem na URL; a própria querystring é repassada ao backend.
+  const query = searchParams.toString();
 
   useEffect(() => {
     setLivros(null);
     setErro("");
     api
-      .get<LivroResumo[]>(
-        "/livros/busca" +
-          qs({
-            termo: filtros.termo,
-            autor: filtros.autor,
-            isbn: filtros.isbn,
-            categoriaId: filtros.categoriaId,
-            anoDe: filtros.anoDe,
-            anoAte: filtros.anoAte,
-          }),
-      )
+      .get<LivroResumo[]>(`/livros/busca${query ? `?${query}` : ""}`)
       .then(setLivros)
       .catch((e) => setErro(e.message));
-  }, [filtros]);
+  }, [query]);
 
-  const rotuloBusca = filtros.termo || filtros.autor || "todos os títulos";
+  const rotuloBusca =
+    searchParams.get("termo") ||
+    searchParams.get("autor") ||
+    "todos os títulos";
 
   /** Texto auxiliar ao lado do badge, conforme a situação do título. */
   function detalhe(l: LivroResumo): string {
@@ -60,10 +60,7 @@ export default function ResultadosBusca({
   return (
     <>
       <Trilha
-        itens={[
-          { rotulo: "Buscar Livros", onClick: () => navegar({ nome: "busca" }) },
-          { rotulo: "Resultados" },
-        ]}
+        itens={[{ rotulo: "Buscar Livros", to: "/" }, { rotulo: "Resultados" }]}
       />
 
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -77,13 +74,15 @@ export default function ResultadosBusca({
               : `${livros.length} ${livros.length === 1 ? "livro encontrado" : "livros encontrados"} na rede Circula Book`}
           </p>
         </div>
-        <Botao variante="secundario" onClick={() => navegar({ nome: "busca" })}>
+        <Botao variante="secundario" onClick={() => navigate("/")}>
           Refazer busca
         </Botao>
       </div>
 
       {erro && <Erro mensagem={erro} />}
-      {livros === null && !erro && <Carregando texto="Consultando o acervo da rede..." />}
+      {livros === null && !erro && (
+        <Carregando texto="Consultando o acervo da rede..." />
+      )}
       {livros?.length === 0 && (
         <Vazio texto="Nenhum título corresponde a esses filtros. Tente ampliar a busca ou registre o interesse para que a rede avalie a aquisição." />
       )}
@@ -104,13 +103,19 @@ export default function ResultadosBusca({
                 </p>
                 <div className="flex flex-wrap items-center gap-3 mt-3">
                   <BadgeSituacao situacao={l.situacao} />
-                  <span className="text-[13px] text-[#66707d]">{detalhe(l)}</span>
+                  <span className="text-[13px] text-[#66707d]">
+                    {detalhe(l)}
+                  </span>
                 </div>
               </div>
 
               <Botao
                 variante="secundario"
-                onClick={() => navegar({ nome: "detalhesLivro", livroId: l.id })}
+                onClick={() =>
+                  navigate(`/livro/${l.id}`, {
+                    state: { voltarPara: location.pathname + location.search },
+                  })
+                }
                 className="shrink-0"
               >
                 Ver detalhes

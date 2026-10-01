@@ -7,9 +7,16 @@
  * Centralizar aqui evita repetir classes Tailwind em oito telas.
  */
 import type { ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 /* ─────────────── Card branco (o contêiner padrão das telas) ─────────────── */
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div
       className={`bg-white rounded-[12px] shadow-[0_2px_10px_rgba(0,0,0,0.08)] ${className}`}
@@ -44,16 +51,24 @@ export function SectionCard({
 type Tom = "verde" | "amarelo" | "vermelho" | "azul" | "cinza";
 
 const TONS: Record<Tom, string> = {
-  verde:    "bg-[#dbf0db] text-[#388e3c]",
-  amarelo:  "bg-[#ffecd0] text-[#f57c00]",
+  verde: "bg-[#dbf0db] text-[#388e3c]",
+  amarelo: "bg-[#ffecd0] text-[#f57c00]",
   vermelho: "bg-[#fce5e5] text-[#d32f2f]",
-  azul:     "bg-[#deedfc] text-[#125ca8]",
-  cinza:    "bg-[#eceff3] text-[#66707d]",
+  azul: "bg-[#deedfc] text-[#125ca8]",
+  cinza: "bg-[#eceff3] text-[#66707d]",
 };
 
-export function Badge({ tom = "cinza", children }: { tom?: Tom; children: ReactNode }) {
+export function Badge({
+  tom = "cinza",
+  children,
+}: {
+  tom?: Tom;
+  children: ReactNode;
+}) {
   return (
-    <span className={`inline-block px-3 py-[5px] rounded-full text-[12px] font-semibold ${TONS[tom]}`}>
+    <span
+      className={`inline-block px-3 py-[5px] rounded-full text-[12px] font-semibold ${TONS[tom]}`}
+    >
       {children}
     </span>
   );
@@ -61,20 +76,22 @@ export function Badge({ tom = "cinza", children }: { tom?: Tom; children: ReactN
 
 /** Traduz a situação de um título no acervo para o badge correspondente. */
 export function BadgeSituacao({ situacao }: { situacao: string }) {
-  if (situacao === "DISPONIVEL")  return <Badge tom="verde">🟢 Disponível</Badge>;
-  if (situacao === "AGUARDANDO")  return <Badge tom="amarelo">🟡 Aguardando</Badge>;
+  if (situacao === "DISPONIVEL")
+    return <Badge tom="verde">🟢 Disponível</Badge>;
+  if (situacao === "AGUARDANDO")
+    return <Badge tom="amarelo">🟡 Aguardando</Badge>;
   return <Badge tom="vermelho">🔴 Indisponível</Badge>;
 }
 
 /** Traduz o status de uma solicitação de transferência. */
 export function BadgeTransferencia({ status }: { status: string }) {
   const mapa: Record<string, { tom: Tom; texto: string }> = {
-    PENDENTE:    { tom: "amarelo",  texto: "PENDENTE" },
-    APROVADA:    { tom: "azul",     texto: "APROVADA" },
-    EM_TRANSITO: { tom: "azul",     texto: "EM TRÂNSITO" },
-    CONCLUIDA:   { tom: "verde",    texto: "CONCLUÍDA" },
-    REJEITADA:   { tom: "vermelho", texto: "REJEITADA" },
-    CANCELADA:   { tom: "cinza",    texto: "CANCELADA" },
+    PENDENTE: { tom: "amarelo", texto: "PENDENTE" },
+    APROVADA: { tom: "azul", texto: "APROVADA" },
+    EM_TRANSITO: { tom: "azul", texto: "EM TRÂNSITO" },
+    CONCLUIDA: { tom: "verde", texto: "CONCLUÍDA" },
+    REJEITADA: { tom: "vermelho", texto: "REJEITADA" },
+    CANCELADA: { tom: "cinza", texto: "CANCELADA" },
   };
   const m = mapa[status] ?? { tom: "cinza" as Tom, texto: status };
   return <Badge tom={m.tom}>{m.texto}</Badge>;
@@ -91,14 +108,21 @@ export function Callout({
   children: ReactNode;
 }) {
   const estilos = {
-    info:    { box: "bg-[#deedfc] border-[#1976d2] text-[#125ca8]", icone: "ℹ️" },
-    aviso:   { box: "bg-[#ffecd0] border-[#f57c00] text-[#c76400]", icone: "⚠️" },
-    sucesso: { box: "bg-[#dbf0db] border-[#388e3c] text-[#2b6e2e]", icone: "✅" },
+    info: { box: "bg-[#deedfc] border-[#1976d2] text-[#125ca8]", icone: "ℹ️" },
+    aviso: { box: "bg-[#ffecd0] border-[#f57c00] text-[#c76400]", icone: "⚠️" },
+    sucesso: {
+      box: "bg-[#dbf0db] border-[#388e3c] text-[#2b6e2e]",
+      icone: "✅",
+    },
   }[tipo];
 
   return (
-    <div className={`flex gap-3 border rounded-[10px] px-[18px] py-[14px] ${estilos.box}`}>
-      <span aria-hidden className="text-[18px] leading-none pt-[2px]">{estilos.icone}</span>
+    <div
+      className={`flex gap-3 border rounded-[10px] px-[18px] py-[14px] ${estilos.box}`}
+    >
+      <span aria-hidden className="text-[18px] leading-none pt-[2px]">
+        {estilos.icone}
+      </span>
       <div>
         <p className="text-[14px] font-semibold">{titulo}</p>
         <p className="text-[13px] leading-[1.45] mt-[2px]">{children}</p>
@@ -124,10 +148,12 @@ export function Botao({
   className?: string;
 }) {
   const variantes = {
-    primario:   "bg-[#1976d2] text-white hover:bg-[#125ca8]",
-    secundario: "bg-[#f5f7fa] text-[#2c3e50] border border-[#e0e0e0] hover:bg-[#eceff3]",
-    verde:      "bg-[#388e3c] text-white hover:bg-[#2b6e2e]",
-    perigo:     "bg-white text-[#d32f2f] border border-[#d32f2f] hover:bg-[#fce5e5]",
+    primario: "bg-[#1976d2] text-white hover:bg-[#125ca8]",
+    secundario:
+      "bg-[#f5f7fa] text-[#2c3e50] border border-[#e0e0e0] hover:bg-[#eceff3]",
+    verde: "bg-[#388e3c] text-white hover:bg-[#2b6e2e]",
+    perigo:
+      "bg-white text-[#d32f2f] border border-[#d32f2f] hover:bg-[#fce5e5]",
   }[variante];
 
   return (
@@ -170,7 +196,9 @@ export function Entrada(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${ENTRADA} ${props.className ?? ""}`} />;
 }
 
-export function AreaTexto(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function AreaTexto(
+  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+) {
   return (
     <textarea
       {...props}
@@ -182,7 +210,9 @@ export function AreaTexto(props: React.TextareaHTMLAttributes<HTMLTextAreaElemen
 }
 
 export function Selecao(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`${ENTRADA} ${props.className ?? ""}`} />;
+  return (
+    <select {...props} className={`${ENTRADA} ${props.className ?? ""}`} />
+  );
 }
 
 /** Grupo de opções em formato de "pílula", como na condição do exemplar. */
@@ -206,9 +236,11 @@ export function GrupoRadio<T extends string>({
             onClick={() => onChange(o.valor)}
             aria-pressed={ativo}
             className={`flex items-center gap-2 px-4 py-[10px] rounded-[8px] border text-[14px]
-              ${ativo
-                ? "border-[#1976d2] bg-[#e8f0fc] text-[#125ca8] font-semibold"
-                : "border-[#e0e0e0] bg-white text-[#2c3e50]"}`}
+              ${
+                ativo
+                  ? "border-[#1976d2] bg-[#e8f0fc] text-[#125ca8] font-semibold"
+                  : "border-[#e0e0e0] bg-white text-[#2c3e50]"
+              }`}
           >
             <span aria-hidden>{ativo ? "●" : "○"}</span>
             {o.rotulo}
@@ -244,14 +276,20 @@ export function Chip({
 /* ─────────────── Peças menores ─────────────── */
 
 /** Retângulo colorido com o emoji de livro, no lugar da capa. */
-export function CapaLivro({ tamanho = "md" }: { tamanho?: "sm" | "md" | "lg" }) {
+export function CapaLivro({
+  tamanho = "md",
+}: {
+  tamanho?: "sm" | "md" | "lg";
+}) {
   const dims = {
     sm: "w-[52px] h-[72px] text-[22px]",
     md: "w-[72px] h-[100px] text-[32px]",
     lg: "w-full h-[440px] text-[90px]",
   }[tamanho];
   return (
-    <div className={`${dims} shrink-0 rounded-[8px] bg-[#6699bf] flex items-center justify-center`}>
+    <div
+      className={`${dims} shrink-0 rounded-[8px] bg-[#6699bf] flex items-center justify-center`}
+    >
       <span aria-hidden>📕</span>
     </div>
   );
@@ -268,13 +306,19 @@ export function LinhaResumo({
   destaque?: "verde" | "vermelho" | "laranja" | "azul";
 }) {
   const cor = destaque
-    ? { verde: "text-[#388e3c]", vermelho: "text-[#d32f2f]",
-        laranja: "text-[#f57c00]", azul: "text-[#125ca8]" }[destaque]
+    ? {
+        verde: "text-[#388e3c]",
+        vermelho: "text-[#d32f2f]",
+        laranja: "text-[#f57c00]",
+        azul: "text-[#125ca8]",
+      }[destaque]
     : "text-[#2c3e50]";
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-[13px] text-[#66707d]">{rotulo}</span>
-      <span className={`text-[13px] font-semibold text-right ${cor}`}>{valor}</span>
+      <span className={`text-[13px] font-semibold text-right ${cor}`}>
+        {valor}
+      </span>
     </div>
   );
 }
@@ -291,38 +335,96 @@ export function CardResumo({
 }) {
   return (
     <Card className="p-6">
-      <h3 className="text-[15px] font-semibold text-[#2c3e50] mb-4">{titulo}</h3>
+      <h3 className="text-[15px] font-semibold text-[#2c3e50] mb-4">
+        {titulo}
+      </h3>
       <div className="flex flex-col gap-[14px]">{children}</div>
       {rodape && <div className="mt-4">{rodape}</div>}
     </Card>
   );
 }
 
-/** Trilha de navegação "Buscar Livros › Resultados › ...". */
-export function Trilha({ itens }: { itens: { rotulo: string; onClick?: () => void }[] }) {
+/**
+ * Botão "← Voltar". Volta uma página no histórico; se a tela foi aberta
+ * direto pela URL (sem histórico), vai para `para`.
+ */
+export function BotaoVoltar({ para = "/" }: { para?: string }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  function voltar() {
+    // key === "default" significa que esta é a primeira página da sessão
+    if (location.key !== "default") navigate(-1);
+    else navigate(para);
+  }
+
   return (
-    <nav aria-label="Trilha de navegação" className="flex items-center gap-2 text-[13px]">
-      {itens.map((item, i) => (
-        <span key={i} className="flex items-center gap-2">
-          {i > 0 && <span className="text-[#66707d]" aria-hidden>›</span>}
-          {item.onClick ? (
-            <button onClick={item.onClick} className="text-[#66707d] hover:text-[#1976d2]">
-              {item.rotulo}
-            </button>
-          ) : (
-            <span className="text-[#2c3e50] font-semibold">{item.rotulo}</span>
-          )}
-        </span>
-      ))}
-    </nav>
+    <button
+      type="button"
+      onClick={voltar}
+      className="inline-flex items-center gap-1 rounded-[8px] border border-[#e0e0e0]
+                 bg-white px-3 py-[6px] text-[13px] font-medium text-[#2c3e50]
+                 hover:bg-[#eceff3] transition-colors"
+    >
+      ← Voltar
+    </button>
+  );
+}
+
+/** Barra de navegação de cada tela: botão Voltar + trilha "Início › Resultados › ...". */
+export function Trilha({
+  itens,
+  voltarPara = "/",
+}: {
+  itens: { rotulo: string; to?: string }[];
+  voltarPara?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      <BotaoVoltar para={voltarPara} />
+      <nav
+        aria-label="Trilha de navegação"
+        className="flex items-center gap-2 text-[13px]"
+      >
+        {itens.map((item, i) => (
+          <span key={i} className="flex items-center gap-2">
+            {i > 0 && (
+              <span className="text-[#66707d]" aria-hidden>
+                ›
+              </span>
+            )}
+            {item.to ? (
+              <Link
+                to={item.to}
+                className="text-[#66707d] hover:text-[#1976d2]"
+              >
+                {item.rotulo}
+              </Link>
+            ) : (
+              <span className="text-[#2c3e50] font-semibold">
+                {item.rotulo}
+              </span>
+            )}
+          </span>
+        ))}
+      </nav>
+    </div>
   );
 }
 
 /** Título grande da página + subtítulo com o código do caso de uso. */
-export function TituloPagina({ titulo, subtitulo }: { titulo: string; subtitulo: string }) {
+export function TituloPagina({
+  titulo,
+  subtitulo,
+}: {
+  titulo: string;
+  subtitulo: string;
+}) {
   return (
     <div className="flex flex-col gap-1">
-      <h1 className="text-[28px] font-bold text-[#2c3e50] leading-tight">{titulo}</h1>
+      <h1 className="text-[28px] font-bold text-[#2c3e50] leading-tight">
+        {titulo}
+      </h1>
       <p className="text-[15px] text-[#66707d]">{subtitulo}</p>
     </div>
   );
@@ -367,8 +469,12 @@ export function DuasColunas({
 }) {
   return (
     <div className="flex flex-col lg:flex-row gap-6 items-start">
-      <div className="flex-1 min-w-0 flex flex-col gap-5 w-full">{esquerda}</div>
-      <aside className="w-full lg:w-[360px] shrink-0 flex flex-col gap-4">{direita}</aside>
+      <div className="flex-1 min-w-0 flex flex-col gap-5 w-full">
+        {esquerda}
+      </div>
+      <aside className="w-full lg:w-[360px] shrink-0 flex flex-col gap-4">
+        {direita}
+      </aside>
     </div>
   );
 }

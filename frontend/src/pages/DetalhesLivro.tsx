@@ -4,25 +4,35 @@
  * O botão de cada linha leva para a reserva (RN03).
  */
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { LivroResumo } from "../types";
-import type { Rota } from "../App";
 import {
-  Badge, BadgeSituacao, Botao, Card, Carregando, CapaLivro, Erro, LinhaResumo, Trilha,
+  Badge,
+  BadgeSituacao,
+  Botao,
+  Card,
+  Carregando,
+  CapaLivro,
+  Erro,
+  LinhaResumo,
+  Trilha,
 } from "../components/ui";
 
-export default function DetalhesLivro({
-  livroId,
-  navegar,
-}: {
-  livroId: number;
-  navegar: (r: Rota) => void;
-}) {
+export default function DetalhesLivro() {
+  const { livroId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Se veio da lista de resultados, sabemos para onde o "Resultados" deve voltar
+  const voltarPara = (location.state as { voltarPara?: string } | null)
+    ?.voltarPara;
+
   const [livro, setLivro] = useState<LivroResumo | null>(null);
   const [erro, setErro] = useState("");
 
   useEffect(() => {
-    api.get<LivroResumo>(`/livros/${livroId}`)
+    api
+      .get<LivroResumo>(`/livros/${livroId}`)
       .then(setLivro)
       .catch((e) => setErro(e.message));
   }, [livroId]);
@@ -36,8 +46,8 @@ export default function DetalhesLivro({
     <>
       <Trilha
         itens={[
-          { rotulo: "Buscar Livros", onClick: () => navegar({ nome: "busca" }) },
-          { rotulo: "Resultados", onClick: () => window.history.back() },
+          { rotulo: "Buscar Livros", to: "/" },
+          ...(voltarPara ? [{ rotulo: "Resultados", to: voltarPara }] : []),
           { rotulo: livro.titulo },
         ]}
       />
@@ -48,7 +58,10 @@ export default function DetalhesLivro({
           <CapaLivro tamanho="lg" />
           <Card className="p-5 flex flex-col gap-3">
             <LinhaResumo rotulo="Editora" valor={livro.editora ?? "—"} />
-            <LinhaResumo rotulo="Ano de publicação" valor={livro.anoPublicacao ?? "—"} />
+            <LinhaResumo
+              rotulo="Ano de publicação"
+              valor={livro.anoPublicacao ?? "—"}
+            />
             <LinhaResumo rotulo="ISBN" valor={livro.isbn ?? "—"} />
             <LinhaResumo rotulo="Categoria" valor={livro.categoria ?? "—"} />
           </Card>
@@ -67,7 +80,9 @@ export default function DetalhesLivro({
               {livro.situacao === "DISPONIVEL" && (
                 <span className="text-[13px] text-[#66707d]">
                   em {livro.bibliotecasComDisponivel}{" "}
-                  {livro.bibliotecasComDisponivel === 1 ? "biblioteca" : "bibliotecas"}
+                  {livro.bibliotecasComDisponivel === 1
+                    ? "biblioteca"
+                    : "bibliotecas"}
                 </span>
               )}
             </div>
@@ -75,7 +90,9 @@ export default function DetalhesLivro({
 
           {livro.sinopse && (
             <div>
-              <h2 className="text-[15px] font-semibold text-[#2c3e50] mb-2">Sinopse</h2>
+              <h2 className="text-[15px] font-semibold text-[#2c3e50] mb-2">
+                Sinopse
+              </h2>
               <p className="text-[14px] leading-relaxed text-[#66707d] max-w-[70ch]">
                 {livro.sinopse}
               </p>
@@ -114,11 +131,9 @@ export default function DetalhesLivro({
                   <Botao
                     variante={d.disponiveis > 0 ? "secundario" : "primario"}
                     onClick={() =>
-                      navegar({
-                        nome: "reserva",
-                        livroId: livro.id,
-                        bibliotecaId: d.bibliotecaId,
-                      })
+                      navigate(
+                        `/livro/${livro.id}/reservar?biblioteca=${d.bibliotecaId}`,
+                      )
                     }
                   >
                     {d.disponiveis > 0 ? "Retirar aqui" : "Entrar na fila"}
@@ -129,8 +144,9 @@ export default function DetalhesLivro({
 
             {semExemplarLivre && livro.totalExemplares > 0 && (
               <p className="mt-4 text-[13px] text-[#66707d]">
-                Todos os exemplares estão emprestados. Ao reservar, você entra na fila
-                de espera e é avisado assim que um exemplar for devolvido (RN03).
+                Todos os exemplares estão emprestados. Ao reservar, você entra
+                na fila de espera e é avisado assim que um exemplar for
+                devolvido (RN03).
               </p>
             )}
           </Card>
