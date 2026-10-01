@@ -43,7 +43,12 @@ export interface Exemplar {
   livro: Livro;
   biblioteca: Biblioteca;
   codigoBarras?: string;
-  status: "DISPONIVEL" | "EMPRESTADO" | "RESERVADO" | "EM_TRANSFERENCIA" | "INDISPONIVEL";
+  status:
+    | "DISPONIVEL"
+    | "EMPRESTADO"
+    | "RESERVADO"
+    | "EM_TRANSFERENCIA"
+    | "INDISPONIVEL";
   estadoConservacao?: string;
 }
 
@@ -88,6 +93,8 @@ export interface Reserva {
   id: number;
   livro: Livro;
   usuario: Usuario;
+  /** Biblioteca onde o usuário está na fila (de onde o exemplar sai). */
+  bibliotecaFila?: Biblioteca | null;
   bibliotecaDestino: Biblioteca;
   dataReserva: string;
   dataExpiracao: string;
@@ -102,7 +109,13 @@ export interface SolicitacaoTransferencia {
   solicitante: Usuario;
   aprovador?: Usuario | null;
   reserva?: Reserva | null;
-  status: "PENDENTE" | "APROVADA" | "EM_TRANSITO" | "CONCLUIDA" | "REJEITADA" | "CANCELADA";
+  status:
+    | "PENDENTE"
+    | "APROVADA"
+    | "EM_TRANSITO"
+    | "CONCLUIDA"
+    | "REJEITADA"
+    | "CANCELADA";
   dataSolicitacao: string;
   dataConclusao?: string | null;
   observacoes?: string;

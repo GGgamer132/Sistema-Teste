@@ -1,11 +1,12 @@
 /**
- * TELA 5 — Reservar Livro (UC03 / RN03).
- * Só faz sentido quando não há exemplar livre; o backend recusa o contrário.
+ * Reservar Livro (UC03).
+ * O usuário entra na fila de uma biblioteca onde todos os exemplares estão emprestados
+ * e escolhe onde quer retirar. Retirar em outra biblioteca dispara um pedido de transferência.
  */
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
-import type { Biblioteca, Exemplar, LivroResumo, Reserva } from "../types";
+import type { Biblioteca, LivroResumo, Reserva } from "../types";
 import {
   BadgeSituacao,
   Botao,
@@ -29,22 +30,21 @@ import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 
 const USUARIO_LOGADO = 6;
 
-type Modo = "FILA" | "TRANSFERENCIA";
+type Retirada = "PROPRIA" | "OUTRA";
 
 export default function ReservarLivro() {
   const { livroId: livroIdParam } = useParams();
   const livroId = Number(livroIdParam);
   const [searchParams] = useSearchParams();
   const bibliotecaParam = Number(searchParams.get("biblioteca")) || undefined;
+  const navigate = useNavigate();
 
   const [livro, setLivro] = useState<LivroResumo | null>(null);
   const [bibliotecas, setBibliotecas] = useState<Biblioteca[]>([]);
-  const [exemplares, setExemplares] = useState<Exemplar[]>([]);
   const [posicao, setPosicao] = useState<number | null>(null);
 
-  const [modo, setModo] = useState<Modo>("FILA");
   const [bibFila, setBibFila] = useState<number | "">("");
-  const [bibOrigem, setBibOrigem] = useState<number | "">("");
+  const [retirada, setRetirada] = useState<Retirada>("PROPRIA");
   const [bibDestino, setBibDestino] = useState<number | "">("");
 
   const [modalAberto, setModalAberto] = useState(false);
@@ -56,41 +56,41 @@ export default function ReservarLivro() {
     Promise.all([
       api.get<LivroResumo>(`/livros/${livroId}`),
       api.get<Biblioteca[]>("/bibliotecas"),
-      api.get<Exemplar[]>("/exemplares"),
-      api.get<{ posicao: number }>(`/reservas/posicao/${livroId}`),
     ])
-      .then(([l, b, ex, p]) => {
+      .then(([l, b]) => {
         setLivro(l);
         setBibliotecas(b);
-        setExemplares(ex);
-        setPosicao(p.posicao);
 
         const disponibilidade = l.disponibilidade ?? [];
         const fila = disponibilidade.filter(
           (x) => x.disponiveis === 0 && x.totalExemplares > 0,
         );
-        const livres = disponibilidade
-          .filter((x) => x.disponiveis > 0)
-          .sort((x, y) => y.disponiveis - x.disponiveis);
         const comTitulo = new Set(
           disponibilidade
             .filter((x) => x.totalExemplares > 0)
             .map((x) => x.bibliotecaId),
         );
-
         setBibFila(
           fila.find((x) => x.bibliotecaId === bibliotecaParam)?.bibliotecaId ??
             fila[0]?.bibliotecaId ??
             "",
         );
-        setBibOrigem(livres[0]?.bibliotecaId ?? "");
         setBibDestino(
           b.find((x) => x.ativa !== false && !comTitulo.has(x.id))?.id ?? "",
         );
-        setModo(fila.length > 0 ? "FILA" : "TRANSFERENCIA");
       })
       .catch((e) => setErro(e.message));
   }, [livroId, bibliotecaParam]);
+
+  useEffect(() => {
+    if (bibFila === "") return;
+    api
+      .get<{ posicao: number }>(
+        `/reservas/posicao/${livroId}?bibliotecaId=${bibFila}`,
+      )
+      .then((p) => setPosicao(p.posicao))
+      .catch(() => setPosicao(null));
+  }, [livroId, bibFila]);
 
   if (erro && !livro) return <Erro mensagem={erro} />;
   if (!livro) return <Carregando texto="Carregando título..." />;
@@ -99,7 +99,6 @@ export default function ReservarLivro() {
   const paraFila = disponibilidade.filter(
     (d) => d.disponiveis === 0 && d.totalExemplares > 0,
   );
-  const comExemplarLivre = disponibilidade.filter((d) => d.disponiveis > 0);
   const comTitulo = new Set(
     disponibilidade
       .filter((d) => d.totalExemplares > 0)
@@ -114,46 +113,28 @@ export default function ReservarLivro() {
     disponibilidade.find((d) => d.bibliotecaId === id)?.bibliotecaNome ??
     "—";
 
+  const comTransferencia = retirada === "OUTRA";
+  const idRetirada = comTransferencia ? bibDestino : bibFila;
   const podeConfirmar =
-    !sucesso &&
-    (modo === "FILA" ? bibFila !== "" : bibOrigem !== "" && bibDestino !== "");
+    !sucesso && bibFila !== "" && (!comTransferencia || bibDestino !== "");
 
   async function executar() {
     setEnviando(true);
     setErro("");
     try {
-      if (modo === "FILA") {
-        const reserva = await api.post<Reserva>("/reservas", {
-          livroId,
-          usuarioId: USUARIO_LOGADO,
-          bibliotecaDestinoId: bibFila,
-        });
-        setSucesso(
-          `Reserva confirmada para ${reserva.livro.titulo} na ${reserva.bibliotecaDestino.nome}. ` +
-            "Você será avisado assim que um exemplar for devolvido.",
-        );
-      } else {
-        const exemplar = exemplares.find(
-          (e) =>
-            e.livro.id === livroId &&
-            e.biblioteca.id === bibOrigem &&
-            e.status === "DISPONIVEL",
-        );
-        if (!exemplar) {
-          throw new Error(
-            "Nenhum exemplar disponível na biblioteca de origem agora. Atualize a página.",
-          );
-        }
-        await api.post("/transferencias", {
-          exemplarId: exemplar.id,
-          bibliotecaDestinoId: bibDestino,
-          solicitanteId: USUARIO_LOGADO,
-        });
-        setSucesso(
-          `Solicitação enviada! A transferência de ${nomeBib(bibOrigem)} para ${nomeBib(bibDestino)} ` +
-            "aguarda a aprovação do administrador da rede.",
-        );
-      }
+      await api.post<Reserva>("/reservas", {
+        livroId,
+        usuarioId: USUARIO_LOGADO,
+        bibliotecaFilaId: bibFila,
+        bibliotecaDestinoId: idRetirada,
+      });
+      setSucesso(
+        comTransferencia
+          ? `Reserva confirmada na fila da ${nomeBib(bibFila)}, com retirada na ${nomeBib(bibDestino)}. ` +
+              "O pedido de transferência foi enviado ao administrador e você será avisado do andamento."
+          : `Reserva confirmada na ${nomeBib(bibFila)}. ` +
+              "Você será avisado assim que um exemplar for devolvido.",
+      );
     } catch (e) {
       setErro((e as Error).message);
     } finally {
@@ -173,11 +154,23 @@ export default function ReservarLivro() {
       />
       <TituloPagina
         titulo="Reservar Livro"
-        subtitulo="Entre na fila de espera ou peça a transferência de um exemplar para a biblioteca mais perto de você"
+        subtitulo="Entre na fila de espera e escolha onde prefere retirar o exemplar"
       />
 
       {erro && <Erro mensagem={erro} />}
-      {sucesso && <Sucesso mensagem={sucesso} />}
+      {sucesso && (
+        <>
+          <Sucesso mensagem={sucesso} />
+          <div>
+            <Botao
+              variante="secundario"
+              onClick={() => navigate(`/livro/${livroId}`)}
+            >
+              ← Voltar para o livro
+            </Botao>
+          </div>
+        </>
+      )}
 
       <DuasColunas
         esquerda={
@@ -209,81 +202,67 @@ export default function ReservarLivro() {
               </div>
             </SectionCard>
 
-            <SectionCard titulo="1. O que você deseja fazer?">
-              <GrupoRadio<Modo>
-                valor={modo}
-                onChange={setModo}
-                opcoes={[
-                  {
-                    valor: "FILA",
-                    rotulo: "🏠 Reservar na biblioteca (fila de espera)",
-                  },
-                  {
-                    valor: "TRANSFERENCIA",
-                    rotulo: "🚚 Solicitar transferência",
-                  },
-                ]}
-              />
+            <SectionCard titulo="1. Em qual biblioteca você quer entrar na fila?">
+              {paraFila.length === 0 ? (
+                <Vazio texto="Nenhuma biblioteca está com todos os exemplares emprestados. Como há exemplar livre, vá a uma unidade e faça o empréstimo presencialmente." />
+              ) : (
+                <Campo label="Bibliotecas com todos os exemplares emprestados">
+                  <Selecao
+                    value={bibFila}
+                    onChange={(e) => setBibFila(Number(e.target.value))}
+                  >
+                    {paraFila.map((d) => (
+                      <option key={d.bibliotecaId} value={d.bibliotecaId}>
+                        {d.bibliotecaNome} — 0 de {d.totalExemplares}{" "}
+                        disponíveis
+                      </option>
+                    ))}
+                  </Selecao>
+                </Campo>
+              )}
             </SectionCard>
 
-            {modo === "FILA" ? (
-              <SectionCard titulo="2. Biblioteca da reserva">
-                {paraFila.length === 0 ? (
-                  <Vazio texto="Não há biblioteca com todos os exemplares emprestados. Como há exemplar livre, procure uma unidade para o empréstimo presencial ou solicite a transferência." />
-                ) : (
-                  <Campo label="Bibliotecas onde todos os exemplares estão emprestados">
-                    <Selecao
-                      value={bibFila}
-                      onChange={(e) => setBibFila(Number(e.target.value))}
-                    >
-                      {paraFila.map((d) => (
-                        <option key={d.bibliotecaId} value={d.bibliotecaId}>
-                          {d.bibliotecaNome} — 0 de {d.totalExemplares}{" "}
-                          disponíveis
-                        </option>
-                      ))}
-                    </Selecao>
-                  </Campo>
+            {paraFila.length > 0 && (
+              <SectionCard titulo="2. Onde você quer retirar o livro?">
+                <GrupoRadio<Retirada>
+                  valor={retirada}
+                  onChange={setRetirada}
+                  opcoes={[
+                    {
+                      valor: "PROPRIA",
+                      rotulo: `🏠 Na própria biblioteca (${nomeBib(bibFila)})`,
+                    },
+                    {
+                      valor: "OUTRA",
+                      rotulo: "🚚 Em outra biblioteca",
+                      desabilitada: destinosPossiveis.length === 0,
+                    },
+                  ]}
+                />
+
+                {destinosPossiveis.length === 0 && (
+                  <p className="mt-3 text-[13px] text-[#66707d]">
+                    Retirar em outra biblioteca não está disponível: todas as
+                    bibliotecas da rede já possuem este título. Nesse caso,
+                    procure a biblioteca que tem exemplar livre ou aguarde na
+                    fila.
+                  </p>
                 )}
-              </SectionCard>
-            ) : (
-              <SectionCard titulo="2. Origem e destino da transferência">
-                {comExemplarLivre.length === 0 ? (
-                  <Vazio texto="Nenhuma biblioteca tem exemplar disponível para transferir agora. Use a reserva para entrar na fila." />
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <Campo label="Biblioteca de origem (tem exemplar livre)">
+
+                {comTransferencia && (
+                  <div className="mt-5">
+                    <Campo label="Biblioteca de retirada (só aparecem as que não têm nenhum exemplar do título)">
                       <Selecao
-                        value={bibOrigem}
-                        onChange={(e) => setBibOrigem(Number(e.target.value))}
+                        value={bibDestino}
+                        onChange={(e) => setBibDestino(Number(e.target.value))}
                       >
-                        {comExemplarLivre.map((d) => (
-                          <option key={d.bibliotecaId} value={d.bibliotecaId}>
-                            {d.bibliotecaNome} — {d.disponiveis} disponível(is)
+                        {destinosPossiveis.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.nome}
+                            {b.endereco ? ` — ${b.endereco}` : ""}
                           </option>
                         ))}
                       </Selecao>
-                    </Campo>
-
-                    <Campo label="Biblioteca de destino (sem nenhum exemplar)">
-                      {destinosPossiveis.length === 0 ? (
-                        <p className="text-[13px] text-[#66707d] pt-3">
-                          Todas as bibliotecas da rede já possuem este título.
-                        </p>
-                      ) : (
-                        <Selecao
-                          value={bibDestino}
-                          onChange={(e) =>
-                            setBibDestino(Number(e.target.value))
-                          }
-                        >
-                          {destinosPossiveis.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.nome}
-                            </option>
-                          ))}
-                        </Selecao>
-                      )}
                     </Campo>
                   </div>
                 )}
@@ -293,12 +272,30 @@ export default function ReservarLivro() {
         }
         direita={
           <>
-            {modo === "FILA" ? (
+            {comTransferencia ? (
+              <>
+                <Callout
+                  tipo="info"
+                  titulo="Como funciona a retirada em outra biblioteca"
+                >
+                  1) Você entra na fila da {nomeBib(bibFila)}. 2) O
+                  administrador avalia o pedido de transferência. 3) Quando um
+                  exemplar for devolvido na sua vez, ele segue para a{" "}
+                  {nomeBib(bibDestino)}. 4) Você é avisado quando ele chegar e
+                  tem 3 dias para retirar.
+                </Callout>
+                <Callout tipo="aviso" titulo="Se o pedido for recusado">
+                  Sua reserva continua na fila e a retirada passa a ser na{" "}
+                  {nomeBib(bibFila)}. Você será avisado e pode cancelar se
+                  preferir.
+                </Callout>
+              </>
+            ) : (
               <>
                 <Callout tipo="info" titulo="Como funciona a fila de espera">
                   Você será avisado quando um exemplar for devolvido e terá 3
                   dias corridos para retirá-lo. Depois disso a reserva expira e
-                  passa para o próximo da fila.
+                  passa para o próximo.
                 </Callout>
                 <Callout tipo="aviso" titulo="Quando posso reservar?">
                   Só é possível reservar em bibliotecas onde todos os exemplares
@@ -306,61 +303,35 @@ export default function ReservarLivro() {
                   presencial.
                 </Callout>
               </>
-            ) : (
-              <>
-                <Callout tipo="info" titulo="Aprovação do administrador">
-                  A solicitação fica <strong>pendente</strong> até o
-                  administrador da rede aprovar. Você pode acompanhar o
-                  andamento em “Minhas Reservas”.
-                </Callout>
-                <Callout tipo="aviso" titulo="Só para bibliotecas sem o título">
-                  O destino precisa não ter nenhum exemplar deste livro, para a
-                  transferência realmente ampliar o acesso.
-                </Callout>
-              </>
             )}
 
             <CardResumo
-              titulo={
-                modo === "FILA"
-                  ? "Resumo da reserva"
-                  : "Resumo da transferência"
-              }
+              titulo="Resumo da reserva"
               rodape={
                 <Botao
                   onClick={() => setModalAberto(true)}
                   disabled={!podeConfirmar || enviando}
                   className="w-full"
                 >
-                  {modo === "FILA"
-                    ? "📌 Reservar"
-                    : "🚚 Solicitar transferência"}
+                  📌 Entrar na fila
                 </Botao>
               }
             >
               <LinhaResumo rotulo="Livro" valor={livro.titulo} />
-              {modo === "FILA" ? (
-                <>
-                  <LinhaResumo rotulo="Biblioteca" valor={nomeBib(bibFila)} />
-                  <LinhaResumo
-                    rotulo="Posição na fila"
-                    valor={`${posicao ?? "—"}º lugar`}
-                  />
-                  <LinhaResumo
-                    rotulo="Prazo p/ retirada"
-                    valor="3 dias corridos"
-                  />
-                </>
-              ) : (
-                <>
-                  <LinhaResumo rotulo="Origem" valor={nomeBib(bibOrigem)} />
-                  <LinhaResumo rotulo="Destino" valor={nomeBib(bibDestino)} />
-                  <LinhaResumo
-                    rotulo="Situação inicial"
-                    valor="Pendente de aprovação"
-                  />
-                </>
-              )}
+              <LinhaResumo
+                rotulo="Fila na biblioteca"
+                valor={nomeBib(bibFila)}
+              />
+              <LinhaResumo rotulo="Retirada em" valor={nomeBib(idRetirada)} />
+              <LinhaResumo
+                rotulo="Posição na fila"
+                valor={posicao ? `${posicao}º lugar` : "—"}
+              />
+              <LinhaResumo
+                rotulo="Transferência"
+                valor={comTransferencia ? "Sim, depende de aprovação" : "Não"}
+              />
+              <LinhaResumo rotulo="Prazo p/ retirada" valor="3 dias corridos" />
             </CardResumo>
           </>
         }
@@ -368,45 +339,28 @@ export default function ReservarLivro() {
 
       <ModalConfirmacao
         aberto={modalAberto}
-        titulo={
-          modo === "FILA"
-            ? "Confirmar reserva?"
-            : "Confirmar solicitação de transferência?"
-        }
-        confirmarRotulo={
-          modo === "FILA" ? "Confirmar reserva" : "Enviar solicitação"
-        }
+        titulo="Confirmar reserva?"
+        confirmarRotulo="Entrar na fila"
         carregando={enviando}
         onConfirmar={executar}
         onCancelar={() => setModalAberto(false)}
       >
-        {modo === "FILA" ? (
-          <>
-            <p>
-              Você entrará na <strong>posição {posicao ?? "—"}</strong> da fila
-              de espera.
-            </p>
-            <ResumoModal
-              linhas={[
-                ["Livro", livro.titulo],
-                ["Biblioteca", nomeBib(bibFila)],
-              ]}
-            />
-          </>
-        ) : (
-          <>
-            <p>
-              Será criada uma solicitação que o administrador da rede precisa
-              aprovar antes do envio do exemplar.
-            </p>
-            <ResumoModal
-              linhas={[
-                ["Livro", livro.titulo],
-                ["De", nomeBib(bibOrigem)],
-                ["Para", nomeBib(bibDestino)],
-              ]}
-            />
-          </>
+        <p>
+          Você entrará na <strong>posição {posicao ?? "—"}</strong> da fila da{" "}
+          <strong>{nomeBib(bibFila)}</strong>.
+        </p>
+        <ResumoModal
+          linhas={[
+            ["Livro", livro.titulo],
+            ["Fila em", nomeBib(bibFila)],
+            ["Retirada em", nomeBib(idRetirada)],
+          ]}
+        />
+        {comTransferencia && (
+          <p className="rounded-[8px] bg-[#ffecd0] px-3 py-2 text-[13px] text-[#c76400]">
+            ⚠️ Retirar em outra biblioteca exige a aprovação do administrador.
+            Se for recusado, a retirada volta a ser na {nomeBib(bibFila)}.
+          </p>
         )}
       </ModalConfirmacao>
     </>

@@ -222,7 +222,7 @@ export function GrupoRadio<T extends string>({
   valor,
   onChange,
 }: {
-  opcoes: { valor: T; rotulo: string }[];
+  opcoes: { valor: T; rotulo: string; desabilitada?: boolean }[];
   valor: T;
   onChange: (v: T) => void;
 }) {
@@ -235,12 +235,16 @@ export function GrupoRadio<T extends string>({
             key={o.valor}
             type="button"
             onClick={() => onChange(o.valor)}
+            disabled={o.desabilitada}
             aria-pressed={ativo}
+            aria-disabled={o.desabilitada || undefined}
             className={`flex items-center gap-2 px-4 py-[10px] rounded-[8px] border text-[14px]
               ${
-                ativo
-                  ? "border-[#1976d2] bg-[#e8f0fc] text-[#125ca8] font-semibold"
-                  : "border-[#e0e0e0] bg-white text-[#2c3e50]"
+                o.desabilitada
+                  ? "border-[#e0e0e0] bg-[#f5f7fa] text-[#9aa3ad] cursor-not-allowed"
+                  : ativo
+                    ? "border-[#1976d2] bg-[#e8f0fc] text-[#125ca8] font-semibold"
+                    : "border-[#e0e0e0] bg-white text-[#2c3e50]"
               }`}
           >
             <span aria-hidden>{ativo ? "●" : "○"}</span>
