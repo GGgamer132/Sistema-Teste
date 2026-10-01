@@ -17,11 +17,12 @@ import RegistrarDevolucao from "./pages/RegistrarDevolucao";
 import CadastrarExemplar from "./pages/CadastrarExemplar";
 import TransferenciasAdmin from "./pages/TransferenciasAdmin";
 import EmConstrucao from "./pages/EmConstrucao";
+import EmprestimosBiblioteca from "./pages/EmprestimosBiblioteca";
 
 /** Ao trocar de perfil, cai na tela inicial daquele ator. */
 const TELA_INICIAL: Record<Perfil, string> = {
   COMUM: "/",
-  BIBLIOTECARIO: "/biblioteca/emprestimo", // trocar por /biblioteca quando o Painel existir
+  BIBLIOTECARIO: "/biblioteca",
   ADMIN: "/admin/transferencias", // trocar por /admin quando o Dashboard existir
 };
 
@@ -56,10 +57,7 @@ export default function App() {
         />
 
         {/* ── Bibliotecário ── */}
-        <Route
-          path="/biblioteca"
-          element={<EmConstrucao titulo="Painel da Biblioteca" />}
-        />
+        <Route path="/biblioteca" element={<EmprestimosBiblioteca />} />
         <Route
           path="/biblioteca/emprestimo"
           element={<RegistrarEmprestimo />}

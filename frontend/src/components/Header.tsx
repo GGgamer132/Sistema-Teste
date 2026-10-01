@@ -20,7 +20,7 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
     { rotulo: "Meu Histórico", to: "/historico" },
   ],
   BIBLIOTECARIO: [
-    { rotulo: "Painel da Biblioteca", to: "/biblioteca" },
+    { rotulo: "Empréstimos", to: "/biblioteca" },
     { rotulo: "Registrar Empréstimo", to: "/biblioteca/emprestimo" },
     { rotulo: "Registrar Devolução", to: "/biblioteca/devolucao" },
     { rotulo: "Cadastrar Exemplar", to: "/biblioteca/exemplares" },

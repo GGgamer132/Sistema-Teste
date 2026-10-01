@@ -142,7 +142,7 @@ export function Botao({
 }: {
   children: ReactNode;
   onClick?: () => void;
-  variante?: "primario" | "secundario" | "verde" | "perigo";
+  variante?: "primario" | "secundario" | "verde" | "perigo" | "perigoSolido";
   disabled?: boolean;
   type?: "button" | "submit";
   className?: string;
@@ -154,6 +154,7 @@ export function Botao({
     verde: "bg-[#388e3c] text-white hover:bg-[#2b6e2e]",
     perigo:
       "bg-white text-[#d32f2f] border border-[#d32f2f] hover:bg-[#fce5e5]",
+    perigoSolido: "bg-[#d32f2f] text-white hover:bg-[#b02424]",
   }[variante];
 
   return (

@@ -7,9 +7,22 @@ import { useEffect, useState } from "react";
 import { api, formatarData } from "../api/client";
 import type { SolicitacaoTransferencia } from "../types";
 import {
-  BadgeTransferencia, Botao, CapaLivro, CardResumo, Callout, Carregando, DuasColunas,
-  Erro, LinhaResumo, SectionCard, Sucesso, TituloPagina, Trilha, Vazio,
+  BadgeTransferencia,
+  Botao,
+  CapaLivro,
+  CardResumo,
+  Callout,
+  Carregando,
+  DuasColunas,
+  Erro,
+  LinhaResumo,
+  SectionCard,
+  Sucesso,
+  TituloPagina,
+  Trilha,
+  Vazio,
 } from "../components/ui";
+import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 
 // Sem login, o admin é fixo: Roberto Dias (id 1).
 const ADMIN_LOGADO = 1;
@@ -30,6 +43,10 @@ export default function TransferenciasAdmin() {
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const [processando, setProcessando] = useState<number | null>(null);
+  const [decisao, setDecisao] = useState<{
+    s: SolicitacaoTransferencia;
+    acao: "aprovar" | "rejeitar";
+  } | null>(null);
 
   function carregar() {
     setCarregando(true);
@@ -83,7 +100,12 @@ export default function TransferenciasAdmin() {
 
   return (
     <>
-      <Trilha itens={[{ rotulo: "Dashboard" }, { rotulo: "Solicitações de Transferência" }]} />
+      <Trilha
+        itens={[
+          { rotulo: "Dashboard" },
+          { rotulo: "Solicitações de Transferência" },
+        ]}
+      />
       <TituloPagina
         titulo="Solicitações de Transferência"
         subtitulo="Administração da Rede · UC13/UC24 - Aprovar/rejeitar transferência de exemplares"
@@ -95,14 +117,19 @@ export default function TransferenciasAdmin() {
       <DuasColunas
         esquerda={
           <>
-            <SectionCard titulo={`1. Solicitações pendentes de aprovação (${pendentes.length})`}>
+            <SectionCard
+              titulo={`1. Solicitações pendentes de aprovação (${pendentes.length})`}
+            >
               {pendentes.length === 0 && (
                 <Vazio texto="Nenhuma solicitação aguardando decisão. O sistema continua monitorando a rede." />
               )}
 
               <div className="flex flex-col gap-3">
                 {pendentes.map((s) => (
-                  <div key={s.id} className="flex flex-wrap items-center gap-4 rounded-[10px] bg-[#f5f7fa] p-4">
+                  <div
+                    key={s.id}
+                    className="flex flex-wrap items-center gap-4 rounded-[10px] bg-[#f5f7fa] p-4"
+                  >
                     <CapaLivro tamanho="sm" />
 
                     <div className="flex-1 min-w-[240px]">
@@ -113,7 +140,8 @@ export default function TransferenciasAdmin() {
                         {descreverSolicitante(s)}
                       </p>
                       <p className="text-[13px] text-[#125ca8] mt-1">
-                        🔁 {s.bibliotecaOrigem.nome} → {s.bibliotecaDestino.nome}
+                        🔁 {s.bibliotecaOrigem.nome} →{" "}
+                        {s.bibliotecaDestino.nome}
                       </p>
                       <div className="mt-2">
                         <BadgeTransferencia status={s.status} />
@@ -128,14 +156,14 @@ export default function TransferenciasAdmin() {
                     <div className="flex flex-col gap-2 w-[150px]">
                       <Botao
                         variante="verde"
-                        onClick={() => decidir(s.id, "aprovar")}
+                        onClick={() => setDecisao({ s, acao: "aprovar" })}
                         disabled={processando === s.id}
                       >
                         ✅ Aprovar
                       </Botao>
                       <Botao
                         variante="perigo"
-                        onClick={() => decidir(s.id, "rejeitar")}
+                        onClick={() => setDecisao({ s, acao: "rejeitar" })}
                         disabled={processando === s.id}
                       >
                         ❌ Rejeitar
@@ -153,7 +181,10 @@ export default function TransferenciasAdmin() {
 
               <div className="flex flex-col gap-3">
                 {historico.map((s) => (
-                  <div key={s.id} className="flex flex-wrap items-center gap-4 rounded-[10px] bg-[#f5f7fa] p-4">
+                  <div
+                    key={s.id}
+                    className="flex flex-wrap items-center gap-4 rounded-[10px] bg-[#f5f7fa] p-4"
+                  >
                     <CapaLivro tamanho="sm" />
 
                     <div className="flex-1 min-w-[240px]">
@@ -161,11 +192,15 @@ export default function TransferenciasAdmin() {
                         {s.exemplar.livro.titulo} — {s.exemplar.livro.autor}
                       </p>
                       <p className="text-[13px] text-[#66707d] mt-1">
-                        Exemplar {s.exemplar.codigoBarras ?? `#${s.exemplar.id}`}
-                        {s.aprovador ? ` · Decidida por ${s.aprovador.nome}` : ""}
+                        Exemplar{" "}
+                        {s.exemplar.codigoBarras ?? `#${s.exemplar.id}`}
+                        {s.aprovador
+                          ? ` · Decidida por ${s.aprovador.nome}`
+                          : ""}
                       </p>
                       <p className="text-[13px] text-[#66707d] mt-1">
-                        De {s.bibliotecaOrigem.nome} → {s.bibliotecaDestino.nome}
+                        De {s.bibliotecaOrigem.nome} →{" "}
+                        {s.bibliotecaDestino.nome}
                       </p>
                     </div>
 
@@ -174,14 +209,17 @@ export default function TransferenciasAdmin() {
                       <span className="text-[12px] text-[#66707d]">
                         {formatarData(s.dataConclusao ?? s.dataSolicitacao)}
                       </span>
-                      {(s.status === "EM_TRANSITO" || s.status === "APROVADA") && (
+                      {(s.status === "EM_TRANSITO" ||
+                        s.status === "APROVADA") && (
                         <button
                           onClick={async () => {
                             try {
                               await api.patch(
                                 `/transferencias/${s.id}/confirmar-chegada?responsavelId=${ADMIN_LOGADO}`,
                               );
-                              setSucesso(`Chegada do exemplar confirmada em ${s.bibliotecaDestino.nome}.`);
+                              setSucesso(
+                                `Chegada do exemplar confirmada em ${s.bibliotecaDestino.nome}.`,
+                              );
                               carregar();
                             } catch (e) {
                               setErro((e as Error).message);
@@ -202,32 +240,86 @@ export default function TransferenciasAdmin() {
         direita={
           <>
             <Callout tipo="info" titulo="Aprovação de transferências (RN04)">
-              Toda solicitação de transferência entre bibliotecas precisa ser aprovada pelo
-              Admin do sistema antes do envio. Apenas exemplares com status DISPONÍVEL podem
-              ser transferidos.
+              Toda solicitação de transferência entre bibliotecas precisa ser
+              aprovada pelo Admin do sistema antes do envio. Apenas exemplares
+              com status DISPONÍVEL podem ser transferidos.
             </Callout>
 
             <Callout tipo="aviso" titulo="Fluxo de status do exemplar (RN05)">
-              Ao aprovar, o exemplar muda de DISPONÍVEL para EM_TRANSFERENCIA. Ao confirmar a
-              chegada, o status retorna para DISPONÍVEL na biblioteca de destino.
+              Ao aprovar, o exemplar muda de DISPONÍVEL para EM_TRANSFERENCIA.
+              Ao confirmar a chegada, o status retorna para DISPONÍVEL na
+              biblioteca de destino.
             </Callout>
 
             <CardResumo
               titulo="Resumo das Solicitações"
               rodape={
-                <Botao variante="secundario" onClick={carregar} className="w-full">
+                <Botao
+                  variante="secundario"
+                  onClick={carregar}
+                  className="w-full"
+                >
                   🔄 Atualizar Lista
                 </Botao>
               }
             >
-              <LinhaResumo rotulo="Pendentes" valor={resumo?.pendentes ?? 0} destaque="laranja" />
-              <LinhaResumo rotulo="Em trânsito" valor={resumo?.emTransito ?? 0} destaque="azul" />
-              <LinhaResumo rotulo="Concluídas" valor={resumo?.concluidas ?? 0} destaque="verde" />
-              <LinhaResumo rotulo="Rejeitadas" valor={resumo?.rejeitadas ?? 0} destaque="vermelho" />
+              <LinhaResumo
+                rotulo="Pendentes"
+                valor={resumo?.pendentes ?? 0}
+                destaque="laranja"
+              />
+              <LinhaResumo
+                rotulo="Em trânsito"
+                valor={resumo?.emTransito ?? 0}
+                destaque="azul"
+              />
+              <LinhaResumo
+                rotulo="Concluídas"
+                valor={resumo?.concluidas ?? 0}
+                destaque="verde"
+              />
+              <LinhaResumo
+                rotulo="Rejeitadas"
+                valor={resumo?.rejeitadas ?? 0}
+                destaque="vermelho"
+              />
             </CardResumo>
           </>
         }
       />
+
+      <ModalConfirmacao
+        aberto={!!decisao}
+        titulo={
+          decisao?.acao === "aprovar"
+            ? "Aprovar transferência?"
+            : "Rejeitar transferência?"
+        }
+        confirmarRotulo={decisao?.acao === "aprovar" ? "Aprovar" : "Rejeitar"}
+        tom={decisao?.acao === "aprovar" ? "verde" : "perigo"}
+        carregando={decisao !== null && processando === decisao.s.id}
+        onConfirmar={async () => {
+          if (!decisao) return;
+          await decidir(decisao.s.id, decisao.acao);
+          setDecisao(null);
+        }}
+        onCancelar={() => setDecisao(null)}
+      >
+        {decisao && (
+          <ResumoModal
+            linhas={[
+              ["Livro", decisao.s.exemplar.livro.titulo],
+              [
+                "Exemplar",
+                decisao.s.exemplar.codigoBarras ?? `#${decisao.s.exemplar.id}`,
+              ],
+              ["De", decisao.s.bibliotecaOrigem.nome],
+              ["Para", decisao.s.bibliotecaDestino.nome],
+              ["Solicitante", decisao.s.solicitante.nome],
+            ]}
+          />
+        )}
+      </ModalConfirmacao>
     </>
   );
 }

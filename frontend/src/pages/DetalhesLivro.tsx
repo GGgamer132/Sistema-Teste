@@ -3,10 +3,10 @@
  * Mostra a ficha do título e a disponibilidade em cada biblioteca da rede.
  * O botão de cada linha leva para a reserva (RN03).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import type { LivroResumo } from "../types";
+import type { Disponibilidade, LivroResumo } from "../types";
 import {
   Badge,
   BadgeSituacao,
@@ -14,21 +14,26 @@ import {
   Card,
   Carregando,
   CapaLivro,
+  Entrada,
   Erro,
   LinhaResumo,
   Trilha,
 } from "../components/ui";
+import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
+import ModalConfirmacao from "../components/ModalConfirmacao";
 
 export default function DetalhesLivro() {
   const { livroId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  // Se veio da lista de resultados, sabemos para onde o "Resultados" deve voltar
   const voltarPara = (location.state as { voltarPara?: string } | null)
     ?.voltarPara;
 
   const [livro, setLivro] = useState<LivroResumo | null>(null);
   const [erro, setErro] = useState("");
+  const [busca, setBusca] = useState("");
+  const [soDisponiveis, setSoDisponiveis] = useState(false);
+  const [retirada, setRetirada] = useState<Disponibilidade | null>(null);
 
   useEffect(() => {
     api
@@ -37,10 +42,88 @@ export default function DetalhesLivro() {
       .catch((e) => setErro(e.message));
   }, [livroId]);
 
+  const linhas = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return (livro?.disponibilidade ?? [])
+      .filter((d) => !soDisponiveis || d.disponiveis > 0)
+      .filter(
+        (d) =>
+          !termo ||
+          d.bibliotecaNome.toLowerCase().includes(termo) ||
+          (d.endereco ?? "").toLowerCase().includes(termo),
+      )
+      .sort(
+        (a, b) =>
+          b.disponiveis - a.disponiveis ||
+          a.bibliotecaNome.localeCompare(b.bibliotecaNome),
+      );
+  }, [livro, busca, soDisponiveis]);
+
   if (erro) return <Erro mensagem={erro} />;
   if (!livro) return <Carregando texto="Carregando detalhes do título..." />;
 
-  const semExemplarLivre = livro.disponiveis === 0;
+  const todas = livro.disponibilidade ?? [];
+  const unidadesComLivre = todas.filter((d) => d.disponiveis > 0).length;
+
+  const colunas: Coluna<Disponibilidade>[] = [
+    {
+      titulo: "Biblioteca",
+      render: (d) => (
+        <div>
+          <p className="font-semibold text-[#2c3e50]">{d.bibliotecaNome}</p>
+          <p className="text-[12px] text-[#66707d]">{d.endereco ?? "—"}</p>
+        </div>
+      ),
+    },
+    {
+      titulo: "Disponíveis",
+      render: (d) => (
+        <div>
+          <p className="text-[#2c3e50]">
+            <strong className="text-[16px]">{d.disponiveis}</strong>
+            <span className="text-[#66707d]"> / {d.totalExemplares}</span>
+          </p>
+          <div className="mt-1 h-[6px] w-[90px] overflow-hidden rounded-full bg-[#e0e0e0]">
+            <div
+              className={`h-full ${d.disponiveis > 0 ? "bg-[#388e3c]" : "bg-[#d32f2f]"}`}
+              style={{
+                width: `${d.totalExemplares ? (d.disponiveis / d.totalExemplares) * 100 : 0}%`,
+              }}
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
+      titulo: "Situação",
+      render: (d) =>
+        d.disponiveis > 0 ? (
+          <Badge tom="verde">🟢 Disponível</Badge>
+        ) : (
+          <Badge tom="vermelho">🔴 Indisponível</Badge>
+        ),
+    },
+    {
+      titulo: "Ação",
+      className: "text-right",
+      render: (d) =>
+        d.disponiveis > 0 ? (
+          <Botao variante="secundario" onClick={() => setRetirada(d)}>
+            Como retirar
+          </Botao>
+        ) : (
+          <Botao
+            onClick={() =>
+              navigate(
+                `/livro/${livro.id}/reservar?biblioteca=${d.bibliotecaId}`,
+              )
+            }
+          >
+            Entrar na fila
+          </Botao>
+        ),
+    },
+  ];
 
   return (
     <>
@@ -53,7 +136,6 @@ export default function DetalhesLivro() {
       />
 
       <div className="flex flex-col lg:flex-row gap-8 items-start">
-        {/* Coluna da capa + ficha técnica */}
         <div className="w-full lg:w-[320px] shrink-0 flex flex-col gap-5">
           <CapaLivro tamanho="lg" />
           <Card className="p-5 flex flex-col gap-3">
@@ -67,7 +149,6 @@ export default function DetalhesLivro() {
           </Card>
         </div>
 
-        {/* Coluna principal */}
         <div className="flex-1 min-w-0 flex flex-col gap-6">
           <div>
             <h1 className="text-[32px] font-bold text-[#2c3e50] leading-tight">
@@ -77,14 +158,6 @@ export default function DetalhesLivro() {
             <div className="flex flex-wrap items-center gap-2 mt-4">
               {livro.categoria && <Badge tom="cinza">{livro.categoria}</Badge>}
               <BadgeSituacao situacao={livro.situacao} />
-              {livro.situacao === "DISPONIVEL" && (
-                <span className="text-[13px] text-[#66707d]">
-                  em {livro.bibliotecasComDisponivel}{" "}
-                  {livro.bibliotecasComDisponivel === 1
-                    ? "biblioteca"
-                    : "bibliotecas"}
-                </span>
-              )}
             </div>
           </div>
 
@@ -99,59 +172,78 @@ export default function DetalhesLivro() {
             </div>
           )}
 
-          <Card className="p-6">
-            <h2 className="text-[17px] font-semibold text-[#2c3e50] mb-4">
-              Disponibilidade na rede
-            </h2>
-
-            {(!livro.disponibilidade || livro.disponibilidade.length === 0) && (
-              <div className="rounded-[10px] bg-[#f5f7fa] px-4 py-6 text-center text-[14px] text-[#66707d]">
-                Nenhum exemplar deste título está cadastrado na rede ainda.
+          <Card className="overflow-hidden">
+            <div className="p-6 pb-4 flex flex-col gap-4">
+              <div>
+                <h2 className="text-[17px] font-semibold text-[#2c3e50]">
+                  Disponibilidade na rede
+                </h2>
+                <p className="text-[13px] text-[#66707d] mt-1">
+                  {livro.disponiveis} de {livro.totalExemplares} exemplares
+                  livres · {unidadesComLivre} de {todas.length}{" "}
+                  {todas.length === 1 ? "biblioteca" : "bibliotecas"} com
+                  exemplar disponível
+                </p>
               </div>
-            )}
 
-            <div className="flex flex-col gap-3">
-              {livro.disponibilidade?.map((d) => (
-                <div
-                  key={d.bibliotecaId}
-                  className="flex flex-wrap items-center justify-between gap-4
-                             rounded-[10px] bg-[#f5f7fa] px-4 py-4"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[15px] font-semibold text-[#2c3e50]">
-                      {d.bibliotecaNome}
-                    </p>
-                    <p className="text-[13px] text-[#66707d]">
-                      {d.endereco} ·{" "}
-                      {d.disponiveis > 0
-                        ? `${d.disponiveis} ${d.disponiveis === 1 ? "exemplar disponível" : "exemplares disponíveis"}`
-                        : "Todos emprestados"}
-                    </p>
-                  </div>
-                  <Botao
-                    variante={d.disponiveis > 0 ? "secundario" : "primario"}
-                    onClick={() =>
-                      navigate(
-                        `/livro/${livro.id}/reservar?biblioteca=${d.bibliotecaId}`,
-                      )
-                    }
-                  >
-                    {d.disponiveis > 0 ? "Retirar aqui" : "Entrar na fila"}
-                  </Botao>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex-1 min-w-[220px]">
+                  <Entrada
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="🔎 Buscar biblioteca ou endereço..."
+                  />
                 </div>
-              ))}
+                <label className="flex items-center gap-2 text-[13px] text-[#2c3e50] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={soDisponiveis}
+                    onChange={(e) => setSoDisponiveis(e.target.checked)}
+                  />
+                  Só com exemplar disponível
+                </label>
+              </div>
             </div>
 
-            {semExemplarLivre && livro.totalExemplares > 0 && (
-              <p className="mt-4 text-[13px] text-[#66707d]">
-                Todos os exemplares estão emprestados. Ao reservar, você entra
-                na fila de espera e é avisado assim que um exemplar for
-                devolvido (RN03).
-              </p>
-            )}
+            <TabelaPaginada
+              key={`${busca}|${soDisponiveis}`}
+              dados={linhas}
+              colunas={colunas}
+              chave={(d) => d.bibliotecaId}
+              porPagina={5}
+              classeLinha={(d) => (d.disponiveis === 0 ? "bg-[#fdf3f3]" : "")}
+              textoVazio={
+                todas.length === 0
+                  ? "Nenhum exemplar deste título está cadastrado na rede ainda."
+                  : "Nenhuma biblioteca corresponde aos filtros."
+              }
+            />
           </Card>
         </div>
       </div>
+
+      <ModalConfirmacao
+        aberto={!!retirada}
+        titulo={`Retirar na ${retirada?.bibliotecaNome ?? ""}`}
+        confirmarRotulo="Entendi"
+        cancelarRotulo={null}
+        onConfirmar={() => setRetirada(null)}
+        onCancelar={() => setRetirada(null)}
+      >
+        <p>
+          Há <strong>{retirada?.disponiveis}</strong>{" "}
+          {retirada?.disponiveis === 1
+            ? "exemplar disponível"
+            : "exemplares disponíveis"}{" "}
+          de <strong>{livro.titulo}</strong> nesta unidade
+          {retirada?.endereco ? ` (${retirada.endereco})` : ""}.
+        </p>
+        <p>
+          O empréstimo é feito <strong>presencialmente</strong>, com o
+          bibliotecário. Leve um documento de identificação. Como há exemplar
+          livre, não é necessário reservar.
+        </p>
+      </ModalConfirmacao>
     </>
   );
 }

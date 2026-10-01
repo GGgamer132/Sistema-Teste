@@ -6,9 +6,25 @@ import { useEffect, useState } from "react";
 import { api, diasDeAtraso, formatarData } from "../api/client";
 import type { Emprestimo } from "../types";
 import {
-  Badge, Botao, Campo, CapaLivro, CardResumo, Callout, Carregando, DuasColunas,
-  Entrada, Erro, GrupoRadio, LinhaResumo, SectionCard, Sucesso, TituloPagina, Trilha, Vazio,
+  Badge,
+  Botao,
+  Campo,
+  CapaLivro,
+  CardResumo,
+  Callout,
+  Carregando,
+  DuasColunas,
+  Entrada,
+  Erro,
+  GrupoRadio,
+  LinhaResumo,
+  SectionCard,
+  Sucesso,
+  TituloPagina,
+  Trilha,
+  Vazio,
 } from "../components/ui";
+import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 
 type Condicao = "BOM" | "DANIFICADO" | "PERDIDO";
 
@@ -24,10 +40,12 @@ export default function RegistrarDevolucao() {
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [modalAberto, setModalAberto] = useState(false);
 
   function carregar() {
     setCarregando(true);
-    api.get<Emprestimo[]>("/emprestimos/ativos")
+    api
+      .get<Emprestimo[]>("/emprestimos/ativos")
       .then(setEmprestimos)
       .catch((e) => setErro(e.message))
       .finally(() => setCarregando(false));
@@ -47,7 +65,9 @@ export default function RegistrarDevolucao() {
     : emprestimos;
 
   const atraso = selecionado ? diasDeAtraso(selecionado.dataPrevDevolucao) : 0;
-  const bloqueioAte = new Date(Date.now() + atraso * DIAS_BLOQUEIO_POR_ATRASO * 86_400_000);
+  const bloqueioAte = new Date(
+    Date.now() + atraso * DIAS_BLOQUEIO_POR_ATRASO * 86_400_000,
+  );
 
   async function confirmar() {
     if (!selecionado) return;
@@ -62,7 +82,7 @@ export default function RegistrarDevolucao() {
       setSucesso(
         atraso > 0
           ? `Devolução registrada com ${atraso} dia(s) de atraso. ${selecionado.usuario.nome} ` +
-            `ficou bloqueado por ${atraso * DIAS_BLOQUEIO_POR_ATRASO} dias (RN12).`
+              `ficou bloqueado por ${atraso * DIAS_BLOQUEIO_POR_ATRASO} dias (RN12).`
           : "Devolução registrada dentro do prazo. O exemplar voltou para o acervo.",
       );
       setSelecionado(null);
@@ -75,11 +95,17 @@ export default function RegistrarDevolucao() {
     }
   }
 
-  if (carregando) return <Carregando texto="Carregando empréstimos em aberto..." />;
+  if (carregando)
+    return <Carregando texto="Carregando empréstimos em aberto..." />;
 
   return (
     <>
-      <Trilha itens={[{ rotulo: "Painel da Biblioteca" }, { rotulo: "Registrar Devolução" }]} />
+      <Trilha
+        itens={[
+          { rotulo: "Painel da Biblioteca" },
+          { rotulo: "Registrar Devolução" },
+        ]}
+      />
       <TituloPagina
         titulo="Registrar Devolução"
         subtitulo="Biblioteca Vila Isabel · UC10 - Registrar devolução"
@@ -120,13 +146,16 @@ export default function RegistrarDevolucao() {
                           {e.exemplar.livro.titulo} — {e.exemplar.livro.autor}
                         </p>
                         <p className="text-[13px] text-[#66707d] mt-1">
-                          Exemplar: {e.exemplar.codigoBarras ?? `#${e.exemplar.id}`} ·
+                          Exemplar:{" "}
+                          {e.exemplar.codigoBarras ?? `#${e.exemplar.id}`} ·
                           Emprestado para: {e.usuario.nome}
                         </p>
                       </div>
-                      {d > 0
-                        ? <Badge tom="vermelho">🔴 Atrasado</Badge>
-                        : <Badge tom="verde">🟢 Em dia</Badge>}
+                      {d > 0 ? (
+                        <Badge tom="vermelho">🔴 Atrasado</Badge>
+                      ) : (
+                        <Badge tom="verde">🟢 Em dia</Badge>
+                      )}
                     </button>
                   );
                 })}
@@ -136,19 +165,31 @@ export default function RegistrarDevolucao() {
             <SectionCard titulo="2. Situação da devolução">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <Campo label="Devolução prevista">
-                  <Entrada value={formatarData(selecionado?.dataPrevDevolucao)} readOnly />
+                  <Entrada
+                    value={formatarData(selecionado?.dataPrevDevolucao)}
+                    readOnly
+                  />
                 </Campo>
                 <Campo label="Data da devolução (hoje)">
-                  <Entrada value={new Date().toLocaleDateString("pt-BR")} readOnly />
+                  <Entrada
+                    value={new Date().toLocaleDateString("pt-BR")}
+                    readOnly
+                  />
                 </Campo>
                 <Campo label="Dias de atraso">
                   <div
                     className={`h-11 flex items-center rounded-[8px] border px-[14px] text-[14px] font-semibold
-                      ${atraso > 0
-                        ? "border-[#f3c6c6] bg-[#fce5e5] text-[#d32f2f]"
-                        : "border-[#e0e0e0] bg-white text-[#2c3e50]"}`}
+                      ${
+                        atraso > 0
+                          ? "border-[#f3c6c6] bg-[#fce5e5] text-[#d32f2f]"
+                          : "border-[#e0e0e0] bg-white text-[#2c3e50]"
+                      }`}
                   >
-                    {selecionado ? (atraso > 0 ? `🔴 ${atraso} dia(s)` : "Em dia") : "—"}
+                    {selecionado
+                      ? atraso > 0
+                        ? `🔴 ${atraso} dia(s)`
+                        : "Em dia"
+                      : "—"}
                   </div>
                 </Campo>
               </div>
@@ -166,8 +207,8 @@ export default function RegistrarDevolucao() {
               />
               {condicao !== "BOM" && (
                 <p className="mt-3 text-[13px] text-[#66707d]">
-                  Exemplares danificados ou perdidos saem de circulação
-                  (status INDISPONIVEL) e o evento é registrado no histórico.
+                  Exemplares danificados ou perdidos saem de circulação (status
+                  INDISPONIVEL) e o evento é registrado no histórico.
                 </p>
               )}
             </SectionCard>
@@ -177,9 +218,10 @@ export default function RegistrarDevolucao() {
           <>
             {atraso > 0 ? (
               <Callout tipo="aviso" titulo="Devolução com atraso (RN12)">
-                {atraso} dia(s) de atraso identificados. Para cada dia de atraso, o usuário
-                fica impedido de novos empréstimos por mais {DIAS_BLOQUEIO_POR_ATRASO} dias
-                — bloqueio total de {atraso * DIAS_BLOQUEIO_POR_ATRASO} dias.
+                {atraso} dia(s) de atraso identificados. Para cada dia de
+                atraso, o usuário fica impedido de novos empréstimos por mais{" "}
+                {DIAS_BLOQUEIO_POR_ATRASO} dias — bloqueio total de{" "}
+                {atraso * DIAS_BLOQUEIO_POR_ATRASO} dias.
               </Callout>
             ) : (
               <Callout tipo="sucesso" titulo="Devolução dentro do prazo">
@@ -187,10 +229,13 @@ export default function RegistrarDevolucao() {
               </Callout>
             )}
 
-            <Callout tipo="info" titulo="Atualização automática do Blackboard (RN05/RN06)">
-              O status do exemplar volta para DISPONÍVEL e o evento é registrado no
-              histórico de circulação. Se houver reserva pendente, o próximo da fila
-              é notificado.
+            <Callout
+              tipo="info"
+              titulo="Atualização automática do Blackboard (RN05/RN06)"
+            >
+              O status do exemplar volta para DISPONÍVEL e o evento é registrado
+              no histórico de circulação. Se houver reserva pendente, o próximo
+              da fila é notificado.
             </Callout>
 
             <CardResumo
@@ -198,7 +243,7 @@ export default function RegistrarDevolucao() {
               rodape={
                 <Botao
                   variante="verde"
-                  onClick={confirmar}
+                  onClick={() => setModalAberto(true)}
                   disabled={!selecionado || enviando}
                   className="w-full"
                 >
@@ -206,8 +251,14 @@ export default function RegistrarDevolucao() {
                 </Botao>
               }
             >
-              <LinhaResumo rotulo="Livro" valor={selecionado?.exemplar.livro.titulo ?? "—"} />
-              <LinhaResumo rotulo="Usuário" valor={selecionado?.usuario.nome ?? "—"} />
+              <LinhaResumo
+                rotulo="Livro"
+                valor={selecionado?.exemplar.livro.titulo ?? "—"}
+              />
+              <LinhaResumo
+                rotulo="Usuário"
+                valor={selecionado?.usuario.nome ?? "—"}
+              />
               <LinhaResumo
                 rotulo="Dias de atraso"
                 valor={selecionado ? `${atraso} dia(s)` : "—"}
@@ -215,13 +266,49 @@ export default function RegistrarDevolucao() {
               />
               <LinhaResumo
                 rotulo="Bloqueado até"
-                valor={atraso > 0 ? bloqueioAte.toLocaleDateString("pt-BR") : "—"}
+                valor={
+                  atraso > 0 ? bloqueioAte.toLocaleDateString("pt-BR") : "—"
+                }
                 destaque={atraso > 0 ? "vermelho" : undefined}
               />
             </CardResumo>
           </>
         }
       />
+
+      <ModalConfirmacao
+        aberto={modalAberto}
+        titulo="Confirmar devolução?"
+        confirmarRotulo="Confirmar devolução"
+        tom="verde"
+        carregando={enviando}
+        onConfirmar={async () => {
+          await confirmar();
+          setModalAberto(false);
+        }}
+        onCancelar={() => setModalAberto(false)}
+      >
+        <ResumoModal
+          linhas={[
+            ["Livro", selecionado?.exemplar.livro.titulo ?? "—"],
+            ["Usuário", selecionado?.usuario.nome ?? "—"],
+            [
+              "Condição",
+              condicao === "BOM"
+                ? "Bom estado"
+                : condicao === "DANIFICADO"
+                  ? "Danificado"
+                  : "Perdido",
+            ],
+            ["Dias de atraso", `${atraso}`],
+          ]}
+        />
+        {atraso > 0 && (
+          <p className="rounded-[8px] bg-[#fce5e5] px-3 py-2 text-[#d32f2f] font-medium">
+            🔴 Usuário bloqueado até {bloqueioAte.toLocaleDateString("pt-BR")}.
+          </p>
+        )}
+      </ModalConfirmacao>
     </>
   );
 }
