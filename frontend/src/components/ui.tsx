@@ -83,15 +83,40 @@ export function BadgeSituacao({ situacao }: { situacao: string }) {
   return <Badge tom="vermelho">🔴 Indisponível</Badge>;
 }
 
-/** Traduz o status de uma solicitação de transferência. */
-export function BadgeTransferencia({ status }: { status: string }) {
+/**
+ * Traduz o status de uma solicitação de transferência.
+ * APROVADA sem exemplar vinculado = "aguardando exemplar" (ainda não saiu da origem).
+ */
+export function BadgeTransferencia({
+  status,
+  semExemplar = false,
+}: {
+  status: string;
+  semExemplar?: boolean;
+}) {
   const mapa: Record<string, { tom: Tom; texto: string }> = {
     PENDENTE: { tom: "amarelo", texto: "PENDENTE" },
-    APROVADA: { tom: "azul", texto: "APROVADA" },
+    APROVADA: semExemplar
+      ? { tom: "azul", texto: "APROVADA — AGUARDANDO EXEMPLAR" }
+      : { tom: "azul", texto: "APROVADA" },
     EM_TRANSITO: { tom: "azul", texto: "EM TRÂNSITO" },
     CONCLUIDA: { tom: "verde", texto: "CONCLUÍDA" },
     REJEITADA: { tom: "vermelho", texto: "REJEITADA" },
     CANCELADA: { tom: "cinza", texto: "CANCELADA" },
+  };
+  const m = mapa[status] ?? { tom: "cinza" as Tom, texto: status };
+  return <Badge tom={m.tom}>{m.texto}</Badge>;
+}
+
+/** Traduz o status de uma reserva. */
+export function BadgeReserva({ status }: { status: string }) {
+  const mapa: Record<string, { tom: Tom; texto: string }> = {
+    PENDENTE: { tom: "amarelo", texto: "NA FILA" },
+    AGUARDANDO_TRANSFERENCIA: { tom: "azul", texto: "AGUARDANDO TRANSFERÊNCIA" },
+    DISPONIVEL: { tom: "verde", texto: "PRONTA PARA RETIRADA" },
+    RETIRADA: { tom: "cinza", texto: "RETIRADA" },
+    CANCELADA: { tom: "cinza", texto: "CANCELADA" },
+    EXPIRADA: { tom: "vermelho", texto: "EXPIRADA" },
   };
   const m = mapa[status] ?? { tom: "cinza" as Tom, texto: status };
   return <Badge tom={m.tom}>{m.texto}</Badge>;

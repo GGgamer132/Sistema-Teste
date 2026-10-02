@@ -1,59 +1,95 @@
 /**
- * TELA 8 — Solicitações de Transferência (UC13 / UC24).
- * Painel do Admin: aprova ou rejeita as solicitações pendentes (RN04)
- * e acompanha o histórico recente.
+ * Solicitações de Transferência — painel do Admin (UC13 / UC24).
+ *
+ * Fluxo:
+ *  - Pedido nasce de uma reserva com retirada em outra biblioteca (PENDENTE, sem exemplar);
+ *  - Admin aprova/rejeita o PEDIDO. Aprovado sem exemplar = "aguardando exemplar";
+ *  - Quando um exemplar é devolvido na origem, o back o vincula e a viagem começa (EM_TRANSITO);
+ *  - Chegada confirmada => CONCLUIDA.
+ *  - O Admin também pode criar uma transferência AVULSA (exemplar disponível -> qualquer biblioteca).
  */
-import { useEffect, useState } from "react";
-import { api, formatarData } from "../api/client";
-import type { SolicitacaoTransferencia } from "../types";
+import { useEffect, useMemo, useState } from "react";
+import { api, formatarData, qs } from "../api/client";
+import type {
+  Biblioteca,
+  Exemplar,
+  ResumoTransferencias,
+  SolicitacaoTransferencia,
+} from "../types";
 import {
+  AreaTexto,
+  Badge,
   BadgeTransferencia,
   Botao,
-  CapaLivro,
-  CardResumo,
   Callout,
+  CapaLivro,
+  Campo,
+  CardResumo,
   Carregando,
   DuasColunas,
+  Entrada,
   Erro,
   LinhaResumo,
   SectionCard,
+  Selecao,
   Sucesso,
   TituloPagina,
   Trilha,
   Vazio,
 } from "../components/ui";
 import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
+import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
 
 // Sem login, o admin é fixo: Roberto Dias (id 1).
 const ADMIN_LOGADO = 1;
 
-interface Resumo {
-  pendentes: number;
-  emTransito: number;
-  concluidas: number;
-  rejeitadas: number;
+type Decisao = { s: SolicitacaoTransferencia; acao: "aprovar" | "rejeitar" };
+
+/** Texto "EX-001" ou "Aguardando exemplar". */
+function rotuloExemplar(s: SolicitacaoTransferencia): string {
+  return s.exemplar
+    ? (s.exemplar.codigoBarras ?? `#${s.exemplar.id}`)
+    : "Aguardando exemplar";
+}
+
+/** Quem pediu, e por qual caminho (reserva do usuário ou avulsa do Admin). */
+function descreverOrigemPedido(s: SolicitacaoTransferencia): string {
+  if (s.reserva) {
+    return `Reserva de ${s.solicitante.nome} (usuário da comunidade)`;
+  }
+  return `Transferência avulsa de ${s.solicitante.nome} (administrador)`;
 }
 
 export default function TransferenciasAdmin() {
   const [pendentes, setPendentes] = useState<SolicitacaoTransferencia[]>([]);
   const [historico, setHistorico] = useState<SolicitacaoTransferencia[]>([]);
-  const [resumo, setResumo] = useState<Resumo | null>(null);
+  const [resumo, setResumo] = useState<ResumoTransferencias | null>(null);
 
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
-  const [processando, setProcessando] = useState<number | null>(null);
-  const [decisao, setDecisao] = useState<{
-    s: SolicitacaoTransferencia;
-    acao: "aprovar" | "rejeitar";
-  } | null>(null);
+  const [processando, setProcessando] = useState(false);
+
+  const [decisao, setDecisao] = useState<Decisao | null>(null);
+  const [motivo, setMotivo] = useState("");
+  const [chegada, setChegada] = useState<SolicitacaoTransferencia | null>(null);
+
+  // ── Transferência avulsa ──
+  const [avulsaAberta, setAvulsaAberta] = useState(false);
+  const [exemplares, setExemplares] = useState<Exemplar[] | null>(null);
+  const [bibliotecas, setBibliotecas] = useState<Biblioteca[]>([]);
+  const [busca, setBusca] = useState("");
+  const [exemplarSel, setExemplarSel] = useState<Exemplar | null>(null);
+  const [destinoId, setDestinoId] = useState("");
+  const [obs, setObs] = useState("");
+  const [confirmandoAvulsa, setConfirmandoAvulsa] = useState(false);
 
   function carregar() {
     setCarregando(true);
     Promise.all([
       api.get<SolicitacaoTransferencia[]>("/transferencias/pendentes"),
       api.get<SolicitacaoTransferencia[]>("/transferencias/historico"),
-      api.get<Resumo>("/transferencias/resumo"),
+      api.get<ResumoTransferencias>("/transferencias/resumo"),
     ])
       .then(([p, h, r]) => {
         setPendentes(p);
@@ -63,52 +99,249 @@ export default function TransferenciasAdmin() {
       .catch((e) => setErro(e.message))
       .finally(() => setCarregando(false));
   }
-
   useEffect(carregar, []);
 
-  async function decidir(id: number, acao: "aprovar" | "rejeitar") {
-    setProcessando(id);
+  function carregarDadosAvulsa() {
+    Promise.all([
+      api.get<Exemplar[]>("/exemplares"),
+      api.get<Biblioteca[]>("/bibliotecas"),
+    ])
+      .then(([ex, bib]) => {
+        setExemplares(ex.filter((e) => e.status === "DISPONIVEL"));
+        setBibliotecas(bib.filter((b) => b.ativa !== false));
+      })
+      .catch((e) => setErro(e.message));
+  }
+
+  /** Carrega exemplares/bibliotecas só quando o Admin abre o formulário avulso. */
+  function abrirAvulsa() {
+    setAvulsaAberta(true);
+    carregarDadosAvulsa();
+  }
+
+  function fecharAvulsa() {
+    setAvulsaAberta(false);
+    setExemplarSel(null);
+    setDestinoId("");
+    setObs("");
+    setBusca("");
+  }
+
+  const exemplaresFiltrados = useMemo(() => {
+    const t = busca.trim().toLowerCase();
+    return (exemplares ?? []).filter(
+      (e) =>
+        !t ||
+        e.livro.titulo.toLowerCase().includes(t) ||
+        e.livro.autor.toLowerCase().includes(t) ||
+        (e.codigoBarras ?? "").toLowerCase().includes(t) ||
+        e.biblioteca.nome.toLowerCase().includes(t),
+    );
+  }, [exemplares, busca]);
+
+  const destinosPossiveis = bibliotecas.filter(
+    (b) => b.id !== exemplarSel?.biblioteca.id,
+  );
+  const destinoSel = bibliotecas.find((b) => String(b.id) === destinoId);
+
+  // ── Ações ──
+
+  async function decidir() {
+    if (!decisao) return;
+    const { s, acao } = decisao;
+    setProcessando(true);
     setErro("");
     setSucesso("");
     try {
-      await api.patch(`/transferencias/${id}/${acao}?adminId=${ADMIN_LOGADO}`);
-      setSucesso(
-        acao === "aprovar"
-          ? `Transferência #${id} aprovada. O exemplar entrou em trânsito (RN05).`
-          : `Transferência #${id} rejeitada. O exemplar voltou a ficar disponível na origem.`,
-      );
+      const params =
+        acao === "rejeitar"
+          ? qs({ adminId: ADMIN_LOGADO, motivo })
+          : qs({ adminId: ADMIN_LOGADO });
+      await api.patch(`/transferencias/${s.id}/${acao}${params}`);
+
+      if (acao === "rejeitar") {
+        setSucesso(
+          s.reserva
+            ? `Pedido #${s.id} rejeitado. A reserva de ${s.solicitante.nome} continua na fila, com retirada na ${s.bibliotecaOrigem.nome}.`
+            : `Pedido #${s.id} rejeitado.`,
+        );
+      } else if (s.exemplar) {
+        setSucesso(
+          `Pedido #${s.id} aprovado. Como o exemplar já estava separado, ele saiu em trânsito.`,
+        );
+      } else {
+        setSucesso(
+          `Pedido #${s.id} aprovado. Ele aguarda a devolução de um exemplar na ${s.bibliotecaOrigem.nome}; a viagem começa automaticamente.`,
+        );
+      }
+      setDecisao(null);
+      setMotivo("");
       carregar();
     } catch (e) {
       setErro((e as Error).message);
+      setDecisao(null);
     } finally {
-      setProcessando(null);
+      setProcessando(false);
     }
   }
 
-  /** Descreve quem pediu, diferenciando usuário comum de bibliotecário (RN13). */
-  function descreverSolicitante(s: SolicitacaoTransferencia): string {
-    const papel =
-      s.solicitante.tipo === "COMUM"
-        ? "Usuário da comunidade"
-        : s.solicitante.tipo === "ADMIN"
-          ? "Administrador"
-          : "Bibliotecário";
-    return `Exemplar ${s.exemplar.codigoBarras ?? `#${s.exemplar.id}`} · Solicitado por ${s.solicitante.nome} (${papel})`;
+  async function confirmarChegada() {
+    if (!chegada) return;
+    setProcessando(true);
+    setErro("");
+    setSucesso("");
+    try {
+      await api.patch(
+        `/transferencias/${chegada.id}/confirmar-chegada${qs({ responsavelId: ADMIN_LOGADO })}`,
+      );
+      setSucesso(
+        chegada.reserva
+          ? `Chegada confirmada na ${chegada.bibliotecaDestino.nome}. ${chegada.solicitante.nome} tem 3 dias para retirar o exemplar.`
+          : `Chegada confirmada na ${chegada.bibliotecaDestino.nome}. O exemplar já está disponível lá.`,
+      );
+      setChegada(null);
+      carregar();
+    } catch (e) {
+      setErro((e as Error).message);
+      setChegada(null);
+    } finally {
+      setProcessando(false);
+    }
   }
 
-  if (carregando) return <Carregando texto="Carregando solicitações..." />;
+  async function criarAvulsa() {
+    if (!exemplarSel || !destinoId) return;
+    setProcessando(true);
+    setErro("");
+    setSucesso("");
+    try {
+      await api.post("/transferencias/avulsa", {
+        exemplarId: exemplarSel.id,
+        bibliotecaDestinoId: Number(destinoId),
+        adminId: ADMIN_LOGADO,
+        observacoes: obs.trim() || undefined,
+      });
+      setSucesso(
+        `Transferência avulsa criada: "${exemplarSel.livro.titulo}" (${exemplarSel.codigoBarras ?? `#${exemplarSel.id}`}) saiu da ${exemplarSel.biblioteca.nome} rumo à ${destinoSel?.nome}.`,
+      );
+      setConfirmandoAvulsa(false);
+      fecharAvulsa();
+      carregar();
+    } catch (e) {
+      setErro((e as Error).message);
+      setConfirmandoAvulsa(false);
+      carregarDadosAvulsa(); // o exemplar pode ter mudado de status
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  // ── Colunas da tabela de exemplares (avulsa) ──
+  const colunasExemplar: Coluna<Exemplar>[] = [
+    {
+      titulo: "Livro",
+      render: (e) => (
+        <div>
+          <p className="font-semibold text-[#2c3e50]">{e.livro.titulo}</p>
+          <p className="text-[12px] text-[#66707d]">{e.livro.autor}</p>
+        </div>
+      ),
+    },
+    { titulo: "Código", render: (e) => e.codigoBarras ?? `#${e.id}` },
+    { titulo: "Biblioteca atual", render: (e) => e.biblioteca.nome },
+    {
+      titulo: "Ação",
+      className: "text-right",
+      render: (e) =>
+        exemplarSel?.id === e.id ? (
+          <Badge tom="azul">Selecionado</Badge>
+        ) : (
+          <Botao
+            variante="secundario"
+            className="!px-3 !py-[6px] !text-[13px]"
+            onClick={() => {
+              setExemplarSel(e);
+              setDestinoId("");
+            }}
+          >
+            Selecionar
+          </Botao>
+        ),
+    },
+  ];
+
+  // ── Colunas do histórico ──
+  const colunasHistorico: Coluna<SolicitacaoTransferencia>[] = [
+    {
+      titulo: "Livro",
+      render: (s) => (
+        <div>
+          <p className="font-semibold text-[#2c3e50]">{s.livro.titulo}</p>
+          <p className="text-[12px] text-[#66707d]">{s.livro.autor}</p>
+        </div>
+      ),
+    },
+    { titulo: "Exemplar", render: (s) => rotuloExemplar(s) },
+    {
+      titulo: "Rota",
+      render: (s) => (
+        <span className="whitespace-nowrap">
+          {s.bibliotecaOrigem.nome} → {s.bibliotecaDestino.nome}
+        </span>
+      ),
+    },
+    {
+      titulo: "Origem do pedido",
+      render: (s) => (
+        <span className="text-[13px] text-[#66707d]">
+          {s.reserva ? `Reserva · ${s.solicitante.nome}` : "Avulsa · Admin"}
+        </span>
+      ),
+    },
+    {
+      titulo: "Status",
+      render: (s) => (
+        <BadgeTransferencia status={s.status} semExemplar={!s.exemplar} />
+      ),
+    },
+    {
+      titulo: "Data",
+      render: (s) => formatarData(s.dataConclusao ?? s.dataSolicitacao),
+    },
+    {
+      titulo: "Ação",
+      className: "text-right",
+      render: (s) =>
+        s.status === "EM_TRANSITO" ? (
+          <Botao
+            variante="primario"
+            className="!px-3 !py-[6px] !text-[13px]"
+            onClick={() => setChegada(s)}
+          >
+            Confirmar chegada
+          </Botao>
+        ) : (
+          <span className="text-[#9aa3ad]">—</span>
+        ),
+    },
+  ];
+
+  if (carregando && !resumo) {
+    return <Carregando texto="Carregando solicitações..." />;
+  }
 
   return (
     <>
       <Trilha
         itens={[
-          { rotulo: "Dashboard" },
+          { rotulo: "Dashboard", to: "/admin" },
           { rotulo: "Solicitações de Transferência" },
         ]}
+        voltarPara="/admin/transferencias"
       />
       <TituloPagina
         titulo="Solicitações de Transferência"
-        subtitulo="Administração da Rede · UC13/UC24 - Aprovar/rejeitar transferência de exemplares"
+        subtitulo="Administração da Rede · Aprovar pedidos, criar transferências avulsas e acompanhar o trânsito dos exemplares"
       />
 
       {erro && <Erro mensagem={erro} />}
@@ -117,11 +350,12 @@ export default function TransferenciasAdmin() {
       <DuasColunas
         esquerda={
           <>
+            {/* ───────── 1. Pendentes ───────── */}
             <SectionCard
-              titulo={`1. Solicitações pendentes de aprovação (${pendentes.length})`}
+              titulo={`1. Pedidos aguardando decisão (${pendentes.length})`}
             >
               {pendentes.length === 0 && (
-                <Vazio texto="Nenhuma solicitação aguardando decisão. O sistema continua monitorando a rede." />
+                <Vazio texto="Nenhum pedido aguardando decisão. Eles aparecem aqui quando um usuário entra na fila escolhendo retirar em outra biblioteca." />
               )}
 
               <div className="flex flex-col gap-3">
@@ -134,17 +368,23 @@ export default function TransferenciasAdmin() {
 
                     <div className="flex-1 min-w-[240px]">
                       <p className="text-[15px] font-semibold text-[#2c3e50]">
-                        {s.exemplar.livro.titulo} — {s.exemplar.livro.autor}
+                        {s.livro.titulo} — {s.livro.autor}
                       </p>
                       <p className="text-[13px] text-[#66707d] mt-1">
-                        {descreverSolicitante(s)}
+                        {descreverOrigemPedido(s)}
                       </p>
                       <p className="text-[13px] text-[#125ca8] mt-1">
                         🔁 {s.bibliotecaOrigem.nome} →{" "}
                         {s.bibliotecaDestino.nome}
                       </p>
+                      <p className="text-[13px] text-[#66707d] mt-1">
+                        📦 {rotuloExemplar(s)}
+                      </p>
                       <div className="mt-2">
-                        <BadgeTransferencia status={s.status} />
+                        <BadgeTransferencia
+                          status={s.status}
+                          semExemplar={!s.exemplar}
+                        />
                       </div>
                       {s.observacoes && (
                         <p className="mt-2 text-[12px] text-[#66707d] max-w-[60ch]">
@@ -157,14 +397,15 @@ export default function TransferenciasAdmin() {
                       <Botao
                         variante="verde"
                         onClick={() => setDecisao({ s, acao: "aprovar" })}
-                        disabled={processando === s.id}
                       >
                         ✅ Aprovar
                       </Botao>
                       <Botao
                         variante="perigo"
-                        onClick={() => setDecisao({ s, acao: "rejeitar" })}
-                        disabled={processando === s.id}
+                        onClick={() => {
+                          setMotivo("");
+                          setDecisao({ s, acao: "rejeitar" });
+                        }}
                       >
                         ❌ Rejeitar
                       </Botao>
@@ -174,81 +415,145 @@ export default function TransferenciasAdmin() {
               </div>
             </SectionCard>
 
-            <SectionCard titulo="2. Histórico recente de transferências">
-              {historico.length === 0 && (
-                <Vazio texto="Nenhuma transferência processada ainda." />
+            {/* ───────── 2. Avulsa ───────── */}
+            <SectionCard
+              titulo="2. Transferência avulsa"
+              acao={
+                avulsaAberta ? (
+                  <Botao
+                    variante="secundario"
+                    className="!px-3 !py-[6px] !text-[13px]"
+                    onClick={fecharAvulsa}
+                  >
+                    Fechar
+                  </Botao>
+                ) : (
+                  <Botao
+                    variante="primario"
+                    className="!px-3 !py-[6px] !text-[13px]"
+                    onClick={abrirAvulsa}
+                  >
+                    ➕ Nova transferência avulsa
+                  </Botao>
+                )
+              }
+            >
+              {!avulsaAberta && (
+                <p className="text-[14px] text-[#66707d]">
+                  Mova um exemplar disponível para qualquer biblioteca da rede,
+                  sem depender de uma reserva. Ela já nasce aprovada e o
+                  exemplar sai em trânsito imediatamente.
+                </p>
               )}
 
-              <div className="flex flex-col gap-3">
-                {historico.map((s) => (
-                  <div
-                    key={s.id}
-                    className="flex flex-wrap items-center gap-4 rounded-[10px] bg-[#f5f7fa] p-4"
-                  >
-                    <CapaLivro tamanho="sm" />
+              {avulsaAberta && (
+                <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-3">
+                    <Campo label="Passo 1 · Escolha o exemplar (somente disponíveis)">
+                      <Entrada
+                        placeholder="Buscar por título, autor, código ou biblioteca..."
+                        value={busca}
+                        onChange={(e) => setBusca(e.target.value)}
+                      />
+                    </Campo>
 
-                    <div className="flex-1 min-w-[240px]">
-                      <p className="text-[15px] font-semibold text-[#2c3e50]">
-                        {s.exemplar.livro.titulo} — {s.exemplar.livro.autor}
-                      </p>
-                      <p className="text-[13px] text-[#66707d] mt-1">
-                        Exemplar{" "}
-                        {s.exemplar.codigoBarras ?? `#${s.exemplar.id}`}
-                        {s.aprovador
-                          ? ` · Decidida por ${s.aprovador.nome}`
-                          : ""}
-                      </p>
-                      <p className="text-[13px] text-[#66707d] mt-1">
-                        De {s.bibliotecaOrigem.nome} →{" "}
-                        {s.bibliotecaDestino.nome}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2 w-[130px]">
-                      <BadgeTransferencia status={s.status} />
-                      <span className="text-[12px] text-[#66707d]">
-                        {formatarData(s.dataConclusao ?? s.dataSolicitacao)}
-                      </span>
-                      {(s.status === "EM_TRANSITO" ||
-                        s.status === "APROVADA") && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              await api.patch(
-                                `/transferencias/${s.id}/confirmar-chegada?responsavelId=${ADMIN_LOGADO}`,
-                              );
-                              setSucesso(
-                                `Chegada do exemplar confirmada em ${s.bibliotecaDestino.nome}.`,
-                              );
-                              carregar();
-                            } catch (e) {
-                              setErro((e as Error).message);
-                            }
-                          }}
-                          className="text-[12px] font-semibold text-[#1976d2] hover:underline"
-                        >
-                          Confirmar chegada
-                        </button>
-                      )}
-                    </div>
+                    {exemplares === null ? (
+                      <Carregando texto="Carregando exemplares..." />
+                    ) : (
+                      <div className="rounded-[10px] border border-[#e0e0e0] overflow-hidden">
+                        <TabelaPaginada
+                          key={busca}
+                          dados={exemplaresFiltrados}
+                          colunas={colunasExemplar}
+                          chave={(e) => e.id}
+                          porPagina={5}
+                          textoVazio="Nenhum exemplar disponível encontrado."
+                        />
+                      </div>
+                    )}
                   </div>
-                ))}
+
+                  {exemplarSel && (
+                    <div className="flex flex-col gap-4 rounded-[10px] bg-[#f5f7fa] p-4">
+                      <p className="text-[13px] text-[#66707d]">
+                        Selecionado:{" "}
+                        <strong className="text-[#2c3e50]">
+                          {exemplarSel.livro.titulo}
+                        </strong>{" "}
+                        ({exemplarSel.codigoBarras ?? `#${exemplarSel.id}`}) ·
+                        hoje na {exemplarSel.biblioteca.nome}
+                      </p>
+
+                      <Campo label="Passo 2 · Biblioteca de destino">
+                        <Selecao
+                          value={destinoId}
+                          onChange={(e) => setDestinoId(e.target.value)}
+                        >
+                          <option value="">Selecione a biblioteca...</option>
+                          {destinosPossiveis.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.nome}
+                            </option>
+                          ))}
+                        </Selecao>
+                      </Campo>
+
+                      <Campo label="Observações (opcional)">
+                        <AreaTexto
+                          placeholder="Ex.: reforço do acervo para o clube de leitura."
+                          value={obs}
+                          onChange={(e) => setObs(e.target.value)}
+                        />
+                      </Campo>
+
+                      <div className="flex justify-end">
+                        <Botao
+                          variante="primario"
+                          disabled={!destinoId}
+                          onClick={() => setConfirmandoAvulsa(true)}
+                        >
+                          🚚 Criar transferência
+                        </Botao>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </SectionCard>
+
+            {/* ───────── 3. Histórico ───────── */}
+            <SectionCard titulo="3. Acompanhamento e histórico">
+              <div className="rounded-[10px] border border-[#e0e0e0] overflow-hidden">
+                <TabelaPaginada
+                  dados={historico}
+                  colunas={colunasHistorico}
+                  chave={(s) => s.id}
+                  porPagina={8}
+                  textoVazio="Nenhuma transferência processada ainda."
+                />
               </div>
             </SectionCard>
           </>
         }
         direita={
           <>
-            <Callout tipo="info" titulo="Aprovação de transferências (RN04)">
-              Toda solicitação de transferência entre bibliotecas precisa ser
-              aprovada pelo Admin do sistema antes do envio. Apenas exemplares
-              com status DISPONÍVEL podem ser transferidos.
+            <Callout tipo="info" titulo="Como nasce uma transferência">
+              Só existem dois caminhos: (a) um usuário entra na fila de uma
+              biblioteca escolhendo retirar em outra, o que gera um pedido para
+              você decidir; ou (b) você cria uma transferência avulsa. Nenhum
+              outro perfil cria transferências.
             </Callout>
 
-            <Callout tipo="aviso" titulo="Fluxo de status do exemplar (RN05)">
-              Ao aprovar, o exemplar muda de DISPONÍVEL para EM_TRANSFERENCIA.
-              Ao confirmar a chegada, o status retorna para DISPONÍVEL na
-              biblioteca de destino.
+            <Callout tipo="aviso" titulo="Aprovada, aguardando exemplar">
+              Quando o pedido é aprovado antes de alguém devolver o livro, ele
+              fica aguardando. Assim que um exemplar for devolvido na biblioteca
+              da fila e o usuário for o 1º, o sistema vincula o exemplar e a
+              viagem começa sozinha.
+            </Callout>
+
+            <Callout tipo="sucesso" titulo="Se você rejeitar">
+              A reserva não é cancelada: o usuário continua na fila e a retirada
+              passa a ser na própria biblioteca da fila.
             </Callout>
 
             <CardResumo
@@ -264,9 +569,14 @@ export default function TransferenciasAdmin() {
               }
             >
               <LinhaResumo
-                rotulo="Pendentes"
+                rotulo="Pendentes de decisão"
                 valor={resumo?.pendentes ?? 0}
                 destaque="laranja"
+              />
+              <LinhaResumo
+                rotulo="Aprovadas, aguardando exemplar"
+                valor={resumo?.aguardandoExemplar ?? 0}
+                destaque="azul"
               />
               <LinhaResumo
                 rotulo="Em trânsito"
@@ -288,6 +598,7 @@ export default function TransferenciasAdmin() {
         }
       />
 
+      {/* ───────── Modal: aprovar / rejeitar pedido ───────── */}
       <ModalConfirmacao
         aberto={!!decisao}
         titulo={
@@ -297,27 +608,102 @@ export default function TransferenciasAdmin() {
         }
         confirmarRotulo={decisao?.acao === "aprovar" ? "Aprovar" : "Rejeitar"}
         tom={decisao?.acao === "aprovar" ? "verde" : "perigo"}
-        carregando={decisao !== null && processando === decisao.s.id}
-        onConfirmar={async () => {
-          if (!decisao) return;
-          await decidir(decisao.s.id, decisao.acao);
-          setDecisao(null);
-        }}
+        carregando={processando}
+        onConfirmar={decidir}
         onCancelar={() => setDecisao(null)}
       >
         {decisao && (
-          <ResumoModal
-            linhas={[
-              ["Livro", decisao.s.exemplar.livro.titulo],
-              [
-                "Exemplar",
-                decisao.s.exemplar.codigoBarras ?? `#${decisao.s.exemplar.id}`,
-              ],
-              ["De", decisao.s.bibliotecaOrigem.nome],
-              ["Para", decisao.s.bibliotecaDestino.nome],
-              ["Solicitante", decisao.s.solicitante.nome],
-            ]}
-          />
+          <>
+            <ResumoModal
+              linhas={[
+                ["Livro", decisao.s.livro.titulo],
+                ["Exemplar", rotuloExemplar(decisao.s)],
+                ["De", decisao.s.bibliotecaOrigem.nome],
+                ["Para", decisao.s.bibliotecaDestino.nome],
+                ["Solicitante", decisao.s.solicitante.nome],
+              ]}
+            />
+            {decisao.acao === "aprovar" ? (
+              <p>
+                {decisao.s.exemplar
+                  ? "Um exemplar já está separado para este pedido, então ele sairá imediatamente em trânsito."
+                  : "Ainda não há exemplar vinculado. O pedido ficará aprovado, aguardando a devolução de um exemplar na biblioteca de origem."}
+              </p>
+            ) : (
+              <>
+                <p>
+                  A reserva do usuário continua na fila, com retirada na{" "}
+                  <strong>{decisao.s.bibliotecaOrigem.nome}</strong>. Ele será
+                  avisado pela mudança de status e poderá cancelar se quiser.
+                </p>
+                <AreaTexto
+                  placeholder="Motivo da rejeição (opcional)"
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                />
+              </>
+            )}
+          </>
+        )}
+      </ModalConfirmacao>
+
+      {/* ───────── Modal: confirmar chegada ───────── */}
+      <ModalConfirmacao
+        aberto={!!chegada}
+        titulo="Confirmar chegada do exemplar?"
+        confirmarRotulo="Confirmar chegada"
+        tom="verde"
+        carregando={processando}
+        onConfirmar={confirmarChegada}
+        onCancelar={() => setChegada(null)}
+      >
+        {chegada && (
+          <>
+            <ResumoModal
+              linhas={[
+                ["Livro", chegada.livro.titulo],
+                ["Exemplar", rotuloExemplar(chegada)],
+                ["De", chegada.bibliotecaOrigem.nome],
+                ["Chegou em", chegada.bibliotecaDestino.nome],
+              ]}
+            />
+            <p>
+              {chegada.reserva
+                ? `O exemplar passa a pertencer à ${chegada.bibliotecaDestino.nome} e fica reservado para ${chegada.solicitante.nome}, que terá 3 dias para retirar.`
+                : `O exemplar passa a pertencer à ${chegada.bibliotecaDestino.nome} e fica disponível para empréstimo.`}
+            </p>
+          </>
+        )}
+      </ModalConfirmacao>
+
+      {/* ───────── Modal: criar avulsa ───────── */}
+      <ModalConfirmacao
+        aberto={confirmandoAvulsa}
+        titulo="Criar transferência avulsa?"
+        confirmarRotulo="Criar e despachar"
+        carregando={processando}
+        onConfirmar={criarAvulsa}
+        onCancelar={() => setConfirmandoAvulsa(false)}
+      >
+        {exemplarSel && destinoSel && (
+          <>
+            <ResumoModal
+              linhas={[
+                ["Livro", exemplarSel.livro.titulo],
+                [
+                  "Exemplar",
+                  exemplarSel.codigoBarras ?? `#${exemplarSel.id}`,
+                ],
+                ["De", exemplarSel.biblioteca.nome],
+                ["Para", destinoSel.nome],
+              ]}
+            />
+            <p>
+              A transferência já nasce aprovada e o exemplar sai em trânsito
+              agora. Alguém precisa confirmar a chegada na{" "}
+              <strong>{destinoSel.nome}</strong>.
+            </p>
+          </>
         )}
       </ModalConfirmacao>
     </>

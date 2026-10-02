@@ -94,16 +94,28 @@ export interface Reserva {
   livro: Livro;
   usuario: Usuario;
   /** Biblioteca onde o usuário está na fila (de onde o exemplar sai). */
-  bibliotecaFila?: Biblioteca | null;
+  bibliotecaFila: Biblioteca;
+  /** Biblioteca onde o usuário vai retirar (igual à da fila = sem transferência). */
   bibliotecaDestino: Biblioteca;
+  /** Exemplar separado quando o 1º da fila é atendido. */
+  exemplar?: Exemplar | null;
   dataReserva: string;
   dataExpiracao: string;
-  status: "PENDENTE" | "DISPONIVEL" | "RETIRADA" | "CANCELADA" | "EXPIRADA";
+  status:
+    | "PENDENTE"
+    | "AGUARDANDO_TRANSFERENCIA"
+    | "DISPONIVEL"
+    | "RETIRADA"
+    | "CANCELADA"
+    | "EXPIRADA";
 }
 
 export interface SolicitacaoTransferencia {
   id: number;
-  exemplar: Exemplar;
+  /** Título sempre disponível, mesmo sem exemplar vinculado. */
+  livro: Livro;
+  /** Nulo enquanto a transferência "aguarda exemplar". */
+  exemplar: Exemplar | null;
   bibliotecaOrigem: Biblioteca;
   bibliotecaDestino: Biblioteca;
   solicitante: Usuario;
@@ -119,9 +131,6 @@ export interface SolicitacaoTransferencia {
   dataSolicitacao: string;
   dataConclusao?: string | null;
   observacoes?: string;
-  livro: Livro;                 // NOVO: título sempre disponível
-  exemplar: Exemplar | null;    // agora pode ser nulo ("aguardando exemplar")
-  reserva?: Reserva | null;
 }
 
 /** Resposta de /api/emprestimos/situacao/{id} — alimenta os alertas da tela 4. */
@@ -135,4 +144,13 @@ export interface SituacaoUsuario {
   bloqueadoAte?: string | null;
   apto: boolean;
   motivo: string;
+}
+
+/** Resposta de GET /api/transferencias/resumo. */
+export interface ResumoTransferencias {
+  pendentes: number;
+  aguardandoExemplar: number;
+  emTransito: number;
+  concluidas: number;
+  rejeitadas: number;
 }

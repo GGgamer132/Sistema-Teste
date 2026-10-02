@@ -18,6 +18,8 @@ import CadastrarExemplar from "./pages/CadastrarExemplar";
 import TransferenciasAdmin from "./pages/TransferenciasAdmin";
 import EmConstrucao from "./pages/EmConstrucao";
 import EmprestimosBiblioteca from "./pages/EmprestimosBiblioteca";
+import MeusEmprestimos from "./pages/MeusEmprestimos";
+import MinhasReservas from "./pages/MinhasReservas";
 
 /** Ao trocar de perfil, cai na tela inicial daquele ator. */
 const TELA_INICIAL: Record<Perfil, string> = {
@@ -43,14 +45,8 @@ export default function App() {
         <Route path="/resultados" element={<ResultadosBusca />} />
         <Route path="/livro/:livroId" element={<DetalhesLivro />} />
         <Route path="/livro/:livroId/reservar" element={<ReservarLivro />} />
-        <Route
-          path="/meus-emprestimos"
-          element={<EmConstrucao titulo="Meus Empréstimos" />}
-        />
-        <Route
-          path="/minhas-reservas"
-          element={<EmConstrucao titulo="Minhas Reservas" />}
-        />
+        <Route path="/meus-emprestimos" element={<MeusEmprestimos />} />
+        <Route path="/minhas-reservas" element={<MinhasReservas />} />
         <Route
           path="/historico"
           element={<EmConstrucao titulo="Meu Histórico" />}
