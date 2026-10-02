@@ -2,6 +2,7 @@ package com.circulabook.controller;
 
 import com.circulabook.dto.ReservaRequestDTO;
 import com.circulabook.model.Reserva;
+import com.circulabook.service.FilaEsperaService;
 import com.circulabook.service.ReservaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,9 @@ public class ReservaController {
 
     @Autowired
     private ReservaService reservaService;
+
+    @Autowired
+    private FilaEsperaService filaEsperaService;
 
     @GetMapping
     public List<Reserva> obterTodas() {
@@ -30,22 +34,24 @@ public class ReservaController {
         }
     }
 
-    /** Tela 5 — mostra "você ocupará a posição N na fila". */
+    /** Tela de reserva — "você ocupará a posição N na fila" (por biblioteca). */
     @GetMapping("/posicao/{livroId}")
-    public ResponseEntity<?> posicaoNaFila(@PathVariable Long livroId) {
+    public ResponseEntity<?> posicaoNaFila(@PathVariable Long livroId,
+                                           @RequestParam(required = false) Long bibliotecaId) {
         try {
-            return ResponseEntity.ok(Map.of("posicao", reservaService.posicaoNaFila(livroId)));
+            return ResponseEntity.ok(Map.of("posicao", reservaService.posicaoNaFila(livroId, bibliotecaId)));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    /** Tela 5 — UC03 Fazer reserva (RN03). */
+    /** UC03 — Entrar na fila (e, se for o caso, pedir retirada em outra biblioteca). */
     @PostMapping
     public ResponseEntity<?> criar(@RequestBody ReservaRequestDTO req) {
         try {
             return ResponseEntity.ok(reservaService.criar(
-                req.getLivroId(), req.getUsuarioId(), req.getBibliotecaDestinoId()));
+                req.getLivroId(), req.getUsuarioId(),
+                req.getBibliotecaFilaId(), req.getBibliotecaDestinoId()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -59,5 +65,15 @@ public class ReservaController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    /**
+     * Dispara a verificação de retiradas vencidas na hora.
+     * Útil na demonstração (o prazo real é de 3 dias); em produção o agendador já faz isso a cada minuto.
+     */
+    @PostMapping("/expirar-vencidas")
+    public ResponseEntity<?> expirarVencidas() {
+        filaEsperaService.expirarVencidas();
+        return ResponseEntity.ok(Map.of("mensagem", "Verificação de reservas vencidas concluída."));
     }
 }

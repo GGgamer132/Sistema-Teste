@@ -30,6 +30,7 @@ public class EmprestimoService {
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private ReservaRepository reservaRepository;
     @Autowired private HistoricoService historicoService;
+    @Autowired private FilaEsperaService filaEsperaService;
 
     public List<Emprestimo> obterTodos() {
         return emprestimoRepository.findAll();
@@ -106,6 +107,19 @@ public class EmprestimoService {
             throw new RuntimeException("RN05: exemplar com status " + exemplar.getStatus()
                 + " não pode ser emprestado.");
         }
+     // Exemplar RESERVADO só sai para quem reservou, e só depois de liberado para retirada
+        Reserva reservaDoExemplar = null;
+        if ("RESERVADO".equals(exemplar.getStatus())) {
+            reservaDoExemplar = reservaRepository
+                .findFirstByExemplarAndStatus(exemplar, "DISPONIVEL")
+                .orElseThrow(() -> new RuntimeException(
+                    "RN05: este exemplar está separado para uma reserva e ainda não foi "
+                    + "liberado para retirada."));
+            if (!reservaDoExemplar.getUsuario().getId().equals(usuario.getId())) {
+                throw new RuntimeException("RN05: este exemplar está reservado para "
+                    + reservaDoExemplar.getUsuario().getNome() + ".");
+            }
+        }
 
         // RN12 — bloqueio por atraso anterior
         if (usuario.getBloqueadoAte() != null && usuario.getBloqueadoAte().isAfter(LocalDateTime.now())) {
@@ -144,6 +158,11 @@ public class EmprestimoService {
         // RN05 — atualiza o Blackboard: o exemplar passa a EMPRESTADO
         exemplar.setStatus("EMPRESTADO");
         exemplarRepository.save(exemplar);
+     // A reserva que originou este empréstimo foi retirada
+        if (reservaDoExemplar != null) {
+            reservaDoExemplar.setStatus("RETIRADA");
+            reservaRepository.save(reservaDoExemplar);
+        }
 
         // RN06 — registra no histórico de circulação
         historicoService.registrar(exemplar, "EMPRESTIMO", usuario, exemplar.getBiblioteca(),
@@ -214,37 +233,13 @@ public class EmprestimoService {
                 diasAtraso > 0
                     ? "Devolução com " + diasAtraso + " dia(s) de atraso."
                     : "Devolução dentro do prazo.");
-            notificarProximoDaFila(exemplar);
+            filaEsperaService.promoverProximo(exemplar);
         }
         exemplarRepository.save(exemplar);
 
         return emprestimo;
     }
 
-    /**
-     * RN03 — quando um exemplar volta para o acervo, o primeiro da fila
-     * de espera daquele título é promovido e ganha 3 dias para retirar.
-     */
-    private void notificarProximoDaFila(Exemplar exemplar) {
-        List<Reserva> fila = reservaRepository
-            .findByLivroAndStatusOrderByDataReservaAsc(exemplar.getLivro(), "PENDENTE");
-        if (fila.isEmpty()) return;
-
-        Reserva proxima = fila.get(0);
-        proxima.setStatus("DISPONIVEL");
-        proxima.setDataExpiracao(LocalDateTime.now().plusDays(3));
-        reservaRepository.save(proxima);
-
-        exemplar.setStatus("RESERVADO");
-
-        historicoService.registrar(exemplar, "RESERVA", proxima.getUsuario(),
-            exemplar.getBiblioteca(),
-            "Exemplar reservado para " + proxima.getUsuario().getNome()
-            + " (1º da fila). Prazo de retirada: 3 dias (RN03).");
-
-        System.out.println("[CIRCULA BOOK] Fila de espera: " + proxima.getUsuario().getNome()
-            + " foi notificado sobre \"" + exemplar.getLivro().getTitulo() + "\".");
-    }
 
     public long calcularDiasAtraso(LocalDateTime previsto, LocalDateTime efetivo) {
         if (previsto == null || efetivo == null || !efetivo.isAfter(previsto)) return 0;

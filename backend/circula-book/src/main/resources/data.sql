@@ -61,11 +61,11 @@ INSERT INTO exemplar (id, livro_id, biblioteca_id, codigo_barras, status, estado
 (7,  2, 4, 'EX-00590', 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
 (8,  2, 3, 'EX-00591', 'EMPRESTADO',       'USADO',CURRENT_TIMESTAMP),
 -- Quincas Borba
-(9,  3, 6, 'EX-00812', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
+(9,  3, 6, 'EX-00812', 'EM_TRANSFERENCIA', 'BOM',  CURRENT_TIMESTAMP),
 (10, 3, 5, 'EX-00813', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
 -- O Alienista
 (11, 4, 5, 'EX-00733', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
-(12, 4, 4, 'EX-00734', 'EM_TRANSFERENCIA', 'BOM',  CURRENT_TIMESTAMP),
+(12, 4, 4, 'EX-00734', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
 -- Iracema: exemplar unico na rede -> RN11 deixa INDISPONIVEL
 (13, 5, 1, 'EX-01045', 'INDISPONIVEL',     'NOVO', CURRENT_TIMESTAMP),
 -- A Moreninha
@@ -84,29 +84,33 @@ INSERT INTO emprestimo (id, exemplar_id, usuario_id, biblioteca_id, data_emprest
 (7, 3,  8, 2, CURRENT_TIMESTAMP - INTERVAL '90 days', CURRENT_TIMESTAMP - INTERVAL '76 days', CURRENT_TIMESTAMP - INTERVAL '80 days', 'DEVOLVIDO');
 
 -- ─── Reservas (fila de espera de Memorias Postumas) ───
-INSERT INTO reserva (id, livro_id, usuario_id, biblioteca_destino_id, data_reserva, data_expiracao, status) VALUES
-(1, 2, 7,  1, CURRENT_TIMESTAMP - INTERVAL '4 days',  CURRENT_TIMESTAMP + INTERVAL '3 days',  'PENDENTE'),
-(2, 2, 8,  1, CURRENT_TIMESTAMP - INTERVAL '3 days',  CURRENT_TIMESTAMP + INTERVAL '3 days',  'PENDENTE'),
-(3, 2, 9,  1, CURRENT_TIMESTAMP - INTERVAL '1 days',  CURRENT_TIMESTAMP + INTERVAL '3 days',  'PENDENTE'),
-(4, 1, 8,  2, CURRENT_TIMESTAMP - INTERVAL '30 days', CURRENT_TIMESTAMP - INTERVAL '25 days', 'RETIRADA'),
-(5, 6, 9,  3, CURRENT_TIMESTAMP - INTERVAL '15 days', CURRENT_TIMESTAMP - INTERVAL '10 days', 'CANCELADA');
+-- Memorias Postumas: exemplares 6 e 7 na Centro (4) e 8 na Meier (3), todos emprestados.
+-- R1 e R2: fila na Centro, mas retirada em OUTRA biblioteca (geram pedido de transferencia).
+-- R3: fila na Meier com retirada na propria Meier (reserva comum).
+INSERT INTO reserva (id, livro_id, usuario_id, biblioteca_fila_id, biblioteca_destino_id, exemplar_id, data_reserva, data_expiracao, status) VALUES
+(1, 2, 7, 4, 1, NULL, CURRENT_TIMESTAMP - INTERVAL '4 days',  CURRENT_TIMESTAMP + INTERVAL '3 days',  'PENDENTE'),
+(2, 2, 8, 4, 2, NULL, CURRENT_TIMESTAMP - INTERVAL '3 days',  CURRENT_TIMESTAMP + INTERVAL '3 days',  'PENDENTE'),
+(3, 2, 9, 3, 3, NULL, CURRENT_TIMESTAMP - INTERVAL '1 days',  CURRENT_TIMESTAMP + INTERVAL '3 days',  'PENDENTE'),
+(4, 1, 8, 2, 2, NULL, CURRENT_TIMESTAMP - INTERVAL '30 days', CURRENT_TIMESTAMP - INTERVAL '25 days', 'RETIRADA'),
+(5, 6, 9, 3, 1, NULL, CURRENT_TIMESTAMP - INTERVAL '15 days', CURRENT_TIMESTAMP - INTERVAL '10 days', 'CANCELADA');
 
--- ─── Solicitacoes de transferencia (Tela 8) ───
+-- ─── Solicitacoes de transferencia ───
+-- 1: pedido da reserva 1, ainda sem exemplar, aguardando decisao do Admin
+-- 2: pedido da reserva 2, JA APROVADO, aguardando o exemplar ser devolvido na Centro
+-- 3: avulsa do Admin em transito | 4: avulsa concluida | 5: pedido cancelado (reserva 5 cancelada)
 INSERT INTO solicitacao_transferencia
- (id, exemplar_id, biblioteca_origem_id, biblioteca_destino_id, solicitante_id, aprovador_id, reserva_id, status, data_solicitacao, data_conclusao, observacoes) VALUES
-(1, 3,  2, 1, 2, NULL, NULL, 'PENDENTE', CURRENT_TIMESTAMP - INTERVAL '2 days', NULL,
-   'Solicitado pelo bibliotecario da Vila Isabel para atender reserva ativa.'),
-(2, 4,  4, 3, 6, NULL, NULL, 'PENDENTE', CURRENT_TIMESTAMP - INTERVAL '1 days', NULL,
-   'Solicitado pela propria usuaria Ana Souza (RN13) — exemplar disponivel na Centro.'),
-(3, 14, 3, 2, 4, NULL, NULL, 'PENDENTE', CURRENT_TIMESTAMP - INTERVAL '6 hours', NULL,
-   'Solicitado pelo bibliotecario da Tijuca para reposicao do acervo local.'),
-(4, 9,  6, 5, 5, 1,    NULL, 'EM_TRANSITO', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL,
-   'Aprovada pelo Admin; exemplar ja foi despachado da Biblioteca Sul.'),
-(5, 11, 5, 4, 3, 1,    NULL, 'CONCLUIDA', CURRENT_TIMESTAMP - INTERVAL '10 days', CURRENT_TIMESTAMP - INTERVAL '7 days',
-   'Transferencia concluida — exemplar confirmado na chegada a Biblioteca Centro.'),
-(6, 12, 4, 2, 6, 1,    NULL, 'REJEITADA', CURRENT_TIMESTAMP - INTERVAL '9 days', CURRENT_TIMESTAMP - INTERVAL '8 days',
-   'Rejeitada pelo Admin: exemplar com reserva ativa na origem.');
-
+ (id, livro_id, exemplar_id, biblioteca_origem_id, biblioteca_destino_id, solicitante_id, aprovador_id, reserva_id, status, data_solicitacao, data_conclusao, observacoes) VALUES
+(1, 2, NULL, 4, 1, 7, NULL, 1, 'PENDENTE',    CURRENT_TIMESTAMP - INTERVAL '2 days', NULL,
+   'Pedido gerado pela reserva de Bruno Alves: fila na Biblioteca Centro, retirada na Biblioteca Vila Isabel. O exemplar sera vinculado quando for devolvido.'),
+(2, 2, NULL, 4, 2, 8, 1,    2, 'APROVADA',    CURRENT_TIMESTAMP - INTERVAL '1 days', NULL,
+   'Aprovada pelo Admin; aguardando exemplar ser devolvido na Biblioteca Centro.'),
+(3, 3, 9,    6, 5, 1, 1,    NULL, 'EM_TRANSITO', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL,
+   'Transferencia avulsa criada pelo Admin; exemplar ja foi despachado da Biblioteca Sul.'),
+(4, 4, 11,   5, 4, 1, 1,    NULL, 'CONCLUIDA', CURRENT_TIMESTAMP - INTERVAL '10 days', CURRENT_TIMESTAMP - INTERVAL '7 days',
+   'Transferencia avulsa concluida — exemplar confirmado na chegada a Biblioteca Centro.'),
+(5, 6, NULL, 3, 1, 9, NULL, 5, 'CANCELADA',   CURRENT_TIMESTAMP - INTERVAL '15 days', CURRENT_TIMESTAMP - INTERVAL '10 days',
+   'Cancelada: o usuario cancelou a reserva.');
+   
 -- ─── Historico de circulacao ───
 INSERT INTO historico_circulacao (id, exemplar_id, evento, usuario_id, biblioteca_id, data_evento, observacoes) VALUES
 (1, 1,  'CADASTRO',              2, 1, CURRENT_TIMESTAMP - INTERVAL '400 days', 'Exemplar cadastrado no acervo inicial.'),

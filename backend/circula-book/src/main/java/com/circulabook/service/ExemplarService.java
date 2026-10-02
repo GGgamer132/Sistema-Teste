@@ -21,6 +21,7 @@ public class ExemplarService {
     @Autowired private CategoriaRepository categoriaRepository;
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private HistoricoService historicoService;
+    @Autowired private FilaEsperaService filaEsperaService;
 
     public List<Exemplar> obterTodos() {
         return exemplarRepository.findAll();
@@ -95,7 +96,8 @@ public class ExemplarService {
         historicoService.registrar(exemplar, "CADASTRO", bibliotecario, biblioteca,
             "Exemplar cadastrado com status inicial " + statusInicial
             + (jaExistentes == 0 ? " (RN11: único exemplar do título na rede)." : "."));
-
+        // Se a biblioteca já tem fila para este título, o novo exemplar atende o 1º da fila
+        filaEsperaService.promoverProximo(exemplar);
         // Se este é o segundo exemplar, o primeiro deixa de ser "único" e é liberado
         if (jaExistentes == 1) {
             liberarExemplarUnico(livro, bibliotecario);
@@ -115,6 +117,7 @@ public class ExemplarService {
             exemplarRepository.save(e);
             historicoService.registrar(e, "CADASTRO", responsavel, e.getBiblioteca(),
                 "Liberado para empréstimo: o título deixou de ter exemplar único na rede (RN11).");
+            filaEsperaService.promoverProximo(e);
         }
     }
 

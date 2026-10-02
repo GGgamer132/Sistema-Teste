@@ -7,9 +7,14 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Equivalente da SUGESTAO_REPOSICAO do sistema-estoque-blackboard.
- * O solicitante pode ser um usuário COMUM (RN13) ou um BIBLIOTECARIO;
- * a aprovação é sempre feita por um ADMIN (RN04).
+ * Pedido de transferência de exemplar entre bibliotecas.
+ *
+ * Só nasce de duas formas:
+ *  (a) a partir de uma RESERVA com retirada em outra biblioteca
+ *      -> nasce PENDENTE e SEM exemplar (ele é vinculado quando for devolvido);
+ *  (b) avulsa, criada pelo ADMIN -> nasce aprovada e já com exemplar.
+ *
+ * APROVADA com exemplar == null significa "aprovada, aguardando exemplar".
  */
 @Data
 @NoArgsConstructor
@@ -23,7 +28,12 @@ public class SolicitacaoTransferencia {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "exemplar_id", nullable = false)
+    @JoinColumn(name = "livro_id", nullable = false)
+    private Livro livro;
+
+    // Nulo enquanto o pedido aguarda a devolução de um exemplar na origem
+    @ManyToOne
+    @JoinColumn(name = "exemplar_id")
     private Exemplar exemplar;
 
     @ManyToOne

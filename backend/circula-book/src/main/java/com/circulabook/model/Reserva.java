@@ -7,8 +7,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * O usuário reserva um TÍTULO (não um exemplar específico)
- * para retirada em uma biblioteca de sua preferência.
+ * Reserva = entrada na fila de espera de UMA biblioteca.
+ *
+ * bibliotecaFila    -> onde o usuário está na fila (de onde o exemplar sai)
+ * bibliotecaDestino -> onde o usuário vai RETIRAR o exemplar.
+ *                      Se for igual à da fila, não há transferência.
  */
 @Data
 @NoArgsConstructor
@@ -30,8 +33,17 @@ public class Reserva {
     private Usuario usuario;
 
     @ManyToOne
+    @JoinColumn(name = "biblioteca_fila_id", nullable = false)
+    private Biblioteca bibliotecaFila;
+
+    @ManyToOne
     @JoinColumn(name = "biblioteca_destino_id", nullable = false)
     private Biblioteca bibliotecaDestino;
+
+    // Exemplar separado para esta reserva (preenchido quando o 1º da fila é atendido)
+    @ManyToOne
+    @JoinColumn(name = "exemplar_id")
+    private Exemplar exemplar;
 
     @Column
     private LocalDateTime dataReserva;
@@ -39,7 +51,7 @@ public class Reserva {
     @Column(nullable = false)
     private LocalDateTime dataExpiracao;
 
-    // PENDENTE | DISPONIVEL | RETIRADA | CANCELADA | EXPIRADA
+    // PENDENTE | AGUARDANDO_TRANSFERENCIA | DISPONIVEL | RETIRADA | CANCELADA | EXPIRADA
     @Column(nullable = false, length = 30)
     private String status;
 

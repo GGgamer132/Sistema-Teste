@@ -1,6 +1,6 @@
 package com.circulabook.controller;
 
-import com.circulabook.dto.TransferenciaRequestDTO;
+import com.circulabook.dto.TransferenciaAvulsaRequestDTO;
 import com.circulabook.model.SolicitacaoTransferencia;
 import com.circulabook.service.TransferenciaService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,42 +21,43 @@ public class TransferenciaController {
         return transferenciaService.obterTodas();
     }
 
-    /** Tela 8 — card 1: solicitações aguardando decisão do Admin. */
+    /** Pedidos aguardando decisão do Admin. */
     @GetMapping("/pendentes")
     public List<SolicitacaoTransferencia> obterPendentes() {
         return transferenciaService.obterPendentes();
     }
 
-    /** Tela 8 — card 2: histórico recente. */
+    /** Histórico (aprovadas aguardando exemplar, em trânsito, concluídas, rejeitadas, canceladas). */
     @GetMapping("/historico")
     public List<SolicitacaoTransferencia> obterHistorico() {
         return transferenciaService.obterHistorico();
     }
 
-    /** Tela 8 — card lateral com os contadores. */
+    /** Contadores do painel do Admin. */
     @GetMapping("/resumo")
     public Map<String, Long> obterResumo() {
         return Map.of(
             "pendentes",  transferenciaService.contarPorStatus("PENDENTE"),
+            "aguardandoExemplar", transferenciaService.contarPorStatus("APROVADA"),
             "emTransito", transferenciaService.contarPorStatus("EM_TRANSITO"),
             "concluidas", transferenciaService.contarPorStatus("CONCLUIDA"),
             "rejeitadas", transferenciaService.contarPorStatus("REJEITADA")
         );
     }
 
-    /** UC04 — Solicitar transferência (RN13: usuário comum também pode). */
-    @PostMapping
-    public ResponseEntity<?> solicitar(@RequestBody TransferenciaRequestDTO req) {
+    /** Transferência avulsa do Admin: nasce aprovada e sem restrição de destino. */
+    @PostMapping("/avulsa")
+    public ResponseEntity<?> criarAvulsa(@RequestBody TransferenciaAvulsaRequestDTO req) {
         try {
-            return ResponseEntity.ok(transferenciaService.solicitar(
+            return ResponseEntity.ok(transferenciaService.criarAvulsa(
                 req.getExemplarId(), req.getBibliotecaDestinoId(),
-                req.getSolicitanteId(), req.getReservaId(), req.getObservacoes()));
+                req.getAdminId(), req.getObservacoes()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    /** UC13/UC24 — Aprovar (somente ADMIN, RN04). */
+    /** Aprovar (somente ADMIN, RN04). */
     @PatchMapping("/{id}/aprovar")
     public ResponseEntity<?> aprovar(@PathVariable Long id, @RequestParam Long adminId) {
         try {
@@ -66,7 +67,7 @@ public class TransferenciaController {
         }
     }
 
-    /** UC13/UC24 — Rejeitar (somente ADMIN, RN04). */
+    /** Rejeitar (somente ADMIN, RN04). */
     @PatchMapping("/{id}/rejeitar")
     public ResponseEntity<?> rejeitar(@PathVariable Long id,
                                       @RequestParam Long adminId,
@@ -78,7 +79,7 @@ public class TransferenciaController {
         }
     }
 
-    /** UC15 — Confirmar chegada do exemplar no destino (RN05). */
+    /** Confirmar chegada do exemplar no destino (só transferências EM_TRANSITO). */
     @PatchMapping("/{id}/confirmar-chegada")
     public ResponseEntity<?> confirmarChegada(@PathVariable Long id,
                                               @RequestParam Long responsavelId) {

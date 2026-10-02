@@ -119,6 +119,9 @@ export interface SolicitacaoTransferencia {
   dataSolicitacao: string;
   dataConclusao?: string | null;
   observacoes?: string;
+  livro: Livro;                 // NOVO: título sempre disponível
+  exemplar: Exemplar | null;    // agora pode ser nulo ("aguardando exemplar")
+  reserva?: Reserva | null;
 }
 
 /** Resposta de /api/emprestimos/situacao/{id} — alimenta os alertas da tela 4. */
