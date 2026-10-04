@@ -55,6 +55,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/livros/**", "/api/categorias/**",
                                  "/api/bibliotecas/**").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.POST, "/api/exemplares/**").hasRole(BIBLIOTECARIO)
+                .requestMatchers(HttpMethod.PATCH, "/api/exemplares/*/indisponivel",
+                                 "/api/exemplares/*/reativar").hasRole(BIBLIOTECARIO)
 
                 // Reservas: criar/cancelar/ver as próprias é do usuário comum
                 .requestMatchers(HttpMethod.GET, "/api/reservas/posicao/**").authenticated()
