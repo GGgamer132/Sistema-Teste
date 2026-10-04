@@ -47,7 +47,7 @@ export default function TransferenciasBiblioteca() {
     ])
       .then(([r, s]) => {
         setAReceber(r);
-        setSaindo(s);
+        setSaindo([...s].sort((a, b) => b.id - a.id)); // mais recentes primeiro
       })
       .catch((e) => setErro(e.message));
   }
