@@ -2,6 +2,7 @@ package com.circulabook.service;
 
 import com.circulabook.dto.CadastroExemplarDTO;
 import com.circulabook.model.*;
+import static com.circulabook.model.StatusExemplar.*;
 import com.circulabook.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,9 @@ public class ExemplarService {
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private HistoricoService historicoService;
     @Autowired private FilaEsperaService filaEsperaService;
+    @Autowired private EstadoExemplarService estadoExemplar;
+    @Autowired private ReservaRepository reservaRepository;
+    @Autowired private SolicitacaoTransferenciaRepository transferenciaRepository;
 
     public List<Exemplar> obterTodos() {
         return exemplarRepository.findAll();
@@ -44,7 +48,7 @@ public class ExemplarService {
      *
      * RN10: exige o ID do bibliotecário responsável e valida que ele pertence
      *       à biblioteca onde o exemplar será cadastrado.
-     * Todo exemplar nasce DISPONIVEL; se a biblioteca tem fila do título, atende o 1º.
+     * T15: nasce DISPONIVEL ou, se a biblioteca tem fila do título, RESERVADO para o 1º.
      */
     @Transactional
     public Exemplar cadastrar(CadastroExemplarDTO dto, Long bibliotecarioId) {
@@ -69,25 +73,92 @@ public class ExemplarService {
 
         Livro livro = resolverLivro(dto);
 
-        String statusInicial = "DISPONIVEL";
-
         Exemplar exemplar = new Exemplar();
         exemplar.setLivro(livro);
         exemplar.setBiblioteca(biblioteca);
         exemplar.setEstadoConservacao(
             dto.getEstadoConservacao() != null ? dto.getEstadoConservacao() : "NOVO");
-        exemplar.setStatus(statusInicial);
-        exemplarRepository.save(exemplar);
+
+        // T15: a fila define o status inicial (o exemplar é salvo pela máquina de estados)
+        filaEsperaService.liberar(exemplar);
+        String statusInicial = exemplar.getStatus();
 
         historicoService.registrar(exemplar, "CADASTRO", bibliotecario, biblioteca,
             "Exemplar cadastrado com status inicial " + statusInicial + ".");
-        // Se a biblioteca já tem fila para este título, o novo exemplar atende o 1º da fila
-        filaEsperaService.promoverProximo(exemplar);
 
         System.out.println("[CIRCULA BOOK] Exemplar cadastrado: " + livro.getTitulo()
             + " | Biblioteca: " + biblioteca.getNome() + " | Status: " + statusInicial);
 
         return exemplar;
+    }
+
+    /**
+     * T13 pelo bibliotecário (§4.4): só a partir de DISPONIVEL ou RESERVADO.
+     * Emprestado sai de circulação pela devolução DANIFICADO; em transferência, na chegada.
+     * RESERVADO: a reserva volta a PENDENTE com a data original (mesma posição na fila)
+     * e o pedido de transferência vinculado volta a ficar sem exemplar.
+     */
+    @Transactional
+    public Exemplar marcarIndisponivel(Long exemplarId, Long responsavelId, String motivo) {
+        Exemplar exemplar = buscar(exemplarId);
+        Usuario responsavel = usuarioRepository.findById(responsavelId)
+            .orElseThrow(() -> new RuntimeException("Usuário não encontrado: ID " + responsavelId));
+
+        String origem = exemplar.getStatus();
+        if (!DISPONIVEL.equals(origem) && !RESERVADO.equals(origem)) {
+            throw new RuntimeException("Só é possível marcar como indisponível um exemplar disponível "
+                + "ou reservado. O Exemplar nº " + exemplar.getId() + " está "
+                + StatusExemplar.rotulo(origem).toLowerCase() + ".");
+        }
+
+        Reserva afetada = RESERVADO.equals(origem)
+            ? reservaRepository.findFirstByExemplarAndStatusIn(exemplar,
+                  List.of("DISPONIVEL", "AGUARDANDO_TRANSFERENCIA")).orElse(null)
+            : null;
+
+        estadoExemplar.mudarStatus(exemplar, INDISPONIVEL);
+
+        String obs = "Marcado como indisponível"
+            + (motivo != null && !motivo.isBlank() ? ": " + motivo.trim() : ".");
+        if (afetada != null) {
+            afetada.setStatus("PENDENTE"); // dataReserva intacta: mantém a posição
+            afetada.setExemplar(null);
+            reservaRepository.save(afetada);
+            for (SolicitacaoTransferencia p : transferenciaRepository
+                    .findByReservaAndStatusIn(afetada, List.of("PENDENTE", "APROVADA"))) {
+                p.setExemplar(null);
+                transferenciaRepository.save(p);
+            }
+            obs += " A reserva de " + afetada.getUsuario().getNome() + " voltou para a fila.";
+            estadoExemplar.sincronizarMarcaDeFila(afetada.getLivro(), afetada.getBibliotecaFila());
+        }
+        estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());
+
+        historicoService.registrar(exemplar, "BAIXA", responsavel, exemplar.getBiblioteca(), obs);
+        return exemplar;
+    }
+
+    /** T14/T14b: reativa um exemplar INDISPONIVEL; havendo fila do título, já atende o 1º. */
+    @Transactional
+    public Exemplar reativar(Long exemplarId, Long responsavelId) {
+        Exemplar exemplar = buscar(exemplarId);
+        Usuario responsavel = usuarioRepository.findById(responsavelId)
+            .orElseThrow(() -> new RuntimeException("Usuário não encontrado: ID " + responsavelId));
+
+        if (!INDISPONIVEL.equals(exemplar.getStatus())) {
+            throw new RuntimeException("Só um exemplar indisponível pode ser reativado. O Exemplar nº "
+                + exemplar.getId() + " está " + StatusExemplar.rotulo(exemplar.getStatus()).toLowerCase() + ".");
+        }
+
+        filaEsperaService.liberar(exemplar);
+        historicoService.registrar(exemplar, "REATIVACAO", responsavel, exemplar.getBiblioteca(),
+            "Exemplar reativado: agora " + StatusExemplar.rotulo(exemplar.getStatus()).toLowerCase() + ".");
+        return exemplar;
+    }
+
+    public Exemplar buscar(Long exemplarId) {
+        return exemplarRepository.findById(exemplarId)
+            .orElseThrow(() -> new RuntimeException("Exemplar não encontrado: nº " + exemplarId));
     }
 
     private Livro resolverLivro(CadastroExemplarDTO dto) {

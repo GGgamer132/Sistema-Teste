@@ -29,6 +29,7 @@ public class ReservaService {
     @Autowired private ExemplarRepository exemplarRepository;
     @Autowired private TransferenciaService transferenciaService;
     @Autowired private FilaEsperaService filaEsperaService;
+    @Autowired private EstadoExemplarService estadoExemplar;
 
     public List<Reserva> obterTodas() {
         return reservaRepository.findAll();
@@ -143,6 +144,8 @@ public class ReservaService {
         reserva.setDataExpiracao(LocalDateTime.now().plusDays(FilaEsperaService.DIAS_PARA_RETIRADA));
         reserva.setStatus("PENDENTE");
         reservaRepository.save(reserva);
+        // T3: com a fila, os emprestados do título nesta biblioteca viram EMPRESTADO_RESERVADO
+        estadoExemplar.sincronizarMarcaDeFila(livro, fila);
 
         // ── Regra 3: a transferência é consequência da reserva ──
         if (comTransferencia) {
@@ -180,9 +183,11 @@ public class ReservaService {
         transferenciaService.cancelarPorReserva(reserva);
 
         Exemplar exemplar = reserva.getExemplar();
-        if (exemplar != null && "RESERVADO".equals(exemplar.getStatus())) {
-            filaEsperaService.liberarExemplar(exemplar);
+        if (exemplar != null && StatusExemplar.RESERVADO.equals(exemplar.getStatus())) {
+            filaEsperaService.liberar(exemplar); // T7 (fila vazia) ou T7b (reatribui ao próximo)
         }
+        // T12: se a fila esvaziou, os emprestados voltam a EMPRESTADO
+        estadoExemplar.sincronizarMarcaDeFila(reserva.getLivro(), reserva.getBibliotecaFila());
         return reserva;
     }
 }

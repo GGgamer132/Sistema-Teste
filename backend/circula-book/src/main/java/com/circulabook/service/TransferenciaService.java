@@ -30,6 +30,7 @@ public class TransferenciaService {
     @Autowired private ReservaRepository reservaRepository;
     @Autowired private HistoricoService historicoService;
     @Autowired private FilaEsperaService filaEsperaService;
+    @Autowired private EstadoExemplarService estadoExemplar;
 
     public List<SolicitacaoTransferencia> obterTodas() {
         return transferenciaRepository.findAll();
@@ -232,13 +233,10 @@ public class TransferenciaService {
 
         Reserva reserva = s.getReserva();
         if (reserva != null && "AGUARDANDO_TRANSFERENCIA".equals(reserva.getStatus())) {
-            exemplar.setStatus("RESERVADO");
-            exemplarRepository.save(exemplar);
+            estadoExemplar.mudarStatus(exemplar, StatusExemplar.RESERVADO); // T10
             filaEsperaService.liberarParaRetirada(reserva, exemplar);
         } else {
-            exemplar.setStatus("DISPONIVEL");
-            exemplarRepository.save(exemplar);
-            filaEsperaService.promoverProximo(exemplar);
+            filaEsperaService.liberar(exemplar); // T11, ou T10 para o 1º da fila do destino
         }
 
         System.out.println("[BLACKBOARD] Transferência #" + id + " concluída. Exemplar agora em "

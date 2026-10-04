@@ -34,4 +34,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
     // Reserva ligada a um exemplar (usada ao registrar o empréstimo)
     Optional<Reserva> findFirstByExemplarAndStatus(Exemplar exemplar, String status);
+
+    // Reserva à qual um exemplar RESERVADO está vinculado
+    Optional<Reserva> findFirstByExemplarAndStatusIn(Exemplar exemplar, List<String> status);
 }

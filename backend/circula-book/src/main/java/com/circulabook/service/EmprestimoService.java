@@ -2,6 +2,7 @@ package com.circulabook.service;
 
 import com.circulabook.dto.SituacaoUsuarioDTO;
 import com.circulabook.model.*;
+import static com.circulabook.model.StatusExemplar.*;
 import com.circulabook.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class EmprestimoService {
     @Autowired private ReservaRepository reservaRepository;
     @Autowired private HistoricoService historicoService;
     @Autowired private FilaEsperaService filaEsperaService;
+    @Autowired private EstadoExemplarService estadoExemplar;
 
     public List<Emprestimo> obterTodos() {
         return emprestimoRepository.findAll();
@@ -102,14 +104,14 @@ public class EmprestimoService {
             throw new RuntimeException("Usuário inativo não pode realizar empréstimos.");
         }
 
-        // RN05 — só exemplar DISPONIVEL ou RESERVADO (para quem reservou) pode sair
-        if (!"DISPONIVEL".equals(exemplar.getStatus()) && !"RESERVADO".equals(exemplar.getStatus())) {
-            throw new RuntimeException("Exemplar com status " + exemplar.getStatus()
-                + " não pode ser emprestado.");
+        // §4.3 — só exemplar DISPONIVEL (T1) ou RESERVADO para quem reservou (T5/T6) pode sair
+        if (!DISPONIVEL.equals(exemplar.getStatus()) && !RESERVADO.equals(exemplar.getStatus())) {
+            throw new RuntimeException("O Exemplar nº " + exemplar.getId() + " não pode ser emprestado: está "
+                + StatusExemplar.rotulo(exemplar.getStatus()).toLowerCase() + ".");
         }
      // Exemplar RESERVADO só sai para quem reservou, e só depois de liberado para retirada
         Reserva reservaDoExemplar = null;
-        if ("RESERVADO".equals(exemplar.getStatus())) {
+        if (RESERVADO.equals(exemplar.getStatus())) {
             reservaDoExemplar = reservaRepository
                 .findFirstByExemplarAndStatus(exemplar, "DISPONIVEL")
                 .orElseThrow(() -> new RuntimeException(
@@ -153,14 +155,17 @@ public class EmprestimoService {
         emprestimo.setStatus("ATIVO");
         emprestimoRepository.save(emprestimo);
 
-        // RN05 — atualiza o Blackboard: o exemplar passa a EMPRESTADO
-        exemplar.setStatus("EMPRESTADO");
-        exemplarRepository.save(exemplar);
-     // A reserva que originou este empréstimo foi retirada
+        // A reserva que originou este empréstimo foi retirada
         if (reservaDoExemplar != null) {
             reservaDoExemplar.setStatus("RETIRADA");
             reservaRepository.save(reservaDoExemplar);
+            // T5 (ainda há fila) ou T6 (fila vazia)
+            boolean fila = estadoExemplar.temFila(exemplar.getLivro(), exemplar.getBiblioteca());
+            estadoExemplar.mudarStatus(exemplar, fila ? EMPRESTADO_RESERVADO : EMPRESTADO);
+        } else {
+            estadoExemplar.mudarStatus(exemplar, EMPRESTADO); // T1
         }
+        estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());
 
         // RN06 — registra no histórico de circulação
         historicoService.registrar(exemplar, "EMPRESTIMO", usuario, exemplar.getBiblioteca(),
@@ -217,22 +222,22 @@ public class EmprestimoService {
 
         Exemplar exemplar = emprestimo.getExemplar();
 
-        // RN05 — devolve o exemplar ao acervo conforme a condição informada
+        // RN21 — DANIFICADO sai de circulação sem promover a fila (T13, §4.4);
+        //        BOM volta ao acervo ou é separado para o 1º da fila (T2/T4)
         if ("DANIFICADO".equals(condicao)) {
-            exemplar.setStatus("INDISPONIVEL");
             exemplar.setEstadoConservacao("DANIFICADO");
+            estadoExemplar.mudarStatus(exemplar, INDISPONIVEL);
             historicoService.registrar(exemplar, "DEVOLUCAO", usuario, exemplar.getBiblioteca(),
                 "Devolvido danificado — retirado de circulação para avaliação.");
         } else {
-            exemplar.setStatus("DISPONIVEL");
             exemplar.setEstadoConservacao("BOM");
             historicoService.registrar(exemplar, "DEVOLUCAO", usuario, exemplar.getBiblioteca(),
                 diasAtraso > 0
                     ? "Devolução com " + diasAtraso + " dia(s) de atraso."
                     : "Devolução dentro do prazo.");
-            filaEsperaService.promoverProximo(exemplar);
+            filaEsperaService.liberar(exemplar);
         }
-        exemplarRepository.save(exemplar);
+        estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());
 
         return emprestimo;
     }

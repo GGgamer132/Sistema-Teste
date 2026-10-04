@@ -1,6 +1,7 @@
 package com.circulabook.service;
 
 import com.circulabook.model.*;
+import static com.circulabook.model.StatusExemplar.*;
 import com.circulabook.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -14,14 +15,16 @@ import java.util.List;
  * Especialista de Fila — Knowledge Source da arquitetura Blackboard.
  *
  * O "quadro" é o estado dos exemplares no banco. Sempre que um exemplar fica
- * DISPONIVEL em uma biblioteca (devolução, chegada de transferência, expiração
- * de reserva, cancelamento, cadastro), este especialista olha a fila daquela
- * biblioteca e atende o primeiro, decidindo entre:
+ * livre em uma biblioteca (devolução, chegada de transferência, expiração
+ * de reserva, cancelamento, cadastro, reativação), este especialista olha a fila
+ * daquela biblioteca: sem fila, o exemplar fica DISPONIVEL; com fila, vai direto
+ * a RESERVADO e atende o primeiro, decidindo entre:
  *   - retirada na própria biblioteca  -> reserva DISPONIVEL (3 dias);
  *   - retirada em outra biblioteca    -> vincula o exemplar ao pedido de
  *                                        transferência e, se já aprovado, despacha.
  *
  * É chamado de forma síncrona, na mesma transação de quem liberou o exemplar.
+ * As mudanças de status passam pela máquina de estados (EstadoExemplarService).
  */
 @Service
 public class FilaEsperaService {
@@ -30,27 +33,31 @@ public class FilaEsperaService {
 
     @Autowired private ReservaRepository reservaRepository;
     @Autowired private SolicitacaoTransferenciaRepository transferenciaRepository;
-    @Autowired private ExemplarRepository exemplarRepository;
     @Autowired private HistoricoService historicoService;
+    @Autowired private EstadoExemplarService estadoExemplar;
 
     /**
-     * Chamar sempre que um exemplar ficar DISPONIVEL em sua biblioteca.
-     * Se não houver fila para o título nessa biblioteca, não faz nada.
+     * Chamar sempre que um exemplar ficar livre na biblioteca em que está.
+     * Sem fila do título ali: DISPONIVEL (T2, T7, T11, T14, T15).
+     * Com fila: RESERVADO para o 1º, sem passar por DISPONIVEL (T4, T7b, T10, T14b, T15).
+     * Ao final reavalia a invariante da fila (§4.2).
      */
     @Transactional
-    public void promoverProximo(Exemplar exemplar) {
-        if (!"DISPONIVEL".equals(exemplar.getStatus())) return;
-
+    public void liberar(Exemplar exemplar) {
         List<Reserva> fila = reservaRepository
             .findByLivroAndBibliotecaFilaAndStatusOrderByDataReservaAsc(
                 exemplar.getLivro(), exemplar.getBiblioteca(), "PENDENTE");
-        if (fila.isEmpty()) return;
+        if (fila.isEmpty()) {
+            estadoExemplar.mudarStatus(exemplar, DISPONIVEL);
+        } else {
+            estadoExemplar.mudarStatus(exemplar, RESERVADO);
+            atender(fila.get(0), exemplar);
+        }
+        estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());
+    }
 
-        Reserva reserva = fila.get(0);
-
-        // RN05 — o exemplar fica separado para o 1º da fila
-        exemplar.setStatus("RESERVADO");
-        exemplarRepository.save(exemplar);
+    /** O exemplar (já RESERVADO) fica separado para esta reserva, a 1ª da fila. */
+    private void atender(Reserva reserva, Exemplar exemplar) {
         reserva.setExemplar(exemplar);
 
         SolicitacaoTransferencia pedido = transferenciaRepository
@@ -106,8 +113,7 @@ public class FilaEsperaService {
         pedido.setStatus("EM_TRANSITO");
         transferenciaRepository.save(pedido);
 
-        exemplar.setStatus("EM_TRANSFERENCIA");
-        exemplarRepository.save(exemplar);
+        estadoExemplar.mudarStatus(exemplar, EM_TRANSFERENCIA); // T8 (avulsa) ou T9 (reserva)
 
         historicoService.registrar(exemplar, "TRANSFERENCIA_SAIDA", pedido.getAprovador(),
             pedido.getBibliotecaOrigem(),
@@ -116,14 +122,6 @@ public class FilaEsperaService {
 
         System.out.println("[FILA] Transferência #" + pedido.getId() + " em trânsito: "
             + pedido.getBibliotecaOrigem().getNome() + " -> " + pedido.getBibliotecaDestino().getNome());
-    }
-
-    /** Marca o exemplar DISPONIVEL e tenta atender o próximo da fila da biblioteca onde ele está. */
-    @Transactional
-    public void liberarExemplar(Exemplar exemplar) {
-        exemplar.setStatus("DISPONIVEL");
-        exemplarRepository.save(exemplar);
-        promoverProximo(exemplar);
     }
 
     /**
@@ -142,13 +140,14 @@ public class FilaEsperaService {
             reservaRepository.save(reserva);
 
             Exemplar exemplar = reserva.getExemplar();
-            if (exemplar != null && "RESERVADO".equals(exemplar.getStatus())) {
+            if (exemplar != null && RESERVADO.equals(exemplar.getStatus())) {
                 historicoService.registrar(exemplar, "RESERVA", reserva.getUsuario(),
                     exemplar.getBiblioteca(),
                     "Reserva de " + reserva.getUsuario().getNome()
                     + " expirou sem retirada. Exemplar liberado na " + exemplar.getBiblioteca().getNome() + ".");
-                liberarExemplar(exemplar);
+                liberar(exemplar); // T7 (fila vazia) ou T7b (reatribui ao próximo)
             }
+            estadoExemplar.sincronizarMarcaDeFila(reserva.getLivro(), reserva.getBibliotecaFila());
             System.out.println("[FILA] Reserva #" + reserva.getId() + " expirou.");
         }
     }
