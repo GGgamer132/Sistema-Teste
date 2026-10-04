@@ -332,14 +332,14 @@ class MaquinaEstadosExemplarTest {
         emprestimoAtivo(x, camila);
         Reserva r = reserva(livro, ana, vilaIsabel, "PENDENTE", null, dias(-1));
 
-        Exemplar novo = exemplarService.cadastrar(dto(livro, vilaIsabel), carlos.getId());
+        Exemplar novo = exemplarService.cadastrar(dto(livro, vilaIsabel), carlos.getId()).get(0);
         assertThat(status(novo)).isEqualTo(RESERVADO);
         assertThat(r.getStatus()).isEqualTo("DISPONIVEL");
         assertThat(r.getExemplar().getId()).isEqualTo(novo.getId());
         assertThat(status(x)).isEqualTo(EMPRESTADO);
         consistente();
 
-        Exemplar outro = exemplarService.cadastrar(dto(livro, vilaIsabel), carlos.getId());
+        Exemplar outro = exemplarService.cadastrar(dto(livro, vilaIsabel), carlos.getId()).get(0);
         assertThat(status(outro)).isEqualTo(DISPONIVEL);
         consistente();
     }
@@ -465,7 +465,7 @@ class MaquinaEstadosExemplarTest {
         CadastroExemplarDTO d = new CadastroExemplarDTO();
         d.setLivroId(livro.getId());
         d.setBibliotecaId(biblioteca.getId());
-        d.setEstadoConservacao("NOVO");
+        d.setConservacao("NOVO");
         return d;
     }
 }

@@ -86,12 +86,19 @@ public class ExemplarController {
         return null;
     }
 
-    /** Tela 7 — cadastro de exemplar: sempre na biblioteca do bibliotecário logado. */
+    /**
+     * B4 — cadastrar exemplares de livro existente na biblioteca do bibliotecário logado.
+     * Corpo: {livroId, conservacao (NOVO|BOM|USADO), quantidade (1-50)}; devolve a lista criada.
+     * Informar bibliotecaId de outra biblioteca -> 403.
+     */
     @PostMapping
     public ResponseEntity<?> cadastrar(@RequestBody CadastroExemplarDTO dto,
                                        @AuthenticationPrincipal Jwt jwt) {
         Ator ator = Ator.de(jwt);
-        dto.setBibliotecaId(ator.bibliotecaId());
+        if (dto.getBibliotecaId() != null && !Objects.equals(dto.getBibliotecaId(), ator.bibliotecaId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body("Só é possível cadastrar exemplares na sua biblioteca.");
+        }
         try {
             return ResponseEntity.ok(exemplarService.cadastrar(dto, ator.id()));
         } catch (RuntimeException e) {

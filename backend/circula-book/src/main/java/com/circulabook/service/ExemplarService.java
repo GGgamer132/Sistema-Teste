@@ -8,18 +8,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
- * Cadastro de exemplares (UC11 / RN10) — Tela 7.
+ * Exemplares: entrada no acervo (RN10) e gerenciamento (T13/T14).
  */
 @Service
 public class ExemplarService {
 
+    public static final int QUANTIDADE_MAXIMA = 50;
+    private static final Set<String> CONSERVACOES_NO_CADASTRO = Set.of("NOVO", "BOM", "USADO");
+
     @Autowired private ExemplarRepository exemplarRepository;
     @Autowired private LivroRepository livroRepository;
     @Autowired private BibliotecaRepository bibliotecaRepository;
-    @Autowired private CategoriaRepository categoriaRepository;
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private HistoricoService historicoService;
     @Autowired private FilaEsperaService filaEsperaService;
@@ -44,52 +48,57 @@ public class ExemplarService {
     }
 
     /**
-     * Cadastra um exemplar, criando o título antes caso seja um livro novo.
-     *
-     * RN10: exige o ID do bibliotecário responsável e valida que ele pertence
-     *       à biblioteca onde o exemplar será cadastrado.
-     * T15: nasce DISPONIVEL ou, se a biblioteca tem fila do título, RESERVADO para o 1º.
+     * B4 — entrada de exemplares no acervo (RN10).
+     * Só o bibliotecário cadastra, sempre na própria biblioteca, e apenas de livro
+     * já cadastrado pelo Admin. Cria {@code quantidade} exemplares (1 a 50).
+     * T15: cada um nasce DISPONIVEL ou, se a biblioteca tem fila do título,
+     * RESERVADO atendendo o próximo da fila.
      */
     @Transactional
-    public Exemplar cadastrar(CadastroExemplarDTO dto, Long bibliotecarioId) {
+    public List<Exemplar> cadastrar(CadastroExemplarDTO dto, Long bibliotecarioId) {
 
         Usuario bibliotecario = usuarioRepository.findById(bibliotecarioId)
             .orElseThrow(() -> new RuntimeException("Usuário não encontrado: ID " + bibliotecarioId));
-
-        Biblioteca biblioteca = bibliotecaRepository.findById(dto.getBibliotecaId())
-            .orElseThrow(() -> new RuntimeException("Biblioteca não encontrada: ID " + dto.getBibliotecaId()));
-
-        // RN10 — só um bibliotecário da própria biblioteca (ou o admin) pode cadastrar
-        boolean ehAdmin = "ADMIN".equals(bibliotecario.getTipo());
-        boolean ehBibliotecarioDaCasa = "BIBLIOTECARIO".equals(bibliotecario.getTipo())
-            && bibliotecario.getBiblioteca() != null
-            && bibliotecario.getBiblioteca().getId().equals(biblioteca.getId());
-
-        if (!ehAdmin && !ehBibliotecarioDaCasa) {
-            throw new RuntimeException(
-                "Apenas um bibliotecário da " + biblioteca.getNome()
-                + " pode cadastrar exemplares nesta biblioteca.");
+        if (!"BIBLIOTECARIO".equals(bibliotecario.getTipo()) || bibliotecario.getBiblioteca() == null) {
+            throw new RuntimeException("Apenas bibliotecários cadastram exemplares, na própria biblioteca.");
+        }
+        Biblioteca biblioteca = bibliotecario.getBiblioteca();
+        if (dto.getBibliotecaId() != null && !dto.getBibliotecaId().equals(biblioteca.getId())) {
+            throw new RuntimeException("Só é possível cadastrar exemplares na sua biblioteca.");
         }
 
-        Livro livro = resolverLivro(dto);
+        if (dto.getLivroId() == null) {
+            throw new RuntimeException("Escolha um livro já cadastrado no catálogo.");
+        }
+        Livro livro = livroRepository.findById(dto.getLivroId())
+            .orElseThrow(() -> new RuntimeException("Livro não encontrado: ID " + dto.getLivroId()));
 
-        Exemplar exemplar = new Exemplar();
-        exemplar.setLivro(livro);
-        exemplar.setBiblioteca(biblioteca);
-        exemplar.setEstadoConservacao(
-            dto.getEstadoConservacao() != null ? dto.getEstadoConservacao() : "NOVO");
+        int quantidade = dto.getQuantidade() != null ? dto.getQuantidade() : 1;
+        if (quantidade < 1 || quantidade > QUANTIDADE_MAXIMA) {
+            throw new RuntimeException("A quantidade deve ser de 1 a " + QUANTIDADE_MAXIMA + " exemplares.");
+        }
+        String conservacao = dto.getConservacao() != null ? dto.getConservacao().trim().toUpperCase() : "NOVO";
+        if (!CONSERVACOES_NO_CADASTRO.contains(conservacao)) {
+            throw new RuntimeException("A conservação deve ser Novo, Bom ou Usado.");
+        }
 
-        // T15: a fila define o status inicial (o exemplar é salvo pela máquina de estados)
-        filaEsperaService.liberar(exemplar);
-        String statusInicial = exemplar.getStatus();
+        List<Exemplar> criados = new ArrayList<>();
+        for (int i = 0; i < quantidade; i++) {
+            Exemplar exemplar = new Exemplar();
+            exemplar.setLivro(livro);
+            exemplar.setBiblioteca(biblioteca);
+            exemplar.setEstadoConservacao(conservacao);
 
-        historicoService.registrar(exemplar, "CADASTRO", bibliotecario, biblioteca,
-            "Exemplar cadastrado com status inicial " + statusInicial + ".");
+            // T15: a fila define o status inicial (o exemplar é salvo pela máquina de estados)
+            filaEsperaService.liberar(exemplar);
+            historicoService.registrar(exemplar, "CADASTRO", bibliotecario, biblioteca,
+                "Exemplar cadastrado com status inicial " + exemplar.getStatus() + ".");
+            criados.add(exemplar);
+        }
 
-        System.out.println("[CIRCULA BOOK] Exemplar cadastrado: " + livro.getTitulo()
-            + " | Biblioteca: " + biblioteca.getNome() + " | Status: " + statusInicial);
-
-        return exemplar;
+        System.out.println("[CIRCULA BOOK] " + quantidade + " exemplar(es) de " + livro.getTitulo()
+            + " cadastrado(s) na " + biblioteca.getNome() + ".");
+        return criados;
     }
 
     /**
@@ -161,30 +170,4 @@ public class ExemplarService {
             .orElseThrow(() -> new RuntimeException("Exemplar não encontrado: nº " + exemplarId));
     }
 
-    private Livro resolverLivro(CadastroExemplarDTO dto) {
-        if (dto.getLivroId() != null) {
-            return livroRepository.findById(dto.getLivroId())
-                .orElseThrow(() -> new RuntimeException("Livro não encontrado: ID " + dto.getLivroId()));
-        }
-        if (dto.getTitulo() == null || dto.getTitulo().isBlank()
-            || dto.getAutor() == null || dto.getAutor().isBlank()) {
-            throw new RuntimeException("Informe um livro já cadastrado ou preencha título e autor.");
-        }
-        if (dto.getIsbn() != null && !dto.getIsbn().isBlank()) {
-            var existente = livroRepository.findByIsbn(dto.getIsbn());
-            if (existente.isPresent()) return existente.get();
-        }
-
-        Livro novo = new Livro();
-        novo.setTitulo(dto.getTitulo());
-        novo.setAutor(dto.getAutor());
-        novo.setEditora(dto.getEditora());
-        novo.setIsbn(dto.getIsbn());
-        novo.setAnoPublicacao(dto.getAnoPublicacao());
-        novo.setSinopse(dto.getSinopse());
-        if (dto.getCategoriaId() != null) {
-            novo.setCategoria(categoriaRepository.findById(dto.getCategoriaId()).orElse(null));
-        }
-        return livroRepository.save(novo);
-    }
 }
