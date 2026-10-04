@@ -62,6 +62,8 @@ export interface Exemplar {
   status:
     | "DISPONIVEL"
     | "EMPRESTADO"
+    /** Emprestado e há fila do título nesta biblioteca. */
+    | "EMPRESTADO_RESERVADO"
     | "RESERVADO"
     | "EM_TRANSFERENCIA"
     | "INDISPONIVEL";

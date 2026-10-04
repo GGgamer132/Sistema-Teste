@@ -86,7 +86,9 @@ export default function RegistrarDevolucao() {
         atraso > 0
           ? `Devolução registrada com ${atraso} dia(s) de atraso. ${selecionado.usuario.nome} ` +
               `ficou bloqueado por ${atraso * DIAS_BLOQUEIO_POR_ATRASO} dias.`
-          : "Devolução registrada dentro do prazo. O exemplar voltou para o acervo.",
+          : condicao === "DANIFICADO"
+            ? "Devolução registrada. O exemplar danificado saiu de circulação (indisponível)."
+            : "Devolução registrada dentro do prazo. O exemplar voltou para o acervo.",
       );
       setSelecionado(null);
       setCondicao("BOM");
