@@ -22,3 +22,7 @@
 
 # Logs
 *.log
+
+# Saidas do Playwright
+**/test-results/
+**/playwright-report/
