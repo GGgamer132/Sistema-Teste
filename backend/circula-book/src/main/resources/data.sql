@@ -16,22 +16,22 @@ INSERT INTO biblioteca (id, nome, endereco, email, telefone, ativa, criada_em) V
 (1, 'Biblioteca Vila Isabel', 'Rua A, 100 - Zona Norte',  'vilaisabel@circulabook.org.br', '(21) 3000-0001', TRUE, CURRENT_TIMESTAMP),
 (2, 'Biblioteca Tijuca',      'Avenida B, 200 - Zona Sul', 'tijuca@circulabook.org.br',     '(21) 3000-0002', TRUE, CURRENT_TIMESTAMP),
 (3, 'Biblioteca Meier',       'Rua C, 300 - Zona Oeste',   'meier@circulabook.org.br',      '(21) 3000-0003', TRUE, CURRENT_TIMESTAMP),
-(4, 'Biblioteca Centro',      'Praca D, 50 - Centro',      'centro@circulabook.org.br',     '(21) 3000-0004', TRUE, CURRENT_TIMESTAMP),
+(4, 'Biblioteca Central',     'Praca D, 50 - Centro',      'centro@circulabook.org.br',     '(21) 3000-0004', TRUE, CURRENT_TIMESTAMP),
 (5, 'Biblioteca Norte',       'Rua E, 400 - Zona Norte',   'norte@circulabook.org.br',      '(21) 3000-0005', TRUE, CURRENT_TIMESTAMP),
 (6, 'Biblioteca Sul',         'Rua F, 500 - Zona Sul',     'sul@circulabook.org.br',        '(21) 3000-0006', TRUE, CURRENT_TIMESTAMP);
 
--- ─── Usuarios (senha_hash e apenas um valor mock) ───
+-- ─── Usuarios (senha de todos: senha123 — hash BCrypt real) ───
 INSERT INTO usuario (id, nome, email, senha_hash, tipo, biblioteca_id, ativo, criado_em, bloqueado_ate) VALUES
-(1,  'Roberto Dias',      'roberto.dias@circulabook.org.br',   'MOCK_HASH_ADMIN_01', 'ADMIN',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
-(2,  'Carlos Lima',       'carlos.lima@circulabook.org.br',    'MOCK_HASH_BIB_01',   'BIBLIOTECARIO', 1,    TRUE, CURRENT_TIMESTAMP, NULL),
-(3,  'Fernanda Reis',     'fernanda.reis@circulabook.org.br',  'MOCK_HASH_BIB_02',   'BIBLIOTECARIO', 4,    TRUE, CURRENT_TIMESTAMP, NULL),
-(4,  'Joao Pedro Nunes',  'joao.pedro@circulabook.org.br',     'MOCK_HASH_BIB_03',   'BIBLIOTECARIO', 2,    TRUE, CURRENT_TIMESTAMP, NULL),
-(5,  'Marcos Silva',      'marcos.silva@circulabook.org.br',   'MOCK_HASH_BIB_04',   'BIBLIOTECARIO', 3,    TRUE, CURRENT_TIMESTAMP, NULL),
-(6,  'Ana Souza',         'ana.souza@email.com',               'MOCK_HASH_USR_01',   'COMUM',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
-(7,  'Bruno Alves',       'bruno.alves@email.com',             'MOCK_HASH_USR_02',   'COMUM',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
-(8,  'Camila Duarte',     'camila.duarte@email.com',           'MOCK_HASH_USR_03',   'COMUM',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
-(9,  'Diego Santos',      'diego.santos@email.com',            'MOCK_HASH_USR_04',   'COMUM',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
-(10, 'Elaine Costa',      'elaine.costa@email.com',            'MOCK_HASH_USR_05',   'COMUM',         NULL, FALSE, CURRENT_TIMESTAMP, NULL);
+(1,  'Roberto Dias',      'roberto.dias@circulabook.org.br',   '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','ADMIN',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
+(2,  'Carlos Lima',       'carlos.lima@circulabook.org.br',    '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','BIBLIOTECARIO', 1,    TRUE, CURRENT_TIMESTAMP, NULL),
+(3,  'Fernanda Reis',     'fernanda.reis@circulabook.org.br',  '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','BIBLIOTECARIO', 4,    TRUE, CURRENT_TIMESTAMP, NULL),
+(4,  'Joao Pedro Nunes',  'joao.pedro@circulabook.org.br',     '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','BIBLIOTECARIO', 2,    TRUE, CURRENT_TIMESTAMP, NULL),
+(5,  'Marcos Silva',      'marcos.silva@circulabook.org.br',   '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','BIBLIOTECARIO', 3,    TRUE, CURRENT_TIMESTAMP, NULL),
+(6,  'Ana Souza',         'ana.souza@email.com',               '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','COMUM',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
+(7,  'Bruno Alves',       'bruno.alves@email.com',             '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','COMUM',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
+(8,  'Camila Duarte',     'camila.duarte@email.com',           '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','COMUM',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
+(9,  'Diego Santos',      'diego.santos@email.com',            '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','COMUM',         NULL, TRUE, CURRENT_TIMESTAMP, NULL),
+(10, 'Elaine Costa',      'elaine.costa@email.com',            '$2a$10$.mABMug6XkvatgGXjkYx0.bp4Ztgh6O3iBieWCC.UuNnG86QubwDa','COMUM',         NULL, FALSE, CURRENT_TIMESTAMP, NULL);
 
 -- ─── Livros ───
 INSERT INTO livro (id, titulo, autor, isbn, editora, ano_publicacao, sinopse, categoria_id) VALUES
@@ -101,13 +101,13 @@ INSERT INTO reserva (id, livro_id, usuario_id, biblioteca_fila_id, biblioteca_de
 INSERT INTO solicitacao_transferencia
  (id, livro_id, exemplar_id, biblioteca_origem_id, biblioteca_destino_id, solicitante_id, aprovador_id, reserva_id, status, data_solicitacao, data_conclusao, observacoes) VALUES
 (1, 2, NULL, 4, 1, 7, NULL, 1, 'PENDENTE',    CURRENT_TIMESTAMP - INTERVAL '2 days', NULL,
-   'Pedido gerado pela reserva de Bruno Alves: fila na Biblioteca Centro, retirada na Biblioteca Vila Isabel. O exemplar sera vinculado quando for devolvido.'),
+   'Pedido gerado pela reserva de Bruno Alves: fila na Biblioteca Central, retirada na Biblioteca Vila Isabel. O exemplar sera vinculado quando for devolvido.'),
 (2, 2, NULL, 4, 2, 8, 1,    2, 'APROVADA',    CURRENT_TIMESTAMP - INTERVAL '1 days', NULL,
-   'Aprovada pelo Admin; aguardando exemplar ser devolvido na Biblioteca Centro.'),
+   'Aprovada pelo Admin; aguardando exemplar ser devolvido na Biblioteca Central.'),
 (3, 3, 9,    6, 5, 1, 1,    NULL, 'EM_TRANSITO', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL,
    'Transferencia avulsa criada pelo Admin; exemplar ja foi despachado da Biblioteca Sul.'),
 (4, 4, 11,   5, 4, 1, 1,    NULL, 'CONCLUIDA', CURRENT_TIMESTAMP - INTERVAL '10 days', CURRENT_TIMESTAMP - INTERVAL '7 days',
-   'Transferencia avulsa concluida — exemplar confirmado na chegada a Biblioteca Centro.'),
+   'Transferencia avulsa concluida — exemplar confirmado na chegada a Biblioteca Central.'),
 (5, 6, NULL, 3, 1, 9, NULL, 5, 'CANCELADA',   CURRENT_TIMESTAMP - INTERVAL '15 days', CURRENT_TIMESTAMP - INTERVAL '10 days',
    'Cancelada: o usuario cancelou a reserva.');
    
@@ -117,8 +117,8 @@ INSERT INTO historico_circulacao (id, exemplar_id, evento, usuario_id, bibliotec
 (2, 1,  'EMPRESTIMO',            7, 1, CURRENT_TIMESTAMP - INTERVAL '60 days',  'Emprestimo para Bruno Alves.'),
 (3, 1,  'DEVOLUCAO',             7, 1, CURRENT_TIMESTAMP - INTERVAL '47 days',  'Devolucao em bom estado.'),
 (4, 6,  'EMPRESTIMO',            6, 4, CURRENT_TIMESTAMP - INTERVAL '20 days',  'Emprestimo para Ana Souza.'),
-(5, 12, 'TRANSFERENCIA_SAIDA',   1, 4, CURRENT_TIMESTAMP - INTERVAL '8 days',   'Saida da Biblioteca Centro rumo a Tijuca.'),
-(6, 11, 'TRANSFERENCIA_CHEGADA', 1, 4, CURRENT_TIMESTAMP - INTERVAL '7 days',   'Chegada confirmada na Biblioteca Centro.'),
+(5, 12, 'TRANSFERENCIA_SAIDA',   1, 4, CURRENT_TIMESTAMP - INTERVAL '8 days',   'Saida da Biblioteca Central rumo a Tijuca.'),
+(6, 11, 'TRANSFERENCIA_CHEGADA', 1, 4, CURRENT_TIMESTAMP - INTERVAL '7 days',   'Chegada confirmada na Biblioteca Central.'),
 (7, 13, 'CADASTRO',              2, 1, CURRENT_TIMESTAMP - INTERVAL '5 days',   'Unico exemplar da rede — indisponivel para emprestimo (RN11).');
 
 -- ─── Demandas de aquisicao ───
