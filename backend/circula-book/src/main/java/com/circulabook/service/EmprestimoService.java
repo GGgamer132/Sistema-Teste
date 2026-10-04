@@ -162,15 +162,12 @@ public class EmprestimoService {
             reservaRepository.save(reservaDoExemplar);
             // T5 (ainda há fila) ou T6 (fila vazia)
             boolean fila = estadoExemplar.temFila(exemplar.getLivro(), exemplar.getBiblioteca());
-            estadoExemplar.mudarStatus(exemplar, fila ? EMPRESTADO_RESERVADO : EMPRESTADO);
+            estadoExemplar.mudarStatus(exemplar, fila ? EMPRESTADO_RESERVADO : EMPRESTADO,
+                obsEmprestimo(usuario) + " Retirada da reserva.");
         } else {
-            estadoExemplar.mudarStatus(exemplar, EMPRESTADO); // T1
+            estadoExemplar.mudarStatus(exemplar, EMPRESTADO, obsEmprestimo(usuario)); // T1
         }
         estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());
-
-        // RN06 — registra no histórico de circulação
-        historicoService.registrar(exemplar, "EMPRESTIMO", usuario, exemplar.getBiblioteca(),
-            "Empréstimo de " + PRAZO_EMPRESTIMO_DIAS + " dias para " + usuario.getNome() + ".");
 
         System.out.println("[CIRCULA BOOK] Empréstimo registrado: "
             + exemplar.getLivro().getTitulo() + " -> " + usuario.getNome()
@@ -228,22 +225,22 @@ public class EmprestimoService {
         //        BOM volta ao acervo ou é separado para o 1º da fila (T2/T4)
         if ("DANIFICADO".equals(condicao)) {
             exemplar.setEstadoConservacao("DANIFICADO");
-            estadoExemplar.mudarStatus(exemplar, INDISPONIVEL);
-            historicoService.registrar(exemplar, "DEVOLUCAO", usuario, exemplar.getBiblioteca(),
-                "Devolvido danificado — retirado de circulação para avaliação.");
+            estadoExemplar.mudarStatus(exemplar, INDISPONIVEL,
+                "Devolvido danificado por " + usuario.getNome() + ": retirado de circulação para avaliação.");
         } else {
             exemplar.setEstadoConservacao("BOM");
-            historicoService.registrar(exemplar, "DEVOLUCAO", usuario, exemplar.getBiblioteca(),
-                diasAtraso > 0
-                    ? "Devolução com " + diasAtraso + " dia(s) de atraso."
-                    : "Devolução dentro do prazo.");
-            filaEsperaService.liberar(exemplar);
+            filaEsperaService.liberar(exemplar, "Devolvido por " + usuario.getNome()
+                + (diasAtraso > 0 ? " com " + diasAtraso + " dia(s) de atraso." : " dentro do prazo."));
         }
         estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());
 
         return emprestimo;
     }
 
+
+    private static String obsEmprestimo(Usuario usuario) {
+        return "Emprestado a " + usuario.getNome() + " por " + PRAZO_EMPRESTIMO_DIAS + " dias.";
+    }
 
     public long calcularDiasAtraso(LocalDateTime previsto, LocalDateTime efetivo) {
         if (previsto == null || efetivo == null || !efetivo.isAfter(previsto)) return 0;

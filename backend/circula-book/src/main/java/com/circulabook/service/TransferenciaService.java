@@ -376,16 +376,17 @@ public class TransferenciaService {
         }
         transferenciaRepository.save(s);
 
-        historicoService.registrar(exemplar, "TRANSFERENCIA_CHEGADA", responsavel, s.getBibliotecaDestino(),
-            "Chegada confirmada na " + s.getBibliotecaDestino().getNome()
-            + (danificado ? " — exemplar chegou danificado e saiu de circulação." : "."));
+        String chegada = "Chegada confirmada na " + s.getBibliotecaDestino().getNome()
+            + ", vinda da " + origem.getNome() + ".";
 
         Reserva reserva = s.getReserva();
         boolean reservaAguardando = reserva != null && "AGUARDANDO_TRANSFERENCIA".equals(reserva.getStatus());
 
         if (danificado) {
             exemplar.setEstadoConservacao("DANIFICADO");
-            estadoExemplar.mudarStatus(exemplar, StatusExemplar.INDISPONIVEL); // T13
+            estadoExemplar.mudarStatus(exemplar, StatusExemplar.INDISPONIVEL, // T13
+                chegada + " O exemplar chegou danificado e saiu de circulação"
+                + (observacao != null && !observacao.isBlank() ? ": " + observacao.trim() : "") + ".");
             if (reservaAguardando) {
                 reserva.setStatus("PENDENTE");            // dataReserva intacta: mesma posição
                 reserva.setExemplar(null);
@@ -395,10 +396,10 @@ public class TransferenciaService {
                     "O exemplar que vinha para você chegou danificado à " + s.getBibliotecaDestino().getNome() + ".");
             }
         } else if (reservaAguardando) {
-            estadoExemplar.mudarStatus(exemplar, StatusExemplar.RESERVADO); // T10
+            estadoExemplar.mudarStatus(exemplar, StatusExemplar.RESERVADO, chegada); // T10
             filaEsperaService.liberarParaRetirada(reserva, exemplar);
         } else {
-            filaEsperaService.liberar(exemplar); // T11, ou T10 para o 1º da fila do destino
+            filaEsperaService.liberar(exemplar, chegada); // T11, ou T10 para o 1º da fila do destino
         }
 
         estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), s.getBibliotecaDestino());

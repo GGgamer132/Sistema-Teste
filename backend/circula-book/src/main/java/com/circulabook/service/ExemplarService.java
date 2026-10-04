@@ -91,9 +91,8 @@ public class ExemplarService {
             exemplar.setEstadoConservacao(conservacao);
 
             // T15: a fila define o status inicial (o exemplar é salvo pela máquina de estados)
-            filaEsperaService.liberar(exemplar);
-            historicoService.registrar(exemplar, "CADASTRO", bibliotecario, biblioteca,
-                "Exemplar cadastrado com status inicial " + exemplar.getStatus() + ".");
+            filaEsperaService.liberar(exemplar, "Exemplar cadastrado no acervo da " + biblioteca.getNome()
+                + " (conservação: " + conservacao.toLowerCase() + ").");
             criados.add(exemplar);
         }
 
@@ -126,10 +125,13 @@ public class ExemplarService {
                   List.of("DISPONIVEL", "AGUARDANDO_TRANSFERENCIA")).orElse(null)
             : null;
 
-        estadoExemplar.mudarStatus(exemplar, INDISPONIVEL);
+        String obs = "Marcado como indisponível por " + responsavel.getNome()
+            + (motivo != null && !motivo.isBlank() ? ": " + motivo.trim() + "." : ".");
+        if (afetada != null) {
+            obs += " A reserva de " + afetada.getUsuario().getNome() + " voltou para a fila.";
+        }
+        estadoExemplar.mudarStatus(exemplar, INDISPONIVEL, obs);
 
-        String obs = "Marcado como indisponível"
-            + (motivo != null && !motivo.isBlank() ? ": " + motivo.trim() : ".");
         if (afetada != null) {
             afetada.setStatus("PENDENTE"); // dataReserva intacta: mantém a posição
             afetada.setExemplar(null);
@@ -139,14 +141,11 @@ public class ExemplarService {
                 p.setExemplar(null);
                 transferenciaRepository.save(p);
             }
-            obs += " A reserva de " + afetada.getUsuario().getNome() + " voltou para a fila.";
             notificacoes.reservaVoltouParaFila(afetada,
                 "O exemplar separado para você ficou indisponível na " + exemplar.getBiblioteca().getNome() + ".");
             estadoExemplar.sincronizarMarcaDeFila(afetada.getLivro(), afetada.getBibliotecaFila());
         }
         estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());
-
-        historicoService.registrar(exemplar, "BAIXA", responsavel, exemplar.getBiblioteca(), obs);
         return exemplar;
     }
 
@@ -162,9 +161,7 @@ public class ExemplarService {
                 + exemplar.getId() + " está " + StatusExemplar.rotulo(exemplar.getStatus()).toLowerCase() + ".");
         }
 
-        filaEsperaService.liberar(exemplar);
-        historicoService.registrar(exemplar, "REATIVACAO", responsavel, exemplar.getBiblioteca(),
-            "Exemplar reativado: agora " + StatusExemplar.rotulo(exemplar.getStatus()).toLowerCase() + ".");
+        filaEsperaService.liberar(exemplar, "Exemplar reativado por " + responsavel.getNome() + ".");
         return exemplar;
     }
 

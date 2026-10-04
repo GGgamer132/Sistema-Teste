@@ -24,11 +24,12 @@ public class HistoricoCirculacao {
     @JoinColumn(name = "exemplar_id", nullable = false)
     private Exemplar exemplar;
 
-    // CADASTRO | EMPRESTIMO | DEVOLUCAO | RESERVA
-    // TRANSFERENCIA_SAIDA | TRANSFERENCIA_CHEGADA | BAIXA
+    // CADASTRO | EMPRESTIMO | DEVOLUCAO | RESERVA | FILA | BAIXA | REATIVACAO
+    // TRANSFERENCIA_SAIDA | TRANSFERENCIA_CHEGADA
     @Column(nullable = false, length = 50)
     private String evento;
 
+    // Responsável pelo evento (nulo nas rotinas agendadas)
     @ManyToOne
     @JoinColumn(name = "usuario_id")
     private Usuario usuario;
@@ -42,6 +43,11 @@ public class HistoricoCirculacao {
 
     @Column(columnDefinition = "TEXT")
     private String observacoes;
+
+    // Nome de quem fez (usuário do token) ou "Sistema" nas rotinas agendadas.
+    // Linhas antigas do seed não têm: o nome sai do usuário vinculado.
+    @Column(length = 255)
+    private String responsavel;
 
     @PrePersist
     public void preencheDataEvento() {

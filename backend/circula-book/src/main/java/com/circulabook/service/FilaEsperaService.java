@@ -46,13 +46,19 @@ public class FilaEsperaService {
      */
     @Transactional
     public void liberar(Exemplar exemplar) {
+        liberar(exemplar, null);
+    }
+
+    /** Igual a {@link #liberar(Exemplar)}, com o motivo que vai ao histórico (devolução, cadastro...). */
+    @Transactional
+    public void liberar(Exemplar exemplar, String observacao) {
         List<Reserva> fila = reservaRepository
             .findByLivroAndBibliotecaFilaAndStatusOrderByDataReservaAsc(
                 exemplar.getLivro(), exemplar.getBiblioteca(), "PENDENTE");
         if (fila.isEmpty()) {
-            estadoExemplar.mudarStatus(exemplar, DISPONIVEL);
+            estadoExemplar.mudarStatus(exemplar, DISPONIVEL, observacao);
         } else {
-            estadoExemplar.mudarStatus(exemplar, RESERVADO);
+            estadoExemplar.mudarStatus(exemplar, RESERVADO, observacao);
             atender(fila.get(0), exemplar);
         }
         estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());
@@ -101,6 +107,9 @@ public class FilaEsperaService {
         } else {
             transferenciaRepository.save(pedido); // PENDENTE: espera o Admin decidir
             notificacoes.exemplarRetido(pedido);
+            historicoService.registrar(exemplar, "RESERVA", exemplar.getBiblioteca(),
+                "Separado para " + reserva.getUsuario().getNome() + " (1º da fila), aguardando a decisão "
+                + "da transferência para a " + pedido.getBibliotecaDestino().getNome() + ".");
             System.out.println("[FILA] Exemplar nº " + exemplar.getId()
                 + " separado para " + reserva.getUsuario().getNome()
                 + ", aguardando aprovação da transferência #" + pedido.getId() + ".");
@@ -116,9 +125,8 @@ public class FilaEsperaService {
         reservaRepository.save(reserva);
         notificacoes.reservaPronta(reserva);
 
-        historicoService.registrar(exemplar, "RESERVA", reserva.getUsuario(),
-            exemplar.getBiblioteca(),
-            "Exemplar reservado para " + reserva.getUsuario().getNome()
+        historicoService.registrar(exemplar, "RESERVA", exemplar.getBiblioteca(),
+            "Separado para " + reserva.getUsuario().getNome()
             + ". Retirada na " + reserva.getBibliotecaDestino().getNome()
             + " em até " + DIAS_PARA_RETIRADA + " dias.");
 
@@ -136,12 +144,11 @@ public class FilaEsperaService {
         pedido.setStatus("EM_TRANSITO");
         transferenciaRepository.save(pedido);
 
-        estadoExemplar.mudarStatus(exemplar, EM_TRANSFERENCIA); // T8 (avulsa) ou T9 (reserva)
-
-        historicoService.registrar(exemplar, "TRANSFERENCIA_SAIDA", pedido.getAprovador(),
-            pedido.getBibliotecaOrigem(),
+        estadoExemplar.mudarStatus(exemplar, EM_TRANSFERENCIA, // T8 (avulsa) ou T9 (reserva)
             "Saída da " + pedido.getBibliotecaOrigem().getNome()
-            + " rumo à " + pedido.getBibliotecaDestino().getNome() + ".");
+            + " rumo à " + pedido.getBibliotecaDestino().getNome()
+            + (pedido.getReserva() != null ? " para a reserva de " + pedido.getReserva().getUsuario().getNome()
+                                            : " (transferência avulsa)") + ".");
 
         notificacoes.transferenciaDespachada(pedido);
 
@@ -167,11 +174,8 @@ public class FilaEsperaService {
 
             Exemplar exemplar = reserva.getExemplar();
             if (exemplar != null && RESERVADO.equals(exemplar.getStatus())) {
-                historicoService.registrar(exemplar, "RESERVA", reserva.getUsuario(),
-                    exemplar.getBiblioteca(),
-                    "Reserva de " + reserva.getUsuario().getNome()
-                    + " expirou sem retirada. Exemplar liberado na " + exemplar.getBiblioteca().getNome() + ".");
-                liberar(exemplar); // T7 (fila vazia) ou T7b (reatribui ao próximo)
+                liberar(exemplar, "A reserva de " + reserva.getUsuario().getNome()
+                    + " expirou sem retirada."); // T7 (fila vazia) ou T7b (reatribui ao próximo)
             }
             estadoExemplar.sincronizarMarcaDeFila(reserva.getLivro(), reserva.getBibliotecaFila());
             System.out.println("[FILA] Reserva #" + reserva.getId() + " expirou.");

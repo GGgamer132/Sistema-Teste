@@ -279,7 +279,8 @@ public class ReservaService {
 
         Exemplar exemplar = reserva.getExemplar();
         if (exemplar != null && StatusExemplar.RESERVADO.equals(exemplar.getStatus())) {
-            filaEsperaService.liberar(exemplar); // T7 (fila vazia) ou T7b (reatribui ao próximo)
+            filaEsperaService.liberar(exemplar, "A reserva de " + reserva.getUsuario().getNome()
+                + " foi cancelada."); // T7 (fila vazia) ou T7b (reatribui ao próximo)
         }
         // T12: se a fila esvaziou, os emprestados voltam a EMPRESTADO
         estadoExemplar.sincronizarMarcaDeFila(reserva.getLivro(), reserva.getBibliotecaFila());
