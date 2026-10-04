@@ -22,9 +22,8 @@ import {
   Vazio,
 } from "../components/ui";
 import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
+import { useUsuarioLogado } from "../auth/contexto";
 
-// Sem login, o usuário é fixo: Ana Souza (id 6).
-const USUARIO_LOGADO = 6;
 const DIAS_BLOQUEIO_POR_ATRASO = 2;
 
 type Situacao = "ATIVO" | "ATRASADO" | "DEVOLVIDO";
@@ -54,14 +53,15 @@ function PrazoBadge({ e }: { e: Emprestimo }) {
 }
 
 export default function MeusEmprestimos() {
+  const { id: usuarioId } = useUsuarioLogado();
   const [lista, setLista] = useState<Emprestimo[] | null>(null);
   const [situacao, setSituacao] = useState<SituacaoUsuario | null>(null);
   const [erro, setErro] = useState("");
 
   function carregar() {
     Promise.all([
-      api.get<Emprestimo[]>(`/emprestimos/usuario/${USUARIO_LOGADO}`),
-      api.get<SituacaoUsuario>(`/emprestimos/situacao/${USUARIO_LOGADO}`),
+      api.get<Emprestimo[]>(`/emprestimos/usuario/${usuarioId}`),
+      api.get<SituacaoUsuario>(`/emprestimos/situacao/${usuarioId}`),
     ])
       .then(([emp, sit]) => {
         setLista(emp);
@@ -69,7 +69,7 @@ export default function MeusEmprestimos() {
       })
       .catch((e) => setErro(e.message));
   }
-  useEffect(carregar, []);
+  useEffect(carregar, [usuarioId]);
 
   const abertos = useMemo(
     () =>

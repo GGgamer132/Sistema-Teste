@@ -29,9 +29,8 @@ import {
 } from "../components/ui";
 import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
+import { useUsuarioLogado } from "../auth/contexto";
 
-// Sem login, o usuário é fixo: Ana Souza (id 6).
-const USUARIO_LOGADO = 6;
 
 const ATIVAS: Reserva["status"][] = [
   "PENDENTE",
@@ -87,6 +86,7 @@ function mensagemDe(
 }
 
 export default function MinhasReservas() {
+  const { id: usuarioId } = useUsuarioLogado();
   const [todas, setTodas] = useState<Reserva[] | null>(null);
   const [transferencias, setTransferencias] = useState<
     SolicitacaoTransferencia[]
@@ -98,10 +98,10 @@ export default function MinhasReservas() {
   const [cancelando, setCancelando] = useState(false);
 
   function carregar() {
-    // /reservas traz a fila inteira, necessária para calcular a posição;
+    // /reservas/usuario traz só as minhas, já com a posição na fila;
     // /transferencias mostra em que pé está o pedido de cada reserva.
     Promise.all([
-      api.get<Reserva[]>("/reservas"),
+      api.get<Reserva[]>(`/reservas/usuario/${usuarioId}`),
       api.get<SolicitacaoTransferencia[]>("/transferencias"),
     ])
       .then(([reservas, transf]) => {
@@ -110,12 +110,9 @@ export default function MinhasReservas() {
       })
       .catch((e) => setErro(e.message));
   }
-  useEffect(carregar, []);
+  useEffect(carregar, [usuarioId]);
 
-  const minhas = useMemo(
-    () => (todas ?? []).filter((r) => r.usuario.id === USUARIO_LOGADO),
-    [todas],
-  );
+  const minhas = useMemo(() => todas ?? [], [todas]);
 
   const ativas = useMemo(
     () =>
@@ -141,16 +138,9 @@ export default function MinhasReservas() {
     [minhas],
   );
 
-  /** Posição = reservas PENDENTE do mesmo título na mesma fila, até a minha. */
+  /** Posição na fila da biblioteca, calculada pelo servidor. */
   function posicaoDe(r: Reserva): number {
-    const antes = (todas ?? []).filter(
-      (o) =>
-        o.status === "PENDENTE" &&
-        o.livro.id === r.livro.id &&
-        o.bibliotecaFila.id === r.bibliotecaFila.id &&
-        new Date(o.dataReserva).getTime() <= new Date(r.dataReserva).getTime(),
-    );
-    return Math.max(1, antes.length);
+    return Math.max(1, r.posicaoFila ?? 1);
   }
 
   /** Pedido de transferência mais recente ligado à reserva. */

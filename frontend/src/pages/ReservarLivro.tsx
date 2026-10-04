@@ -28,8 +28,6 @@ import {
 } from "../components/ui";
 import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 
-const USUARIO_LOGADO = 6;
-
 type Retirada = "PROPRIA" | "OUTRA";
 
 export default function ReservarLivro() {
@@ -124,7 +122,6 @@ export default function ReservarLivro() {
     try {
       await api.post<Reserva>("/reservas", {
         livroId,
-        usuarioId: USUARIO_LOGADO,
         bibliotecaFilaId: bibFila,
         bibliotecaDestinoId: idRetirada,
       });

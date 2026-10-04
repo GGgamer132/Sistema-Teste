@@ -29,6 +29,7 @@ export default function ResultadosBusca() {
   const query = searchParams.toString();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLivros(null);
     setErro("");
     api

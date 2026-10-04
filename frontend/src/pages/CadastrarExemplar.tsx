@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Biblioteca, Categoria, Exemplar, Livro } from "../types";
+import { useUsuarioLogado } from "../auth/contexto";
 import {
   AreaTexto, Botao, Campo, CardResumo, Callout, DuasColunas, Entrada, Erro,
   GrupoRadio, LinhaResumo, SectionCard, Selecao, Sucesso, TituloPagina, Trilha,
@@ -14,11 +15,9 @@ import {
 type Modo = "EXISTENTE" | "NOVO";
 type Estado = "NOVO" | "BOM" | "USADO";
 
-// Sem login, o bibliotecário é fixo: Carlos Lima (id 2), da Vila Isabel (id 1).
-const BIBLIOTECARIO_LOGADO = 2;
-const BIBLIOTECA_LOGADA = 1;
-
 export default function CadastrarExemplar() {
+  // O exemplar é sempre cadastrado na biblioteca do bibliotecário logado
+  const { bibliotecaId, bibliotecaNome } = useUsuarioLogado();
   const [modo, setModo] = useState<Modo>("NOVO");
   const [livros, setLivros] = useState<Livro[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -56,7 +55,7 @@ export default function CadastrarExemplar() {
 
   const livroSelecionado = livros.find((l) => l.id === livroId);
   const nomeBiblioteca =
-    bibliotecas.find((b) => b.id === BIBLIOTECA_LOGADA)?.nome ?? "Biblioteca Vila Isabel";
+    bibliotecas.find((b) => b.id === bibliotecaId)?.nome ?? bibliotecaNome ?? "—";
   const nomeCategoria =
     modo === "EXISTENTE"
       ? livroSelecionado?.categoria?.nome ?? "—"
@@ -69,19 +68,19 @@ export default function CadastrarExemplar() {
     try {
       const corpo =
         modo === "EXISTENTE"
-          ? { livroId, codigoBarras: codigo, bibliotecaId: BIBLIOTECA_LOGADA, estadoConservacao: estado }
+          ? { livroId, codigoBarras: codigo, bibliotecaId, estadoConservacao: estado }
           : {
               titulo, autor, editora, isbn,
               anoPublicacao: ano ? Number(ano) : null,
               categoriaId: categoriaId || null,
               sinopse,
               codigoBarras: codigo,
-              bibliotecaId: BIBLIOTECA_LOGADA,
+              bibliotecaId,
               estadoConservacao: estado,
             };
 
       const ex = await api.post<Exemplar>(
-        `/exemplares?bibliotecarioId=${BIBLIOTECARIO_LOGADO}`,
+        "/exemplares",
         corpo,
       );
 

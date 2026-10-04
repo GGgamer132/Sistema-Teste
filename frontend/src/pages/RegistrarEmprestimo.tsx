@@ -24,12 +24,13 @@ import {
   Trilha,
 } from "../components/ui";
 import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
+import { useUsuarioLogado } from "../auth/contexto";
 import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
 
-const BIBLIOTECA_LOGADA = 1;
 const PRAZO_PADRAO = 14; // RN02: entre 7 e 30 dias
 
 export default function RegistrarEmprestimo() {
+  const { bibliotecaId, bibliotecaNome } = useUsuarioLogado();
   const [exemplares, setExemplares] = useState<Exemplar[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -50,7 +51,7 @@ export default function RegistrarEmprestimo() {
 
   function carregarAcervo() {
     return api
-      .get<Exemplar[]>(`/exemplares/biblioteca/${BIBLIOTECA_LOGADA}`)
+      .get<Exemplar[]>(`/exemplares/biblioteca/${bibliotecaId}`)
       .then(setExemplares);
   }
 
@@ -61,10 +62,13 @@ export default function RegistrarEmprestimo() {
     ])
       .catch((e) => setErro(e.message))
       .finally(() => setCarregando(false));
+    // carga única ao abrir a tela (a biblioteca da sessão não muda aqui)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!usuarioSel) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSituacao(null);
       return;
     }
@@ -123,6 +127,7 @@ export default function RegistrarEmprestimo() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/purity
   const devolucaoPrevista = new Date(Date.now() + prazo * 86_400_000);
   const podeConfirmar =
     !!exemplarSel && !!usuarioSel && situacao?.apto === true && !enviando;
@@ -210,7 +215,7 @@ export default function RegistrarEmprestimo() {
       />
       <TituloPagina
         titulo="Novo Empréstimo"
-        subtitulo="Biblioteca Vila Isabel · identifique o usuário, escolha o exemplar e confirme"
+        subtitulo={`${bibliotecaNome ?? ""} · identifique o usuário, escolha o exemplar e confirme`}
       />
 
       {erro && <Erro mensagem={erro} />}

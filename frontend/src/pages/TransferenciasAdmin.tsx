@@ -41,7 +41,6 @@ import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
 
 // Sem login, o admin é fixo: Roberto Dias (id 1).
-const ADMIN_LOGADO = 1;
 
 type Decisao = { s: SolicitacaoTransferencia; acao: "aprovar" | "rejeitar" };
 
@@ -72,7 +71,6 @@ export default function TransferenciasAdmin() {
 
   const [decisao, setDecisao] = useState<Decisao | null>(null);
   const [motivo, setMotivo] = useState("");
-  const [chegada, setChegada] = useState<SolicitacaoTransferencia | null>(null);
 
   // ── Transferência avulsa ──
   const [avulsaAberta, setAvulsaAberta] = useState(false);
@@ -99,6 +97,7 @@ export default function TransferenciasAdmin() {
       .catch((e) => setErro(e.message))
       .finally(() => setCarregando(false));
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(carregar, []);
 
   function carregarDadosAvulsa() {
@@ -155,8 +154,8 @@ export default function TransferenciasAdmin() {
     try {
       const params =
         acao === "rejeitar"
-          ? qs({ adminId: ADMIN_LOGADO, motivo })
-          : qs({ adminId: ADMIN_LOGADO });
+          ? qs({ motivo })
+          : "";
       await api.patch(`/transferencias/${s.id}/${acao}${params}`);
 
       if (acao === "rejeitar") {
@@ -185,30 +184,6 @@ export default function TransferenciasAdmin() {
     }
   }
 
-  async function confirmarChegada() {
-    if (!chegada) return;
-    setProcessando(true);
-    setErro("");
-    setSucesso("");
-    try {
-      await api.patch(
-        `/transferencias/${chegada.id}/confirmar-chegada${qs({ responsavelId: ADMIN_LOGADO })}`,
-      );
-      setSucesso(
-        chegada.reserva
-          ? `Chegada confirmada na ${chegada.bibliotecaDestino.nome}. ${chegada.solicitante.nome} tem 3 dias para retirar o exemplar.`
-          : `Chegada confirmada na ${chegada.bibliotecaDestino.nome}. O exemplar já está disponível lá.`,
-      );
-      setChegada(null);
-      carregar();
-    } catch (e) {
-      setErro((e as Error).message);
-      setChegada(null);
-    } finally {
-      setProcessando(false);
-    }
-  }
-
   async function criarAvulsa() {
     if (!exemplarSel || !destinoId) return;
     setProcessando(true);
@@ -218,7 +193,6 @@ export default function TransferenciasAdmin() {
       await api.post("/transferencias/avulsa", {
         exemplarId: exemplarSel.id,
         bibliotecaDestinoId: Number(destinoId),
-        adminId: ADMIN_LOGADO,
         observacoes: obs.trim() || undefined,
       });
       setSucesso(
@@ -312,14 +286,11 @@ export default function TransferenciasAdmin() {
       titulo: "Ação",
       className: "text-right",
       render: (s) =>
+        // A chegada é confirmada pelo bibliotecário da biblioteca de destino
         s.status === "EM_TRANSITO" ? (
-          <Botao
-            variante="primario"
-            className="!px-3 !py-[6px] !text-[13px]"
-            onClick={() => setChegada(s)}
-          >
-            Confirmar chegada
-          </Botao>
+          <span className="text-[13px] text-[#66707d]">
+            Aguardando confirmação no destino
+          </span>
         ) : (
           <span className="text-[#9aa3ad]">—</span>
         ),
@@ -647,35 +618,6 @@ export default function TransferenciasAdmin() {
         )}
       </ModalConfirmacao>
 
-      {/* ───────── Modal: confirmar chegada ───────── */}
-      <ModalConfirmacao
-        aberto={!!chegada}
-        titulo="Confirmar chegada do exemplar?"
-        confirmarRotulo="Confirmar chegada"
-        tom="verde"
-        carregando={processando}
-        onConfirmar={confirmarChegada}
-        onCancelar={() => setChegada(null)}
-      >
-        {chegada && (
-          <>
-            <ResumoModal
-              linhas={[
-                ["Livro", chegada.livro.titulo],
-                ["Exemplar", rotuloExemplar(chegada)],
-                ["De", chegada.bibliotecaOrigem.nome],
-                ["Chegou em", chegada.bibliotecaDestino.nome],
-              ]}
-            />
-            <p>
-              {chegada.reserva
-                ? `O exemplar passa a pertencer à ${chegada.bibliotecaDestino.nome} e fica reservado para ${chegada.solicitante.nome}, que terá 3 dias para retirar.`
-                : `O exemplar passa a pertencer à ${chegada.bibliotecaDestino.nome} e fica disponível para empréstimo.`}
-            </p>
-          </>
-        )}
-      </ModalConfirmacao>
-
       {/* ───────── Modal: criar avulsa ───────── */}
       <ModalConfirmacao
         aberto={confirmandoAvulsa}
@@ -700,7 +642,7 @@ export default function TransferenciasAdmin() {
             />
             <p>
               A transferência já nasce aprovada e o exemplar sai em trânsito
-              agora. Alguém precisa confirmar a chegada na{" "}
+              agora. O bibliotecário da biblioteca de destino confirma a chegada na{" "}
               <strong>{destinoSel.nome}</strong>.
             </p>
           </>

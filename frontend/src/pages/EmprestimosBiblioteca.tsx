@@ -21,8 +21,8 @@ import {
 } from "../components/ui";
 import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
 import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
+import { useUsuarioLogado } from "../auth/contexto";
 
-const BIBLIOTECA_LOGADA = 1;
 const DIAS_BLOQUEIO_POR_ATRASO = 2;
 
 type Situacao = "ATIVO" | "ATRASADO" | "DEVOLVIDO";
@@ -73,6 +73,7 @@ function Indicador({
 }
 
 export default function EmprestimosBiblioteca() {
+  const { bibliotecaNome } = useUsuarioLogado();
   const navigate = useNavigate();
   const [todos, setTodos] = useState<Emprestimo[] | null>(null);
   const [erro, setErro] = useState("");
@@ -88,14 +89,9 @@ export default function EmprestimosBiblioteca() {
 
   function carregar() {
     api
+      // O servidor já devolve só os empréstimos da biblioteca do bibliotecário logado
       .get<Emprestimo[]>("/emprestimos")
-      .then((lista) =>
-        setTodos(
-          lista.filter(
-            (emprestimo) => emprestimo.biblioteca.id === BIBLIOTECA_LOGADA,
-          ),
-        ),
-      )
+      .then(setTodos)
       .catch((e) => setErro(e.message));
   }
   useEffect(carregar, []);
@@ -111,6 +107,7 @@ export default function EmprestimosBiblioteca() {
   const dados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const limite =
+      // eslint-disable-next-line react-hooks/purity
       periodo === "TODOS" ? 0 : Date.now() - Number(periodo) * 86_400_000;
     return (todos ?? [])
       .filter(
@@ -242,7 +239,7 @@ export default function EmprestimosBiblioteca() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <TituloPagina
           titulo="Empréstimos da Biblioteca"
-          subtitulo="Biblioteca Vila Isabel · acompanhe o que está emprestado e registre devoluções"
+          subtitulo={`${bibliotecaNome ?? ""} · acompanhe o que está emprestado e registre devoluções`}
         />
         <Botao onClick={() => navigate("/biblioteca/emprestimo")}>
           ＋ Novo empréstimo

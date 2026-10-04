@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { api, diasDeAtraso, formatarData } from "../api/client";
 import type { Emprestimo } from "../types";
+import { useUsuarioLogado } from "../auth/contexto";
 import {
   Badge,
   Botao,
@@ -31,6 +32,7 @@ type Condicao = "BOM" | "DANIFICADO" | "PERDIDO";
 const DIAS_BLOQUEIO_POR_ATRASO = 2; // RN12
 
 export default function RegistrarDevolucao() {
+  const { bibliotecaNome } = useUsuarioLogado();
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [busca, setBusca] = useState("");
   const [selecionado, setSelecionado] = useState<Emprestimo | null>(null);
@@ -51,6 +53,7 @@ export default function RegistrarDevolucao() {
       .finally(() => setCarregando(false));
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(carregar, []);
 
   const filtrados = busca.trim()
@@ -66,6 +69,7 @@ export default function RegistrarDevolucao() {
 
   const atraso = selecionado ? diasDeAtraso(selecionado.dataPrevDevolucao) : 0;
   const bloqueioAte = new Date(
+    // eslint-disable-next-line react-hooks/purity
     Date.now() + atraso * DIAS_BLOQUEIO_POR_ATRASO * 86_400_000,
   );
 
@@ -108,7 +112,7 @@ export default function RegistrarDevolucao() {
       />
       <TituloPagina
         titulo="Registrar Devolução"
-        subtitulo="Biblioteca Vila Isabel · UC10 - Registrar devolução"
+        subtitulo={`${bibliotecaNome ?? ""} · UC10 - Registrar devolução`}
       />
 
       {erro && <Erro mensagem={erro} />}
