@@ -350,3 +350,15 @@ export interface ReservasBiblioteca {
     }[];
   }[];
 }
+
+/** Item de GET /api/notificacoes. */
+export interface Notificacao {
+  id: number;
+  titulo: string;
+  mensagem: string;
+  tipo: string;
+  lida: boolean;
+  criadaEm: string;
+  /** Tela relacionada (rota do front), quando houver. */
+  link: string | null;
+}
