@@ -25,12 +25,15 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
     { rotulo: "Empréstimos", to: "/biblioteca" },
     { rotulo: "Registrar Empréstimo", to: "/biblioteca/emprestimo" },
     { rotulo: "Registrar Devolução", to: "/biblioteca/devolucao" },
-    { rotulo: "Cadastrar Exemplar", to: "/biblioteca/exemplares" },
+    { rotulo: "Cadastrar Exemplares", to: "/biblioteca/exemplares" },
+    { rotulo: "Acervo", to: "/biblioteca/acervo" },
   ],
   ADMIN: [
-    { rotulo: "Dashboard", to: "/admin" },
-    { rotulo: "Solicitações de Transferência", to: "/admin/transferencias" },
-    { rotulo: "Catálogo de Livros", to: "/admin/catalogo" },
+    { rotulo: "Transferências", to: "/admin/transferencias" },
+    { rotulo: "Catálogo", to: "/admin/catalogo" },
+    { rotulo: "Categorias", to: "/admin/categorias" },
+    { rotulo: "Bibliotecas", to: "/admin/bibliotecas" },
+    { rotulo: "Bibliotecários", to: "/admin/bibliotecarios" },
   ],
 };
 
@@ -49,12 +52,12 @@ export default function Header() {
   return (
     <header className="bg-[#1976d2] text-white">
       <div className="h-[76px] px-10 flex items-center justify-between gap-6">
-        <div className="flex items-center gap-9 min-w-0">
+        <div className="flex items-center gap-9 shrink-0">
           <Link to={TELA_INICIAL[perfil]} className="text-[20px] font-bold shrink-0">
             📚 Circula Book
           </Link>
 
-          <nav className="hidden md:flex items-center gap-7 min-w-0">
+          <nav className="hidden md:flex items-center gap-6">
             {MENUS[perfil].map((item) => {
               const ativoExtra = item.tambem?.some((p) =>
                 pathname.startsWith(p),
@@ -79,8 +82,13 @@ export default function Header() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-4 shrink-0">
-          <span className="hidden lg:inline text-[13px] font-medium" data-testid="identificacao">
+        {/* A identificação encolhe (com reticências) para nunca cobrir o menu */}
+        <div className="flex items-center justify-end gap-4 min-w-0 flex-1">
+          <span
+            className="hidden lg:block min-w-0 truncate text-[13px] font-medium"
+            data-testid="identificacao"
+            title={`${usuario.nome} · ${NOME_PERFIL[perfil]}${usuario.bibliotecaNome ? ` — ${usuario.bibliotecaNome}` : ""}`}
+          >
             {ICONE[perfil]} {usuario.nome} · {NOME_PERFIL[perfil]}
             {usuario.bibliotecaNome ? ` — ${usuario.bibliotecaNome}` : ""}
           </span>

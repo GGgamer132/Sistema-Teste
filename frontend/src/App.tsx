@@ -22,6 +22,11 @@ import EmConstrucao from "./pages/EmConstrucao";
 import EmprestimosBiblioteca from "./pages/EmprestimosBiblioteca";
 import MeusEmprestimos from "./pages/MeusEmprestimos";
 import MinhasReservas from "./pages/MinhasReservas";
+import AcervoBiblioteca from "./pages/AcervoBiblioteca";
+import AdminCatalogo from "./pages/AdminCatalogo";
+import AdminCategorias from "./pages/AdminCategorias";
+import AdminBibliotecas from "./pages/AdminBibliotecas";
+import AdminBibliotecarios from "./pages/AdminBibliotecarios";
 
 export default function App() {
   const { usuario } = useAuth();
@@ -55,6 +60,7 @@ export default function App() {
         />
         <Route path="/biblioteca/devolucao" element={<RegistrarDevolucao />} />
         <Route path="/biblioteca/exemplares" element={<CadastrarExemplar />} />
+        <Route path="/biblioteca/acervo" element={<AcervoBiblioteca />} />
       </Route>
 
       {/* ── Administrador ── */}
@@ -64,10 +70,10 @@ export default function App() {
           element={<EmConstrucao titulo="Dashboard da Rede" />}
         />
         <Route path="/admin/transferencias" element={<TransferenciasAdmin />} />
-        <Route
-          path="/admin/catalogo"
-          element={<EmConstrucao titulo="Catálogo de Livros" />}
-        />
+        <Route path="/admin/catalogo" element={<AdminCatalogo />} />
+        <Route path="/admin/categorias" element={<AdminCategorias />} />
+        <Route path="/admin/bibliotecas" element={<AdminBibliotecas />} />
+        <Route path="/admin/bibliotecarios" element={<AdminBibliotecarios />} />
       </Route>
 
       {/* URL desconhecida volta para o início do perfil (ou para o login) */}
