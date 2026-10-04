@@ -80,7 +80,7 @@ export function BadgeSituacao({ situacao }: { situacao: string }) {
     return <Badge tom="verde">🟢 Disponível</Badge>;
   if (situacao === "AGUARDANDO")
     return <Badge tom="amarelo">🟡 Aguardando</Badge>;
-  return <Badge tom="vermelho">🔴 Indisponível</Badge>;
+  return <Badge tom="vermelho">🔴 Indisponível: sem exemplares</Badge>;
 }
 
 /**
