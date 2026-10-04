@@ -44,6 +44,7 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
     { rotulo: "Bibliotecários", to: "/admin/bibliotecarios" },
     { rotulo: "Demandas", to: "/admin/demandas" },
     { rotulo: "Histórico", to: "/admin/historico" },
+    { rotulo: "Relatórios", to: "/admin/relatorios" },
   ],
 };
 

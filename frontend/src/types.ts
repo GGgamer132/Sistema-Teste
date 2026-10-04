@@ -441,3 +441,39 @@ export interface Dashboard {
   demandasAbertas: number;
   demandasEmAnalise: number;
 }
+
+/** GET /api/admin/relatorios?de&ate (só tabelas). */
+export interface Relatorios {
+  periodo: { de: string | null; ate: string | null };
+  statusExemplar: Exemplar["status"][];
+  rotuloStatusExemplar: Record<string, string>;
+  acervo: { bibliotecaId: number; biblioteca: string; total: number; porStatus: Record<string, number> }[];
+  emprestimos: {
+    bibliotecaId: number;
+    biblioteca: string;
+    realizados: number;
+    devolvidos: number;
+    devolvidosComAtraso: number;
+    emAberto: number;
+  }[];
+  atrasos: {
+    emprestimoId: number;
+    leitor: string;
+    titulo: string;
+    biblioteca: string;
+    dataPrevDevolucao: string;
+    dataDevolucao: string | null;
+    diasAtraso: number;
+    situacao: "Em aberto" | "Devolvido com atraso";
+  }[];
+  maisEmprestados: { livroId: number; titulo: string; autor: string; emprestimos: number }[];
+  demandasMaisPedidas: {
+    id: number;
+    titulo: string;
+    autor: string;
+    totalSolicitacoes: number;
+    status: StatusDemanda;
+    statusRotulo: string;
+  }[];
+  transferencias: { status: string; rotulo: string; deReserva: number; avulsas: number; total: number }[];
+}
