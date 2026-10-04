@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Cadastro de exemplares (UC11 / RN10 / RN11) — Tela 7.
+ * Cadastro de exemplares (UC11 / RN10) — Tela 7.
  */
 @Service
 public class ExemplarService {
@@ -44,7 +44,7 @@ public class ExemplarService {
      *
      * RN10: exige o ID do bibliotecário responsável e valida que ele pertence
      *       à biblioteca onde o exemplar será cadastrado.
-     * RN11: se for o único exemplar do título na rede, nasce INDISPONIVEL.
+     * Todo exemplar nasce DISPONIVEL; se a biblioteca tem fila do título, atende o 1º.
      */
     @Transactional
     public Exemplar cadastrar(CadastroExemplarDTO dto, Long bibliotecarioId) {
@@ -69,9 +69,7 @@ public class ExemplarService {
 
         Livro livro = resolverLivro(dto);
 
-        // RN11 — único exemplar do título na rede fica indisponível para empréstimo
-        long jaExistentes = exemplarRepository.countByLivro(livro);
-        String statusInicial = (jaExistentes == 0) ? "INDISPONIVEL" : "DISPONIVEL";
+        String statusInicial = "DISPONIVEL";
 
         Exemplar exemplar = new Exemplar();
         exemplar.setLivro(livro);
@@ -82,31 +80,14 @@ public class ExemplarService {
         exemplarRepository.save(exemplar);
 
         historicoService.registrar(exemplar, "CADASTRO", bibliotecario, biblioteca,
-            "Exemplar cadastrado com status inicial " + statusInicial
-            + (jaExistentes == 0 ? " (RN11: único exemplar do título na rede)." : "."));
+            "Exemplar cadastrado com status inicial " + statusInicial + ".");
         // Se a biblioteca já tem fila para este título, o novo exemplar atende o 1º da fila
         filaEsperaService.promoverProximo(exemplar);
-        // Se este é o segundo exemplar, o primeiro deixa de ser "único" e é liberado
-        if (jaExistentes == 1) {
-            liberarExemplarUnico(livro, bibliotecario);
-        }
 
         System.out.println("[CIRCULA BOOK] Exemplar cadastrado: " + livro.getTitulo()
             + " | Biblioteca: " + biblioteca.getNome() + " | Status: " + statusInicial);
 
         return exemplar;
-    }
-
-    /** Ao existir um segundo exemplar, o que estava travado por RN11 volta a circular. */
-    private void liberarExemplarUnico(Livro livro, Usuario responsavel) {
-        List<Exemplar> indisponiveis = exemplarRepository.findByLivroAndStatus(livro, "INDISPONIVEL");
-        for (Exemplar e : indisponiveis) {
-            e.setStatus("DISPONIVEL");
-            exemplarRepository.save(e);
-            historicoService.registrar(e, "CADASTRO", responsavel, e.getBiblioteca(),
-                "Liberado para empréstimo: o título deixou de ter exemplar único na rede (RN11).");
-            filaEsperaService.promoverProximo(e);
-        }
     }
 
     private Livro resolverLivro(CadastroExemplarDTO dto) {

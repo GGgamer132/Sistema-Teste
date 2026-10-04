@@ -1,7 +1,7 @@
 /**
  * TELA 7 — Cadastrar Livro/Exemplar (UC11 / UC20).
  * Dois modos: vincular a um título existente ou criar um título novo.
- * RN10 (só bibliotecário da casa) e RN11 (exemplar único) são validadas no backend.
+ * RN10 (só bibliotecário da casa) é validada no backend.
  */
 import { useEffect, useState } from "react";
 import { api, nomeExemplar } from "../api/client";
@@ -84,10 +84,7 @@ export default function CadastrarExemplar() {
 
       setSucesso(
         `${nomeExemplar(ex.id)} de "${ex.livro.titulo}" cadastrado em ` +
-          `${ex.biblioteca.nome} com status ${ex.status}.` +
-          (ex.status === "INDISPONIVEL"
-            ? " Por ser o único exemplar do título na rede, ele nasce indisponível para empréstimo (RN11)."
-            : ""),
+          `${ex.biblioteca.nome} com status ${ex.status}.`,
       );
 
       // Limpa o formulário e recarrega a lista de títulos
@@ -218,11 +215,6 @@ export default function CadastrarExemplar() {
             <Callout tipo="info" titulo="Cadastro de exemplar (RN10)">
               Um exemplar só pode ser cadastrado por um bibliotecário da biblioteca à qual
               pertencerá. O livro correspondente deve estar previamente cadastrado no sistema.
-            </Callout>
-
-            <Callout tipo="aviso" titulo="Exemplar único (RN11)">
-              Se este for o único exemplar do título na rede, ele ficará com status
-              indisponível para empréstimo imediato.
             </Callout>
 
             <CardResumo

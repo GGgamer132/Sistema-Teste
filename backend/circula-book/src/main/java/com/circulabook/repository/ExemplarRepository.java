@@ -16,10 +16,5 @@ public interface ExemplarRepository extends JpaRepository<Exemplar, Long> {
 
     List<Exemplar> findByLivroAndBiblioteca(Livro livro, Biblioteca biblioteca);
 
-    List<Exemplar> findByLivroAndStatus(Livro livro, String status);
-
     List<Exemplar> findByLivroAndBibliotecaAndStatus(Livro livro, Biblioteca biblioteca, String status);
-
-
-    long countByLivro(Livro livro);
 }

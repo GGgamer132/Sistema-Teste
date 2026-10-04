@@ -66,8 +66,8 @@ INSERT INTO exemplar (id, livro_id, biblioteca_id, status, estado_conservacao, a
 -- O Alienista
 (11, 4, 5, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
 (12, 4, 4, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
--- Iracema: exemplar unico na rede -> RN11 deixa INDISPONIVEL
-(13, 5, 1, 'INDISPONIVEL',     'NOVO', CURRENT_TIMESTAMP),
+-- Iracema
+(13, 5, 1, 'DISPONIVEL',       'NOVO', CURRENT_TIMESTAMP),
 -- A Moreninha
 (14, 6, 3, 'DISPONIVEL',       'USADO',CURRENT_TIMESTAMP),
 (15, 6, 2, 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP);
@@ -119,7 +119,7 @@ INSERT INTO historico_circulacao (id, exemplar_id, evento, usuario_id, bibliotec
 (4, 6,  'EMPRESTIMO',            6, 4, CURRENT_TIMESTAMP - INTERVAL '20 days',  'Emprestimo para Ana Souza.'),
 (5, 12, 'TRANSFERENCIA_SAIDA',   1, 4, CURRENT_TIMESTAMP - INTERVAL '8 days',   'Saida da Biblioteca Central rumo a Tijuca.'),
 (6, 11, 'TRANSFERENCIA_CHEGADA', 1, 4, CURRENT_TIMESTAMP - INTERVAL '7 days',   'Chegada confirmada na Biblioteca Central.'),
-(7, 13, 'CADASTRO',              2, 1, CURRENT_TIMESTAMP - INTERVAL '5 days',   'Unico exemplar da rede — indisponivel para emprestimo (RN11).');
+(7, 13, 'CADASTRO',              2, 1, CURRENT_TIMESTAMP - INTERVAL '5 days',   'Exemplar cadastrado com status inicial DISPONIVEL.');
 
 -- ─── Demandas de aquisicao ───
 INSERT INTO demanda_aquisicao (id, titulo, autor, isbn, total_solicitacoes, status, criada_em, atualizada_em) VALUES
