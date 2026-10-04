@@ -21,4 +21,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     // RN22: destino de transferência precisa de ao menos um bibliotecário ativo
     boolean existsByTipoAndBibliotecaAndAtivoTrue(String tipo, Biblioteca biblioteca);
+
+    // Destinatários de notificações: bibliotecários ativos de uma biblioteca / Admins ativos
+    List<Usuario> findByTipoAndBibliotecaAndAtivoTrue(String tipo, Biblioteca biblioteca);
+
+    List<Usuario> findByTipoAndAtivoTrue(String tipo);
 }
