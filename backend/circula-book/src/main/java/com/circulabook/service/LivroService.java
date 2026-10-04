@@ -36,10 +36,6 @@ public class LivroService {
         return livroRepository.findAll();
     }
 
-    public Livro salvar(Livro livro) {
-        return livroRepository.save(livro);
-    }
-
     /** Busca na rede com filtros opcionais (Tela 1 -> Tela 2). */
     public List<LivroResumoDTO> buscar(String termo, String autor, String isbn,
                                        Long categoriaId, Integer anoDe, Integer anoAte) {

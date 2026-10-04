@@ -2,6 +2,8 @@ package com.circulabook.controller;
 
 import com.circulabook.dto.LivroResumoDTO;
 import com.circulabook.model.Livro;
+import com.circulabook.dto.CadastroDTOs.LivroRequest;
+import com.circulabook.service.CatalogoService;
 import com.circulabook.service.LivroService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,9 @@ public class LivroController {
 
     @Autowired
     private LivroService livroService;
+
+    @Autowired
+    private CatalogoService catalogoService;
 
     /** Telas 1 e 2 — busca na rede com filtros opcionais (RN09). */
     @GetMapping("/busca")
@@ -47,8 +52,23 @@ public class LivroController {
         return livroService.obterTodos();
     }
 
+    /** A8 — cadastrar livro (só ADMIN; ISBN único). */
     @PostMapping
-    public Livro criar(@RequestBody Livro livro) {
-        return livroService.salvar(livro);
+    public ResponseEntity<?> criar(@RequestBody LivroRequest req) {
+        try {
+            return ResponseEntity.ok(catalogoService.criarLivro(req));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /** A8 — editar livro (só ADMIN). */
+    @PutMapping("/{id}")
+    public ResponseEntity<?> atualizar(@PathVariable Long id, @RequestBody LivroRequest req) {
+        try {
+            return ResponseEntity.ok(catalogoService.atualizarLivro(id, req));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

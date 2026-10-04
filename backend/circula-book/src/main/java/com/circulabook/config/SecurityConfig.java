@@ -49,11 +49,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/cadastro").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
 
-                // Catálogo: leitura para todos os perfis; escrita só do Admin
+                // Catálogo: leitura para todos os perfis; criar/editar/desativar só o Admin (RN18)
+                .requestMatchers(HttpMethod.GET, "/api/bibliotecas/todas").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.GET, "/api/livros/**", "/api/bibliotecas/**",
                                  "/api/categorias/**", "/api/exemplares/**").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/livros/**", "/api/categorias/**",
-                                 "/api/bibliotecas/**").hasRole(ADMIN)
+                .requestMatchers("/api/livros/**", "/api/categorias/**", "/api/bibliotecas/**").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.POST, "/api/exemplares/**").hasRole(BIBLIOTECARIO)
                 .requestMatchers(HttpMethod.PATCH, "/api/exemplares/*/indisponivel",
                                  "/api/exemplares/*/reativar").hasRole(BIBLIOTECARIO)
