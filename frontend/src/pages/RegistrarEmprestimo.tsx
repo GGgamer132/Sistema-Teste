@@ -1,6 +1,7 @@
 /**
  * TELA 4 — Registrar Empréstimo (UC09).
- * Três passos: escolher exemplar, escolher usuário, confirmar prazo.
+ * Três passos: identificar o usuário, escolher o exemplar e confirmar.
+ * O prazo é fixo (14 dias corridos) e calculado pelo servidor.
  * A coluna direita mostra em tempo real se o usuário está apto (RN01/RN12).
  */
 import { useEffect, useMemo, useState } from "react";
@@ -18,7 +19,6 @@ import {
   Erro,
   LinhaResumo,
   SectionCard,
-  Selecao,
   Sucesso,
   TituloPagina,
   Trilha,
@@ -27,7 +27,8 @@ import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 import { useUsuarioLogado } from "../auth/contexto";
 import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
 
-const PRAZO_PADRAO = 14; // RN02: entre 7 e 30 dias
+// Só para exibição: o prazo vale pelo backend (EmprestimoService.PRAZO_EMPRESTIMO_DIAS)
+const PRAZO_EMPRESTIMO_DIAS = 14;
 
 export default function RegistrarEmprestimo() {
   const { bibliotecaId, bibliotecaNome } = useUsuarioLogado();
@@ -42,7 +43,6 @@ export default function RegistrarEmprestimo() {
   const [buscaExemplar, setBuscaExemplar] = useState("");
   const [exemplarSel, setExemplarSel] = useState<Exemplar | null>(null);
 
-  const [prazo, setPrazo] = useState(PRAZO_PADRAO);
   const [modalAberto, setModalAberto] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
@@ -109,7 +109,7 @@ export default function RegistrarEmprestimo() {
   }, [emprestaveis, buscaExemplar]);
 
   // eslint-disable-next-line react-hooks/purity
-  const devolucaoPrevista = new Date(Date.now() + prazo * 86_400_000);
+  const devolucaoPrevista = new Date(Date.now() + PRAZO_EMPRESTIMO_DIAS * 86_400_000);
   const podeConfirmar =
     !!exemplarSel && !!usuarioSel && situacao?.apto === true && !enviando;
 
@@ -122,7 +122,6 @@ export default function RegistrarEmprestimo() {
       const emp = await api.post<Emprestimo>("/emprestimos/registrar", {
         exemplarId: exemplarSel.id,
         usuarioId: usuarioSel.id,
-        prazoDias: prazo,
       });
       setSucesso(
         `Empréstimo registrado: ${emp.exemplar.livro.titulo} para ${emp.usuario.nome}, ` +
@@ -132,7 +131,6 @@ export default function RegistrarEmprestimo() {
       setUsuarioSel(null);
       setBuscaUsuario("");
       setBuscaExemplar("");
-      setPrazo(PRAZO_PADRAO);
       carregarAcervo().catch(() => {});
     } catch (e) {
       setErro((e as Error).message);
@@ -337,15 +335,7 @@ export default function RegistrarEmprestimo() {
                   />
                 </Campo>
                 <Campo label="Prazo">
-                  <Selecao
-                    value={prazo}
-                    onChange={(e) => setPrazo(Number(e.target.value))}
-                  >
-                    <option value={7}>7 dias</option>
-                    <option value={14}>14 dias (padrão)</option>
-                    <option value={21}>21 dias</option>
-                    <option value={30}>30 dias</option>
-                  </Selecao>
+                  <Entrada value={`${PRAZO_EMPRESTIMO_DIAS} dias corridos`} readOnly />
                 </Campo>
                 <Campo label="Devolução prevista">
                   <Entrada
@@ -429,7 +419,7 @@ export default function RegistrarEmprestimo() {
             ["Livro", exemplarSel?.livro.titulo ?? "—"],
             ["Exemplar", exemplarSel ? nomeExemplar(exemplarSel.id) : "—"],
             ["Usuário", usuarioSel?.nome ?? "—"],
-            ["Prazo", `${prazo} dias`],
+            ["Prazo", `${PRAZO_EMPRESTIMO_DIAS} dias corridos`],
             [
               "Devolução prevista",
               devolucaoPrevista.toLocaleDateString("pt-BR"),

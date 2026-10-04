@@ -20,7 +20,7 @@ import java.util.List;
 public class EmprestimoService {
 
     public static final int LIMITE_EMPRESTIMOS = 3;   // RN01
-    public static final int PRAZO_PADRAO_DIAS   = 14; // RN02
+    public static final int PRAZO_EMPRESTIMO_DIAS = 14; // RN02: prazo fixo, em dias corridos
     public static final int DIAS_BLOQUEIO_POR_ATRASO = 2; // RN12
 
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -90,7 +90,7 @@ public class EmprestimoService {
      * Valida RN01 (limite e título repetido), RN12 (bloqueio) e RN05 (status do exemplar).
      */
     @Transactional
-    public Emprestimo registrar(Long exemplarId, Long usuarioId, Integer prazoDias) {
+    public Emprestimo registrar(Long exemplarId, Long usuarioId) {
 
         Exemplar exemplar = exemplarRepository.findById(exemplarId)
             .orElseThrow(() -> new RuntimeException("Exemplar não encontrado: ID " + exemplarId));
@@ -144,14 +144,12 @@ public class EmprestimoService {
                 + exemplar.getLivro().getTitulo() + "\" emprestado.");
         }
 
-        int prazo = (prazoDias != null && prazoDias > 0) ? prazoDias : PRAZO_PADRAO_DIAS;
-
         Emprestimo emprestimo = new Emprestimo();
         emprestimo.setExemplar(exemplar);
         emprestimo.setUsuario(usuario);
         emprestimo.setBiblioteca(exemplar.getBiblioteca());
         emprestimo.setDataEmprestimo(LocalDateTime.now());
-        emprestimo.setDataPrevDevolucao(LocalDateTime.now().plusDays(prazo));
+        emprestimo.setDataPrevDevolucao(LocalDateTime.now().plusDays(PRAZO_EMPRESTIMO_DIAS));
         emprestimo.setStatus("ATIVO");
         emprestimoRepository.save(emprestimo);
 
@@ -166,7 +164,7 @@ public class EmprestimoService {
 
         // RN06 — registra no histórico de circulação
         historicoService.registrar(exemplar, "EMPRESTIMO", usuario, exemplar.getBiblioteca(),
-            "Empréstimo de " + prazo + " dias para " + usuario.getNome() + ".");
+            "Empréstimo de " + PRAZO_EMPRESTIMO_DIAS + " dias para " + usuario.getNome() + ".");
 
         System.out.println("[CIRCULA BOOK] Empréstimo registrado: "
             + exemplar.getLivro().getTitulo() + " -> " + usuario.getNome()

@@ -5,7 +5,6 @@ public class EmprestimoRequestDTO {
 
     private Long exemplarId;
     private Long usuarioId;
-    private Integer prazoDias; // opcional; padrão 14 (RN02)
 
     public EmprestimoRequestDTO() {}
 
@@ -14,7 +13,4 @@ public class EmprestimoRequestDTO {
 
     public Long getUsuarioId() { return usuarioId; }
     public void setUsuarioId(Long usuarioId) { this.usuarioId = usuarioId; }
-
-    public Integer getPrazoDias() { return prazoDias; }
-    public void setPrazoDias(Integer prazoDias) { this.prazoDias = prazoDias; }
 }

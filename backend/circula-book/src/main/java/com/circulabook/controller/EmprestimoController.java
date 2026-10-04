@@ -84,7 +84,7 @@ public class EmprestimoController {
         }
         try {
             return ResponseEntity.ok(emprestimoService.registrar(
-                req.getExemplarId(), req.getUsuarioId(), req.getPrazoDias()));
+                req.getExemplarId(), req.getUsuarioId()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
