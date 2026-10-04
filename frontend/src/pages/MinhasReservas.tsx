@@ -1,17 +1,19 @@
 /**
  * Minhas Reservas — acompanhamento da fila de espera do usuário (UC05 / UC07).
  *
- * Mostra, para cada reserva ativa:
+ * Mostra, para cada reserva ativa (GET /api/conta/reservas, sempre do usuário logado):
  *  - a posição na fila DA biblioteca (reserva é por biblioteca);
  *  - onde o usuário entrou na fila e onde vai retirar;
- *  - o andamento do pedido de transferência, quando a retirada é em outra biblioteca;
+ *  - a etapa do pedido de transferência, quando a retirada é em outra biblioteca;
  *  - a data limite de retirada, quando o exemplar já está liberado.
+ * Reservas encerradas ficam em Meu Histórico.
  */
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { api, nomeExemplar, formatarData } from "../api/client";
-import type { Reserva, SolicitacaoTransferencia } from "../types";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { api, formatarData } from "../api/client";
+import type { MinhaReserva, TransferenciaDaReserva } from "../types";
 import {
+  Badge,
   BadgeReserva,
   Botao,
   CapaLivro,
@@ -28,127 +30,63 @@ import {
   Vazio,
 } from "../components/ui";
 import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
-import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
-import { useUsuarioLogado } from "../auth/contexto";
 
-
-const ATIVAS: Reserva["status"][] = [
-  "PENDENTE",
-  "AGUARDANDO_TRANSFERENCIA",
-  "DISPONIVEL",
-];
+/** Rótulo curto da etapa da transferência. */
+const ETAPA: Record<
+  TransferenciaDaReserva["etapa"],
+  { texto: string; tom: "amarelo" | "azul" | "verde" | "vermelho" | "cinza" }
+> = {
+  PENDENTE: { texto: "Transferência pendente", tom: "amarelo" },
+  PENDENTE_COM_EXEMPLAR: { texto: "Exemplar separado, aguardando aprovação", tom: "amarelo" },
+  APROVADA_AGUARDANDO_EXEMPLAR: { texto: "Aprovada, aguardando exemplar", tom: "azul" },
+  EM_TRANSITO: { texto: "Em trânsito", tom: "azul" },
+  CONCLUIDA: { texto: "Transferência concluída", tom: "verde" },
+  REJEITADA: { texto: "Transferência rejeitada", tom: "vermelho" },
+  CANCELADA: { texto: "Transferência cancelada", tom: "cinza" },
+};
 
 /** Mensagem principal do card, conforme o momento da reserva. */
-function mensagemDe(
-  r: Reserva,
-  posicao: number,
-  transf?: SolicitacaoTransferencia,
-): { texto: string; tom: "neutro" | "azul" | "verde" } {
-  const comTransf = r.bibliotecaFila.id !== r.bibliotecaDestino.id;
-
+function mensagemDe(r: MinhaReserva): { texto: string; tom: "neutro" | "azul" | "verde" } {
   if (r.status === "DISPONIVEL") {
     return {
       tom: "verde",
-      texto: `Seu exemplar está pronto! Retire na ${r.bibliotecaDestino.nome} até ${formatarData(r.dataExpiracao)}.`,
+      texto: `Seu exemplar está pronto! Retire na ${r.bibliotecaRetirada} até ${formatarData(r.retireAte)}.`,
     };
   }
-
   if (r.status === "AGUARDANDO_TRANSFERENCIA") {
-    if (transf?.status === "EM_TRANSITO") {
-      return {
-        tom: "azul",
-        texto: `Seu exemplar já está a caminho da ${r.bibliotecaDestino.nome}. Você será avisado quando ele chegar.`,
-      };
-    }
     return {
       tom: "azul",
-      texto: `Um exemplar foi separado para você na ${r.bibliotecaFila.nome}, mas ainda aguarda a aprovação do administrador para seguir viagem.`,
+      texto:
+        r.transferencia?.descricao ??
+        `Um exemplar foi separado para você na ${r.bibliotecaFila}.`,
     };
   }
-
-  // PENDENTE
-  if (!comTransf) {
-    return {
-      tom: "neutro",
-      texto: `Você é o ${posicao}º da fila na ${r.bibliotecaFila.nome}. Avisaremos quando for a sua vez.`,
-    };
+  const fila = `Você é o ${r.posicao ?? 1}º da fila na ${r.bibliotecaFila}.`;
+  if (!r.transferencia) {
+    return { tom: "neutro", texto: `${fila} Avisaremos quando for a sua vez.` };
   }
-  if (transf?.status === "APROVADA") {
-    return {
-      tom: "neutro",
-      texto: `Você é o ${posicao}º da fila na ${r.bibliotecaFila.nome}. O administrador já aprovou a retirada na ${r.bibliotecaDestino.nome}; o exemplar seguirá viagem assim que for devolvido.`,
-    };
-  }
-  return {
-    tom: "neutro",
-    texto: `Você é o ${posicao}º da fila na ${r.bibliotecaFila.nome}. A retirada na ${r.bibliotecaDestino.nome} aguarda a aprovação do administrador.`,
-  };
+  return { tom: "neutro", texto: `${fila} ${r.transferencia.descricao}` };
 }
 
 export default function MinhasReservas() {
-  const { id: usuarioId } = useUsuarioLogado();
-  const [todas, setTodas] = useState<Reserva[] | null>(null);
-  const [transferencias, setTransferencias] = useState<
-    SolicitacaoTransferencia[]
-  >([]);
+  const location = useLocation();
+  const [reservas, setReservas] = useState<MinhaReserva[] | null>(null);
   const [erro, setErro] = useState("");
-  const [sucesso, setSucesso] = useState("");
+  // Mensagem de quem acabou de reservar (vem da tela de reserva)
+  const [sucesso, setSucesso] = useState<string>(
+    (location.state as { sucesso?: string } | null)?.sucesso ?? "",
+  );
 
-  const [alvo, setAlvo] = useState<Reserva | null>(null);
+  const [alvo, setAlvo] = useState<MinhaReserva | null>(null);
   const [cancelando, setCancelando] = useState(false);
 
   function carregar() {
-    // /reservas/usuario traz só as minhas, já com a posição na fila;
-    // /transferencias mostra em que pé está o pedido de cada reserva.
-    Promise.all([
-      api.get<Reserva[]>(`/reservas/usuario/${usuarioId}`),
-      api.get<SolicitacaoTransferencia[]>("/transferencias"),
-    ])
-      .then(([reservas, transf]) => {
-        setTodas(reservas);
-        setTransferencias(transf);
-      })
+    api
+      .get<MinhaReserva[]>("/conta/reservas")
+      .then(setReservas)
       .catch((e) => setErro(e.message));
   }
-  useEffect(carregar, [usuarioId]);
-
-  const minhas = useMemo(() => todas ?? [], [todas]);
-
-  const ativas = useMemo(
-    () =>
-      minhas
-        .filter((r) => ATIVAS.includes(r.status))
-        .sort(
-          (a, b) =>
-            new Date(a.dataReserva).getTime() -
-            new Date(b.dataReserva).getTime(),
-        ),
-    [minhas],
-  );
-
-  const historico = useMemo(
-    () =>
-      minhas
-        .filter((r) => !ATIVAS.includes(r.status))
-        .sort(
-          (a, b) =>
-            new Date(b.dataReserva).getTime() -
-            new Date(a.dataReserva).getTime(),
-        ),
-    [minhas],
-  );
-
-  /** Posição na fila da biblioteca, calculada pelo servidor. */
-  function posicaoDe(r: Reserva): number {
-    return Math.max(1, r.posicaoFila ?? 1);
-  }
-
-  /** Pedido de transferência mais recente ligado à reserva. */
-  function transferenciaDe(r: Reserva): SolicitacaoTransferencia | undefined {
-    return transferencias
-      .filter((t) => t.reserva?.id === r.id)
-      .sort((a, b) => b.id - a.id)[0];
-  }
+  useEffect(carregar, []);
 
   async function cancelar() {
     if (!alvo) return;
@@ -157,38 +95,21 @@ export default function MinhasReservas() {
     setSucesso("");
     try {
       await api.patch(`/reservas/${alvo.id}/cancelar`);
-      setSucesso(`Reserva de "${alvo.livro.titulo}" cancelada.`);
-      setAlvo(null);
+      setSucesso(`Reserva de "${alvo.titulo}" cancelada.`);
       carregar();
     } catch (e) {
       setErro((e as Error).message);
-      setAlvo(null);
     } finally {
+      setAlvo(null);
       setCancelando(false);
     }
   }
 
-  const colunasHistorico: Coluna<Reserva>[] = [
-    {
-      titulo: "Livro",
-      render: (r) => (
-        <div>
-          <p className="font-semibold text-[#2c3e50]">{r.livro.titulo}</p>
-          <p className="text-[12px] text-[#66707d]">{r.livro.autor}</p>
-        </div>
-      ),
-    },
-    { titulo: "Fila", render: (r) => r.bibliotecaFila.nome },
-    { titulo: "Retirada", render: (r) => r.bibliotecaDestino.nome },
-    { titulo: "Reservado em", render: (r) => formatarData(r.dataReserva) },
-    { titulo: "Situação", render: (r) => <BadgeReserva status={r.status} /> },
-  ];
-
-  if (todas === null && !erro) {
+  if (reservas === null && !erro) {
     return <Carregando texto="Carregando suas reservas..." />;
   }
-
-  const transfDoAlvo = alvo ? transferenciaDe(alvo) : undefined;
+  const ativas = reservas ?? [];
+  const emTransito = alvo?.transferencia?.etapa === "EM_TRANSITO";
 
   return (
     <>
@@ -203,89 +124,74 @@ export default function MinhasReservas() {
 
       <DuasColunas
         esquerda={
-          <>
-            <SectionCard titulo={`1. Reservas em andamento (${ativas.length})`}>
-              {ativas.length === 0 && (
-                <Vazio texto="Você não tem reservas em andamento. Quando todos os exemplares de um livro estiverem emprestados numa biblioteca, você pode entrar na fila dela." />
-              )}
+          <SectionCard titulo={`Reservas em andamento (${ativas.length})`}>
+            {ativas.length === 0 && (
+              <Vazio texto="Você não tem reservas em andamento. Quando todos os exemplares de um livro estiverem emprestados numa biblioteca, você pode entrar na fila dela." />
+            )}
 
-              <div className="flex flex-col gap-3">
-                {ativas.map((r) => {
-                  const transf = transferenciaDe(r);
-                  const msg = mensagemDe(r, posicaoDe(r), transf);
-                  const caixa = {
-                    neutro: "bg-white border-[#e0e0e0] text-[#2c3e50]",
-                    azul: "bg-[#deedfc] border-[#1976d2] text-[#125ca8]",
-                    verde: "bg-[#dbf0db] border-[#388e3c] text-[#2b6e2e]",
-                  }[msg.tom];
+            <div className="flex flex-col gap-3">
+              {ativas.map((r) => {
+                const msg = mensagemDe(r);
+                const caixa = {
+                  neutro: "bg-white border-[#e0e0e0] text-[#2c3e50]",
+                  azul: "bg-[#deedfc] border-[#1976d2] text-[#125ca8]",
+                  verde: "bg-[#dbf0db] border-[#388e3c] text-[#2b6e2e]",
+                }[msg.tom];
+                const etapa = r.transferencia ? ETAPA[r.transferencia.etapa] : null;
 
-                  return (
-                    <div
-                      key={r.id}
-                      className="flex flex-wrap items-start gap-4 rounded-[10px] bg-[#f5f7fa] p-4"
-                    >
-                      <CapaLivro tamanho="sm" />
+                return (
+                  <div
+                    key={r.id}
+                    data-testid="reserva"
+                    className="flex flex-wrap items-start gap-4 rounded-[10px] bg-[#f5f7fa] p-4"
+                  >
+                    <CapaLivro tamanho="sm" />
 
-                      <div className="flex-1 min-w-[260px] flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Link
-                            to={`/livro/${r.livro.id}`}
-                            className="text-[15px] font-semibold text-[#2c3e50] hover:text-[#1976d2]"
-                          >
-                            {r.livro.titulo}
-                          </Link>
-                          <BadgeReserva status={r.status} />
+                    <div className="flex-1 min-w-[260px] flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Link
+                          to={`/livro/${r.livroId}`}
+                          className="text-[15px] font-semibold text-[#2c3e50] hover:text-[#1976d2]"
+                        >
+                          {r.titulo}
+                        </Link>
+                        <BadgeReserva status={r.status} />
+                        {r.posicao && <Badge tom="cinza">{r.posicao}º na fila</Badge>}
+                      </div>
+                      <p className="text-[13px] text-[#66707d]">{r.autor}</p>
+                      <p className="text-[13px] text-[#125ca8]">
+                        📍 Fila na {r.bibliotecaFila} → retirada na {r.bibliotecaRetirada}
+                      </p>
+                      {etapa && (
+                        <div>
+                          <Badge tom={etapa.tom}>🚚 {etapa.texto}</Badge>
                         </div>
-                        <p className="text-[13px] text-[#66707d]">
-                          {r.livro.autor}
+                      )}
+                      {r.retireAte && (
+                        <p className="text-[13px] font-semibold text-[#2b6e2e]">
+                          Retire até {formatarData(r.retireAte)}
                         </p>
-                        <p className="text-[13px] text-[#125ca8]">
-                          📍 Fila na {r.bibliotecaFila.nome}
-                          {r.bibliotecaFila.id !== r.bibliotecaDestino.id &&
-                            ` → retirada na ${r.bibliotecaDestino.nome}`}
-                        </p>
-                        {r.exemplar && (
-                          <p className="text-[12px] text-[#66707d]">
-                            Exemplar separado: {nomeExemplar(r.exemplar.id)}
-                          </p>
-                        )}
-                        <p
-                          className={`rounded-[8px] border px-3 py-2 text-[13px] leading-[1.45] ${caixa}`}
-                        >
-                          {msg.texto}
-                        </p>
-                        <p className="text-[12px] text-[#9aa3ad]">
-                          Reservado em {formatarData(r.dataReserva)}
-                        </p>
-                      </div>
-
-                      <div className="w-[150px]">
-                        <Botao
-                          variante="perigo"
-                          className="w-full"
-                          onClick={() => setAlvo(r)}
-                        >
-                          Cancelar reserva
-                        </Botao>
-                      </div>
+                      )}
+                      <p
+                        className={`rounded-[8px] border px-3 py-2 text-[13px] leading-[1.45] ${caixa}`}
+                      >
+                        {msg.texto}
+                      </p>
+                      <p className="text-[12px] text-[#9aa3ad]">
+                        Reservado em {formatarData(r.dataReserva)}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
-            </SectionCard>
 
-            <SectionCard titulo="2. Histórico de reservas">
-              <div className="rounded-[10px] border border-[#e0e0e0] overflow-hidden">
-                <TabelaPaginada
-                  dados={historico}
-                  colunas={colunasHistorico}
-                  chave={(r) => r.id}
-                  porPagina={6}
-                  textoVazio="Nenhuma reserva encerrada ainda."
-                />
-              </div>
-            </SectionCard>
-          </>
+                    <div className="w-[150px]">
+                      <Botao variante="perigo" className="w-full" onClick={() => setAlvo(r)}>
+                        Cancelar reserva
+                      </Botao>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </SectionCard>
         }
         direita={
           <>
@@ -304,13 +210,17 @@ export default function MinhasReservas() {
             <CardResumo
               titulo="Resumo"
               rodape={
-                <Botao
-                  variante="secundario"
-                  className="w-full"
-                  onClick={carregar}
-                >
-                  🔄 Atualizar
-                </Botao>
+                <div className="flex flex-col gap-2">
+                  <Botao variante="secundario" className="w-full" onClick={carregar}>
+                    🔄 Atualizar
+                  </Botao>
+                  <Link
+                    to="/historico"
+                    className="text-center text-[13px] text-[#1976d2] hover:underline"
+                  >
+                    Ver reservas encerradas em Meu Histórico
+                  </Link>
+                </div>
               }
             >
               <LinhaResumo
@@ -320,10 +230,7 @@ export default function MinhasReservas() {
               />
               <LinhaResumo
                 rotulo="Aguardando transferência"
-                valor={
-                  ativas.filter((r) => r.status === "AGUARDANDO_TRANSFERENCIA")
-                    .length
-                }
+                valor={ativas.filter((r) => r.status === "AGUARDANDO_TRANSFERENCIA").length}
                 destaque="azul"
               />
               <LinhaResumo
@@ -350,18 +257,23 @@ export default function MinhasReservas() {
           <>
             <ResumoModal
               linhas={[
-                ["Livro", alvo.livro.titulo],
-                ["Fila", alvo.bibliotecaFila.nome],
-                ["Retirada", alvo.bibliotecaDestino.nome],
+                ["Livro", alvo.titulo],
+                ["Fila", alvo.bibliotecaFila],
+                ["Retirada", alvo.bibliotecaRetirada],
               ]}
             />
             <p>
               Você perderá seu lugar na fila.
               {alvo.status === "DISPONIVEL" &&
                 " O exemplar separado será liberado para o próximo da fila."}
-              {transfDoAlvo?.status === "EM_TRANSITO" &&
-                " O exemplar já está em viagem e continuará até a biblioteca de destino, onde ficará disponível para todos."}
             </p>
+            {emTransito && (
+              <p className="rounded-[8px] bg-[#ffecd0] px-3 py-2 text-[13px] text-[#c76400]">
+                ⚠️ O exemplar já está a caminho da {alvo.bibliotecaRetirada}. A
+                viagem continua mesmo com o cancelamento: ele chegará ao destino
+                e ficará disponível lá para qualquer leitor.
+              </p>
+            )}
           </>
         )}
       </ModalConfirmacao>
