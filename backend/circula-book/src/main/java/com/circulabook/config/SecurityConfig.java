@@ -97,6 +97,10 @@ public class SecurityConfig {
                 .requestMatchers("/api/transferencias/**").hasRole(ADMIN)
 
                 .requestMatchers("/api/historico/**").hasRole(ADMIN)
+
+                // Notificações: cada perfil só as suas (recorte no service); a rotina manual é do Admin
+                .requestMatchers(HttpMethod.POST, "/api/notificacoes/verificar-vencimentos").hasRole(ADMIN)
+                .requestMatchers("/api/notificacoes/**").authenticated()
                 .anyRequest().authenticated())
             .oauth2ResourceServer(o -> o
                 .jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter()))
