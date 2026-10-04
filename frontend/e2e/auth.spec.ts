@@ -44,7 +44,7 @@ test.describe("Login", () => {
     await entrar(page, ROBERTO);
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByTestId("identificacao")).toContainText("Roberto Dias · Administrador da Rede");
-    await page.getByRole("link", { name: "Solicitações de Transferência" }).click();
+    await page.getByRole("link", { name: "Transferências" }).click();
     await expect(page).toHaveURL(/\/admin\/transferencias$/);
     await expect(page.getByText(/Acesso negado|Sessão inválida|Falha na requisição/)).toHaveCount(0);
   });

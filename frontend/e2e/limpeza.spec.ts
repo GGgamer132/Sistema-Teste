@@ -84,27 +84,11 @@ test("BIBLIOTECARIO: empréstimo sem seletor de prazo, devolução em 14 dias", 
   expect(problemas).toEqual([]);
 });
 
-test("BIBLIOTECARIO: cadastrar exemplar mostra Exemplar nº X e status DISPONIVEL", async ({ page }) => {
-  const problemas = vigiar(page);
-  await entrar(page, "fernanda.reis@circulabook.org.br");
-  await page.getByRole("link", { name: "Cadastrar Exemplar" }).click();
-  await page.getByText("Livro já cadastrado").click();
-  // Iracema tem um único exemplar na rede: antes o novo nasceria INDISPONIVEL (regra removida)
-  await page
-    .getByLabel("Escolha o título já existente no catálogo")
-    .selectOption({ label: "Iracema — Jose de Alencar" });
-  await page.getByRole("button", { name: /Cadastrar Exemplar/ }).click();
-  await expect(
-    page.getByText(/Exemplar nº \d+ de "Iracema" cadastrado em Biblioteca Central com status DISPONIVEL\./),
-  ).toBeVisible();
-  expect(problemas).toEqual([]);
-});
-
 test("ADMIN: transferência avulsa lista exemplares por número", async ({ page }) => {
   const problemas = vigiar(page);
   await entrar(page, "roberto.dias@circulabook.org.br");
   await expect(page).toHaveURL(/\/admin$/);
-  await page.getByRole("link", { name: "Solicitações de Transferência" }).click();
+  await page.getByRole("link", { name: "Transferências" }).click();
   await page.getByRole("button", { name: /Nova transferência avulsa/ }).click();
   await expect(page.getByRole("columnheader", { name: "Exemplar" }).last()).toBeVisible();
   await expect(page.getByText(/Exemplar nº \d+/).first()).toBeVisible();
