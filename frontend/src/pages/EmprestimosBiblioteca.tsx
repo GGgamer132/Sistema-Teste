@@ -26,7 +26,7 @@ import { useUsuarioLogado } from "../auth/contexto";
 const DIAS_BLOQUEIO_POR_ATRASO = 2;
 
 type Situacao = "ATIVO" | "ATRASADO" | "DEVOLVIDO";
-type Condicao = "BOM" | "DANIFICADO" | "PERDIDO";
+type Condicao = "BOM" | "DANIFICADO";
 
 function situacaoDe(emprestimo: Emprestimo): Situacao {
   if (emprestimo.status === "DEVOLVIDO" || emprestimo.dataDevolucao) {
@@ -368,7 +368,6 @@ export default function EmprestimosBiblioteca() {
                 opcoes={[
                   { valor: "BOM", rotulo: "Bom estado" },
                   { valor: "DANIFICADO", rotulo: "Danificado" },
-                  { valor: "PERDIDO", rotulo: "Perdido" },
                 ]}
               />
             </div>

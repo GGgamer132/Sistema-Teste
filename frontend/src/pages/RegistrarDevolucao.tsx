@@ -27,7 +27,7 @@ import {
 } from "../components/ui";
 import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 
-type Condicao = "BOM" | "DANIFICADO" | "PERDIDO";
+type Condicao = "BOM" | "DANIFICADO";
 
 const DIAS_BLOQUEIO_POR_ATRASO = 2; // RN12
 
@@ -204,12 +204,11 @@ export default function RegistrarDevolucao() {
                 opcoes={[
                   { valor: "BOM", rotulo: "Bom estado" },
                   { valor: "DANIFICADO", rotulo: "Danificado" },
-                  { valor: "PERDIDO", rotulo: "Perdido" },
                 ]}
               />
               {condicao !== "BOM" && (
                 <p className="mt-3 text-[13px] text-[#66707d]">
-                  Exemplares danificados ou perdidos saem de circulação (status
+                  Exemplares danificados saem de circulação (status
                   INDISPONIVEL) e o evento é registrado no histórico.
                 </p>
               )}
@@ -298,9 +297,7 @@ export default function RegistrarDevolucao() {
               "Condição",
               condicao === "BOM"
                 ? "Bom estado"
-                : condicao === "DANIFICADO"
-                  ? "Danificado"
-                  : "Perdido",
+                : "Danificado",
             ],
             ["Dias de atraso", `${atraso}`],
           ]}

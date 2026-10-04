@@ -4,7 +4,7 @@ package com.circulabook.dto;
 public class DevolucaoRequestDTO {
 
     private Long emprestimoId;
-    private String condicaoExemplar; // BOM | DANIFICADO | PERDIDO
+    private String condicaoExemplar; // BOM | DANIFICADO
 
     public DevolucaoRequestDTO() {}
 

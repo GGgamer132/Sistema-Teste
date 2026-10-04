@@ -189,6 +189,11 @@ public class EmprestimoService {
             throw new RuntimeException("Este empréstimo já foi devolvido.");
         }
 
+        String condicao = (condicaoExemplar != null) ? condicaoExemplar.toUpperCase() : "BOM";
+        if (!"BOM".equals(condicao) && !"DANIFICADO".equals(condicao)) {
+            throw new RuntimeException("A condição do exemplar na devolução deve ser Bom ou Danificado.");
+        }
+
         LocalDateTime agora = LocalDateTime.now();
         emprestimo.setDataDevolucao(agora);
         emprestimo.setStatus("DEVOLVIDO");
@@ -213,15 +218,9 @@ public class EmprestimoService {
         emprestimoRepository.save(emprestimo);
 
         Exemplar exemplar = emprestimo.getExemplar();
-        String condicao = (condicaoExemplar != null) ? condicaoExemplar.toUpperCase() : "BOM";
 
         // RN05 — devolve o exemplar ao acervo conforme a condição informada
-        if ("PERDIDO".equals(condicao)) {
-            exemplar.setStatus("INDISPONIVEL");
-            exemplar.setEstadoConservacao("PERDIDO");
-            historicoService.registrar(exemplar, "BAIXA", usuario, exemplar.getBiblioteca(),
-                "Exemplar declarado perdido na devolução.");
-        } else if ("DANIFICADO".equals(condicao)) {
+        if ("DANIFICADO".equals(condicao)) {
             exemplar.setStatus("INDISPONIVEL");
             exemplar.setEstadoConservacao("DANIFICADO");
             historicoService.registrar(exemplar, "DEVOLUCAO", usuario, exemplar.getBiblioteca(),

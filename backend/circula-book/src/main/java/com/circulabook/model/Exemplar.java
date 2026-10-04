@@ -34,7 +34,7 @@ public class Exemplar {
     @Column(nullable = false, length = 30)
     private String status;
 
-    // NOVO | BOM | USADO | DANIFICADO | PERDIDO
+    // NOVO | BOM | USADO | DANIFICADO
     @Column(length = 30)
     private String estadoConservacao;
 
