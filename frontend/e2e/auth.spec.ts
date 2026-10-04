@@ -40,9 +40,9 @@ test.describe("Login", () => {
     await expect(page.locator("header select")).toHaveCount(0);
   });
 
-  test("ADMIN entra e cai em /admin; tela de transferências carrega com o token", async ({ page }) => {
+  test("ADMIN entra e cai em /admin/catalogo; tela de transferências carrega com o token", async ({ page }) => {
     await entrar(page, ROBERTO);
-    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page).toHaveURL(/\/admin\/catalogo$/);
     await expect(page.getByTestId("identificacao")).toContainText("Roberto Dias · Administrador da Rede");
     await page.getByRole("link", { name: "Transferências" }).click();
     await expect(page).toHaveURL(/\/admin\/transferencias$/);
@@ -137,9 +137,9 @@ test.describe("Autorização por perfil no front", () => {
 
   test("logado, /login volta para a tela inicial do perfil", async ({ page }) => {
     await entrar(page, ROBERTO);
-    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page).toHaveURL(/\/admin\/catalogo$/);
     await page.goto("/login");
-    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page).toHaveURL(/\/admin\/catalogo$/);
   });
 });
 

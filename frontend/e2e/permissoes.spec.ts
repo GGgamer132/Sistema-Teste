@@ -73,6 +73,7 @@ test("B-14: cadastrar 3 exemplares de livro existente, sem opção de livro novo
 test("B-14: quantidade fora de 1-50 bloqueia o cadastro", async ({ page }) => {
   await entrar(page, CARLOS);
   await page.goto("/biblioteca/exemplares");
+  await page.getByLabel("Buscar livro do catálogo").fill("Dom Casmurro");
   await page.getByRole("row", { name: /Dom Casmurro/ }).getByRole("button", { name: "Selecionar" }).click();
   await page.getByLabel("Quantidade (1 a 50)").fill("51");
   await expect(page.getByText("Informe uma quantidade de 1 a 50.")).toBeVisible();
@@ -360,7 +361,7 @@ test("A-15: Admin não cria COMUM, exemplar, empréstimo nem devolução (UI e A
   }
   for (const rota of ["/biblioteca/exemplares", "/biblioteca/emprestimo", "/biblioteca/devolucao"]) {
     await page.goto(rota);
-    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page).toHaveURL(/\/admin\/catalogo$/);
   }
   await page.goto("/admin/bibliotecarios");
   await expect(page.getByText(/Usuários da comunidade se cadastram sozinhos/)).toBeVisible();

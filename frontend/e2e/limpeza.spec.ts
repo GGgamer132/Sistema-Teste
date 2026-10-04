@@ -87,7 +87,7 @@ test("BIBLIOTECARIO: empréstimo sem seletor de prazo, devolução em 14 dias", 
 test("ADMIN: transferência avulsa lista exemplares por número", async ({ page }) => {
   const problemas = vigiar(page);
   await entrar(page, "roberto.dias@circulabook.org.br");
-  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page).toHaveURL(/\/admin\/catalogo$/);
   await page.getByRole("link", { name: "Transferências" }).click();
   await page.getByRole("button", { name: /Nova transferência avulsa/ }).click();
   await expect(page.getByRole("columnheader", { name: "Exemplar" }).last()).toBeVisible();
