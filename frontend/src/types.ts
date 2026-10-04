@@ -174,3 +174,95 @@ export interface ResumoTransferencias {
   concluidas: number;
   rejeitadas: number;
 }
+
+/** Item de GET /api/reservas/destinos (retirada em outra biblioteca). */
+export interface DestinoRetirada {
+  bibliotecaId: number;
+  nome: string;
+  permitido: boolean;
+  /** Por que a biblioteca não pode ser escolhida (null quando permitida). */
+  motivo: string | null;
+}
+
+/** Etapa do pedido de transferência de uma reserva (GET /api/conta/reservas). */
+export interface TransferenciaDaReserva {
+  id: number;
+  status: SolicitacaoTransferencia["status"];
+  etapa:
+    | "PENDENTE"
+    | "PENDENTE_COM_EXEMPLAR"
+    | "APROVADA_AGUARDANDO_EXEMPLAR"
+    | "EM_TRANSITO"
+    | "CONCLUIDA"
+    | "REJEITADA"
+    | "CANCELADA";
+  descricao: string;
+}
+
+/** Item de GET /api/conta/reservas (só reservas ativas do usuário do token). */
+export interface MinhaReserva {
+  id: number;
+  livroId: number;
+  titulo: string;
+  autor: string;
+  bibliotecaFilaId: number;
+  bibliotecaFila: string;
+  bibliotecaRetiradaId: number;
+  bibliotecaRetirada: string;
+  /** Só quando PENDENTE. */
+  posicao: number | null;
+  status: "PENDENTE" | "AGUARDANDO_TRANSFERENCIA" | "DISPONIVEL";
+  dataReserva: string;
+  /** Só quando DISPONIVEL. */
+  retireAte: string | null;
+  /** Null quando a retirada sempre foi na própria biblioteca da fila. */
+  transferencia: TransferenciaDaReserva | null;
+}
+
+export interface MeuEmprestimo {
+  id: number;
+  exemplarId: number;
+  livroId: number;
+  titulo: string;
+  autor: string;
+  bibliotecaId: number;
+  biblioteca: string;
+  dataEmprestimo: string;
+  dataPrevDevolucao: string;
+  diasAtraso: number;
+  atrasado: boolean;
+}
+
+/** GET /api/conta/emprestimos. */
+export interface MeusEmprestimos {
+  emprestimos: MeuEmprestimo[];
+  total: number;
+  limite: number;
+  bloqueado: boolean;
+  bloqueadoAte: string | null;
+}
+
+/** Item de GET /api/conta/historico. */
+export interface ItemHistorico {
+  tipo: "EMPRESTIMO" | "RESERVA";
+  id: number;
+  livroId: number;
+  titulo: string;
+  autor: string;
+  biblioteca: string;
+  status: "DEVOLVIDO" | "RETIRADA" | "CANCELADA" | "EXPIRADA";
+  /** Início: data do empréstimo ou da entrada na fila. */
+  data: string;
+  /** Devolução (empréstimo) ou prazo vencido (reserva expirada). */
+  dataFim: string | null;
+  detalhe: string;
+}
+
+/** Página do backend (pagina começa em 0). */
+export interface Pagina<T> {
+  itens: T[];
+  pagina: number;
+  tamanho: number;
+  totalItens: number;
+  totalPaginas: number;
+}

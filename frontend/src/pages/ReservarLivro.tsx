@@ -2,11 +2,12 @@
  * Reservar Livro (UC03).
  * O usuário entra na fila de uma biblioteca onde todos os exemplares estão emprestados
  * e escolhe onde quer retirar. Retirar em outra biblioteca dispara um pedido de transferência.
+ * Os destinos possíveis (e o motivo de cada bloqueado) vêm do servidor.
  */
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
-import type { Biblioteca, LivroResumo, Reserva } from "../types";
+import { api, qs } from "../api/client";
+import type { Biblioteca, DestinoRetirada, LivroResumo, Reserva } from "../types";
 import {
   BadgeSituacao,
   Botao,
@@ -21,7 +22,6 @@ import {
   LinhaResumo,
   SectionCard,
   Selecao,
-  Sucesso,
   TituloPagina,
   Trilha,
   Vazio,
@@ -40,6 +40,9 @@ export default function ReservarLivro() {
   const [livro, setLivro] = useState<LivroResumo | null>(null);
   const [bibliotecas, setBibliotecas] = useState<Biblioteca[]>([]);
   const [posicao, setPosicao] = useState<number | null>(null);
+  /** Destinos para "retirar em outra biblioteca"; null enquanto carrega. */
+  const [destinos, setDestinos] = useState<DestinoRetirada[] | null>(null);
+  const [erroDestinos, setErroDestinos] = useState("");
 
   const [bibFila, setBibFila] = useState<number | "">("");
   const [retirada, setRetirada] = useState<Retirada>("PROPRIA");
@@ -48,7 +51,6 @@ export default function ReservarLivro() {
   const [modalAberto, setModalAberto] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
-  const [sucesso, setSucesso] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -63,18 +65,10 @@ export default function ReservarLivro() {
         const fila = disponibilidade.filter(
           (x) => x.disponiveis === 0 && x.totalExemplares > 0,
         );
-        const comTitulo = new Set(
-          disponibilidade
-            .filter((x) => x.totalExemplares > 0)
-            .map((x) => x.bibliotecaId),
-        );
         setBibFila(
           fila.find((x) => x.bibliotecaId === bibliotecaParam)?.bibliotecaId ??
             fila[0]?.bibliotecaId ??
             "",
-        );
-        setBibDestino(
-          b.find((x) => x.ativa !== false && !comTitulo.has(x.id))?.id ?? "",
         );
       })
       .catch((e) => setErro(e.message));
@@ -90,6 +84,34 @@ export default function ReservarLivro() {
       .catch(() => setPosicao(null));
   }, [livroId, bibFila]);
 
+  // Cada fila tem seus destinos: depende de quem já tem o título e de quantos
+  // exemplares a biblioteca da fila pode ceder sem ficar sem o livro.
+  useEffect(() => {
+    if (bibFila === "") return;
+    let ativo = true;
+    api
+      .get<DestinoRetirada[]>(
+        "/reservas/destinos" + qs({ livroId, bibliotecaFilaId: bibFila }),
+      )
+      .then((d) => {
+        if (!ativo) return;
+        setDestinos(d);
+        setErroDestinos("");
+        setBibDestino(d.find((x) => x.permitido)?.bibliotecaId ?? "");
+        if (!d.some((x) => x.permitido)) setRetirada("PROPRIA");
+      })
+      .catch((e) => {
+        if (!ativo) return;
+        setDestinos([]);
+        setErroDestinos((e as Error).message);
+        setBibDestino("");
+        setRetirada("PROPRIA");
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [livroId, bibFila]);
+
   if (erro && !livro) return <Erro mensagem={erro} />;
   if (!livro) return <Carregando texto="Carregando título..." />;
 
@@ -97,44 +119,43 @@ export default function ReservarLivro() {
   const paraFila = disponibilidade.filter(
     (d) => d.disponiveis === 0 && d.totalExemplares > 0,
   );
-  const comTitulo = new Set(
-    disponibilidade
-      .filter((d) => d.totalExemplares > 0)
-      .map((d) => d.bibliotecaId),
-  );
-  const destinosPossiveis = bibliotecas.filter(
-    (b) => b.ativa !== false && !comTitulo.has(b.id),
-  );
+  const liberados = (destinos ?? []).filter((d) => d.permitido);
+  /** Se todos os destinos estão bloqueados pelo mesmo motivo, ele explica a opção desabilitada. */
+  const motivosBloqueio = [
+    ...new Set((destinos ?? []).map((d) => d.motivo).filter(Boolean)),
+  ];
 
   const nomeBib = (id: number | "") =>
     bibliotecas.find((b) => b.id === id)?.nome ??
     disponibilidade.find((d) => d.bibliotecaId === id)?.bibliotecaNome ??
+    destinos?.find((d) => d.bibliotecaId === id)?.nome ??
     "—";
 
   const comTransferencia = retirada === "OUTRA";
   const idRetirada = comTransferencia ? bibDestino : bibFila;
   const podeConfirmar =
-    !sucesso && bibFila !== "" && (!comTransferencia || bibDestino !== "");
+    bibFila !== "" && (!comTransferencia || bibDestino !== "");
 
   async function executar() {
     setEnviando(true);
     setErro("");
     try {
-      await api.post<Reserva>("/reservas", {
+      const r = await api.post<Reserva>("/reservas", {
         livroId,
         bibliotecaFilaId: bibFila,
         bibliotecaDestinoId: idRetirada,
       });
-      setSucesso(
-        comTransferencia
-          ? `Reserva confirmada na fila da ${nomeBib(bibFila)}, com retirada na ${nomeBib(bibDestino)}. ` +
-              "O pedido de transferência foi enviado ao administrador e você será avisado do andamento."
-          : `Reserva confirmada na ${nomeBib(bibFila)}. ` +
-              "Você será avisado assim que um exemplar for devolvido.",
-      );
+      const lugar = r.posicaoFila ? ` Você é o ${r.posicaoFila}º da fila.` : "";
+      navigate("/minhas-reservas", {
+        state: {
+          sucesso: comTransferencia
+            ? `Reserva de "${livro?.titulo}" confirmada na fila da ${nomeBib(bibFila)}, com retirada na ${nomeBib(bibDestino)}.${lugar} ` +
+              "O pedido de transferência foi enviado ao administrador."
+            : `Reserva de "${livro?.titulo}" confirmada na ${nomeBib(bibFila)}.${lugar}`,
+        },
+      });
     } catch (e) {
       setErro((e as Error).message);
-    } finally {
       setEnviando(false);
       setModalAberto(false);
     }
@@ -155,19 +176,6 @@ export default function ReservarLivro() {
       />
 
       {erro && <Erro mensagem={erro} />}
-      {sucesso && (
-        <>
-          <Sucesso mensagem={sucesso} />
-          <div>
-            <Botao
-              variante="secundario"
-              onClick={() => navigate(`/livro/${livroId}`)}
-            >
-              ← Voltar para o livro
-            </Botao>
-          </div>
-        </>
-      )}
 
       <DuasColunas
         esquerda={
@@ -232,36 +240,65 @@ export default function ReservarLivro() {
                     {
                       valor: "OUTRA",
                       rotulo: "🚚 Em outra biblioteca",
-                      desabilitada: destinosPossiveis.length === 0,
+                      desabilitada: destinos === null || liberados.length === 0,
                     },
                   ]}
                 />
 
-                {destinosPossiveis.length === 0 && (
-                  <p className="mt-3 text-[13px] text-[#66707d]">
-                    Retirar em outra biblioteca não está disponível: todas as
-                    bibliotecas da rede já possuem este título. Nesse caso,
-                    procure a biblioteca que tem exemplar livre ou aguarde na
-                    fila.
-                  </p>
+                {destinos !== null && liberados.length === 0 && (
+                  <div
+                    className="mt-3 text-[13px] text-[#66707d]"
+                    data-testid="outra-indisponivel"
+                  >
+                    <p>Retirar em outra biblioteca não está disponível para esta fila:</p>
+                    {erroDestinos ? (
+                      <p className="mt-1">{erroDestinos}</p>
+                    ) : destinos.length === 0 ? (
+                      <p className="mt-1">Não há outras bibliotecas ativas na rede.</p>
+                    ) : (
+                      <ul className="mt-1 list-disc pl-5">
+                        {motivosBloqueio.map((m) => (
+                          <li key={m}>{m}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
 
-                {comTransferencia && (
-                  <div className="mt-5">
-                    <Campo label="Biblioteca de retirada (só aparecem as que não têm nenhum exemplar do título)">
-                      <Selecao
-                        value={bibDestino}
-                        onChange={(e) => setBibDestino(Number(e.target.value))}
+                {comTransferencia && destinos && (
+                  <fieldset className="mt-5 flex flex-col gap-2">
+                    <legend className="mb-2 text-[13px] font-medium text-[#2c3e50]">
+                      Biblioteca de retirada
+                    </legend>
+                    {destinos.map((d) => (
+                      <label
+                        key={d.bibliotecaId}
+                        className={`flex items-start gap-3 rounded-[8px] border px-4 py-3 text-[14px] ${
+                          d.permitido
+                            ? bibDestino === d.bibliotecaId
+                              ? "border-[#1976d2] bg-[#e8f0fc] cursor-pointer"
+                              : "border-[#e0e0e0] bg-white cursor-pointer"
+                            : "border-[#e0e0e0] bg-[#f5f7fa] text-[#9aa3ad] cursor-not-allowed"
+                        }`}
                       >
-                        {destinosPossiveis.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.nome}
-                            {b.endereco ? ` — ${b.endereco}` : ""}
-                          </option>
-                        ))}
-                      </Selecao>
-                    </Campo>
-                  </div>
+                        <input
+                          type="radio"
+                          name="destino"
+                          className="mt-1"
+                          value={d.bibliotecaId}
+                          checked={bibDestino === d.bibliotecaId}
+                          disabled={!d.permitido}
+                          onChange={() => setBibDestino(d.bibliotecaId)}
+                        />
+                        <span>
+                          <span className="font-medium">{d.nome}</span>
+                          {!d.permitido && d.motivo && (
+                            <span className="block text-[12px] mt-1">{d.motivo}</span>
+                          )}
+                        </span>
+                      </label>
+                    ))}
+                  </fieldset>
                 )}
               </SectionCard>
             )}
