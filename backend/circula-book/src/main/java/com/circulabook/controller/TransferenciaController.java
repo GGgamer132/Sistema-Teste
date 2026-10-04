@@ -1,10 +1,13 @@
 package com.circulabook.controller;
 
+import com.circulabook.config.Ator;
 import com.circulabook.dto.TransferenciaAvulsaRequestDTO;
 import com.circulabook.model.SolicitacaoTransferencia;
 import com.circulabook.service.TransferenciaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
@@ -16,9 +19,16 @@ public class TransferenciaController {
     @Autowired
     private TransferenciaService transferenciaService;
 
+    /** Admin vê todas; o usuário comum, só as ligadas às próprias reservas. */
     @GetMapping
-    public List<SolicitacaoTransferencia> obterTodas() {
-        return transferenciaService.obterTodas();
+    public List<SolicitacaoTransferencia> obterTodas(@AuthenticationPrincipal Jwt jwt) {
+        Ator ator = Ator.de(jwt);
+        List<SolicitacaoTransferencia> todas = transferenciaService.obterTodas();
+        if (!ator.ehComum()) return todas;
+        return todas.stream()
+            .filter(s -> s.getReserva() != null && s.getReserva().getUsuario() != null
+                && ator.id().equals(s.getReserva().getUsuario().getId()))
+            .toList();
     }
 
     /** Pedidos aguardando decisão do Admin. */
@@ -47,11 +57,12 @@ public class TransferenciaController {
 
     /** Transferência avulsa do Admin: nasce aprovada e sem restrição de destino. */
     @PostMapping("/avulsa")
-    public ResponseEntity<?> criarAvulsa(@RequestBody TransferenciaAvulsaRequestDTO req) {
+    public ResponseEntity<?> criarAvulsa(@RequestBody TransferenciaAvulsaRequestDTO req,
+                                         @AuthenticationPrincipal Jwt jwt) {
         try {
             return ResponseEntity.ok(transferenciaService.criarAvulsa(
                 req.getExemplarId(), req.getBibliotecaDestinoId(),
-                req.getAdminId(), req.getObservacoes()));
+                Ator.de(jwt).id(), req.getObservacoes()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -59,9 +70,9 @@ public class TransferenciaController {
 
     /** Aprovar (somente ADMIN, RN04). */
     @PatchMapping("/{id}/aprovar")
-    public ResponseEntity<?> aprovar(@PathVariable Long id, @RequestParam Long adminId) {
+    public ResponseEntity<?> aprovar(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         try {
-            return ResponseEntity.ok(transferenciaService.aprovar(id, adminId));
+            return ResponseEntity.ok(transferenciaService.aprovar(id, Ator.de(jwt).id()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -70,21 +81,21 @@ public class TransferenciaController {
     /** Rejeitar (somente ADMIN, RN04). */
     @PatchMapping("/{id}/rejeitar")
     public ResponseEntity<?> rejeitar(@PathVariable Long id,
-                                      @RequestParam Long adminId,
-                                      @RequestParam(required = false) String motivo) {
+                                      @RequestParam(required = false) String motivo,
+                                      @AuthenticationPrincipal Jwt jwt) {
         try {
-            return ResponseEntity.ok(transferenciaService.rejeitar(id, adminId, motivo));
+            return ResponseEntity.ok(transferenciaService.rejeitar(id, Ator.de(jwt).id(), motivo));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    /** Confirmar chegada do exemplar no destino (só transferências EM_TRANSITO). */
+    /** Confirmar chegada no destino (só EM_TRANSITO); o service valida que o bibliotecário é do destino. */
     @PatchMapping("/{id}/confirmar-chegada")
     public ResponseEntity<?> confirmarChegada(@PathVariable Long id,
-                                              @RequestParam Long responsavelId) {
+                                              @AuthenticationPrincipal Jwt jwt) {
         try {
-            return ResponseEntity.ok(transferenciaService.confirmarChegada(id, responsavelId));
+            return ResponseEntity.ok(transferenciaService.confirmarChegada(id, Ator.de(jwt).id()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

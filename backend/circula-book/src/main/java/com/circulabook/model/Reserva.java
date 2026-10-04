@@ -55,6 +55,10 @@ public class Reserva {
     @Column(nullable = false, length = 30)
     private String status;
 
+    // Posição na fila (só PENDENTE); calculada em "minhas reservas", não é persistida
+    @Transient
+    private Integer posicaoFila;
+
     @PrePersist
     public void preencheDataReserva() {
         if (this.dataReserva == null) this.dataReserva = LocalDateTime.now();

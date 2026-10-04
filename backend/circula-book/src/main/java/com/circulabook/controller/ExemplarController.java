@@ -1,10 +1,13 @@
 package com.circulabook.controller;
 
+import com.circulabook.config.Ator;
 import com.circulabook.dto.CadastroExemplarDTO;
 import com.circulabook.model.Exemplar;
 import com.circulabook.service.ExemplarService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -48,12 +51,14 @@ public class ExemplarController {
         }
     }
 
-    /** Tela 7 — cadastro de exemplar (RN10/RN11). */
+    /** Tela 7 — cadastro de exemplar: sempre na biblioteca do bibliotecário logado. */
     @PostMapping
     public ResponseEntity<?> cadastrar(@RequestBody CadastroExemplarDTO dto,
-                                       @RequestParam Long bibliotecarioId) {
+                                       @AuthenticationPrincipal Jwt jwt) {
+        Ator ator = Ator.de(jwt);
+        dto.setBibliotecaId(ator.bibliotecaId());
         try {
-            return ResponseEntity.ok(exemplarService.cadastrar(dto, bibliotecarioId));
+            return ResponseEntity.ok(exemplarService.cadastrar(dto, ator.id()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

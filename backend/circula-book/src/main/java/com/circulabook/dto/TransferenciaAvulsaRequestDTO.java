@@ -5,7 +5,6 @@ public class TransferenciaAvulsaRequestDTO {
 
     private Long exemplarId;
     private Long bibliotecaDestinoId;
-    private Long adminId;
     private String observacoes; // opcional
 
     public TransferenciaAvulsaRequestDTO() {}
@@ -15,9 +14,6 @@ public class TransferenciaAvulsaRequestDTO {
 
     public Long getBibliotecaDestinoId() { return bibliotecaDestinoId; }
     public void setBibliotecaDestinoId(Long bibliotecaDestinoId) { this.bibliotecaDestinoId = bibliotecaDestinoId; }
-
-    public Long getAdminId() { return adminId; }
-    public void setAdminId(Long adminId) { this.adminId = adminId; }
 
     public String getObservacoes() { return observacoes; }
     public void setObservacoes(String observacoes) { this.observacoes = observacoes; }

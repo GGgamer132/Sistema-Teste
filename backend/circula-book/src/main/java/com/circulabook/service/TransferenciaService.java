@@ -215,7 +215,7 @@ public class TransferenciaService {
             && responsavel.getBiblioteca() != null
             && responsavel.getBiblioteca().getId().equals(s.getBibliotecaDestino().getId());
         if (!ehAdmin && !ehDoDestino) {
-            throw new RuntimeException("Apenas o administrador ou um bibliotecário da "
+            throw new RuntimeException("Apenas um bibliotecário da "
                 + s.getBibliotecaDestino().getNome() + " pode confirmar a chegada.");
         }
 

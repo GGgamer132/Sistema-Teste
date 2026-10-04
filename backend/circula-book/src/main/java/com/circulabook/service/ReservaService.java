@@ -37,7 +37,21 @@ public class ReservaService {
     public List<Reserva> obterPorUsuario(Long usuarioId) {
         Usuario u = usuarioRepository.findById(usuarioId)
             .orElseThrow(() -> new RuntimeException("Usuário não encontrado: ID " + usuarioId));
-        return reservaRepository.findByUsuario(u);
+        List<Reserva> minhas = reservaRepository.findByUsuario(u);
+        // O usuário não enxerga a fila dos outros: a posição vem calculada daqui
+        for (Reserva r : minhas) {
+            if ("PENDENTE".equals(r.getStatus())) {
+                List<Reserva> fila = reservaRepository.findByLivroAndBibliotecaFilaAndStatusOrderByDataReservaAsc(
+                    r.getLivro(), r.getBibliotecaFila(), "PENDENTE");
+                int pos = 1;
+                for (Reserva o : fila) {
+                    if (o.getId().equals(r.getId())) break;
+                    pos++;
+                }
+                r.setPosicaoFila(pos);
+            }
+        }
+        return minhas;
     }
 
     /**

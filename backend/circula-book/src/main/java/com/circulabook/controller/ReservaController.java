@@ -1,11 +1,16 @@
 package com.circulabook.controller;
 
+import com.circulabook.config.Ator;
 import com.circulabook.dto.ReservaRequestDTO;
 import com.circulabook.model.Reserva;
+import com.circulabook.repository.ReservaRepository;
 import com.circulabook.service.FilaEsperaService;
 import com.circulabook.service.ReservaService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
@@ -20,15 +25,20 @@ public class ReservaController {
     @Autowired
     private FilaEsperaService filaEsperaService;
 
+    @Autowired
+    private ReservaRepository reservaRepository;
+
     @GetMapping
     public List<Reserva> obterTodas() {
         return reservaService.obterTodas();
     }
 
+    /** As reservas do próprio usuário: o ID do caminho é ignorado, vale o do token. */
     @GetMapping("/usuario/{usuarioId}")
-    public ResponseEntity<?> obterPorUsuario(@PathVariable Long usuarioId) {
+    public ResponseEntity<?> obterPorUsuario(@PathVariable Long usuarioId,
+                                             @AuthenticationPrincipal Jwt jwt) {
         try {
-            return ResponseEntity.ok(reservaService.obterPorUsuario(usuarioId));
+            return ResponseEntity.ok(reservaService.obterPorUsuario(Ator.de(jwt).id()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -47,10 +57,11 @@ public class ReservaController {
 
     /** UC03 — Entrar na fila (e, se for o caso, pedir retirada em outra biblioteca). */
     @PostMapping
-    public ResponseEntity<?> criar(@RequestBody ReservaRequestDTO req) {
+    public ResponseEntity<?> criar(@RequestBody ReservaRequestDTO req,
+                                   @AuthenticationPrincipal Jwt jwt) {
         try {
             return ResponseEntity.ok(reservaService.criar(
-                req.getLivroId(), req.getUsuarioId(),
+                req.getLivroId(), Ator.de(jwt).id(),
                 req.getBibliotecaFilaId(), req.getBibliotecaDestinoId()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -59,7 +70,14 @@ public class ReservaController {
 
     /** UC07 — Cancelar reserva. */
     @PatchMapping("/{id}/cancelar")
-    public ResponseEntity<?> cancelar(@PathVariable Long id) {
+    public ResponseEntity<?> cancelar(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        Long atorId = Ator.de(jwt).id();
+        boolean outroDono = reservaRepository.findById(id)
+            .map(r -> r.getUsuario() == null || !atorId.equals(r.getUsuario().getId()))
+            .orElse(false);
+        if (outroDono) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Você só pode cancelar as suas reservas.");
+        }
         try {
             return ResponseEntity.ok(reservaService.cancelar(id));
         } catch (RuntimeException e) {
