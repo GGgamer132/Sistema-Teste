@@ -397,3 +397,30 @@ export interface MeuInteresse {
   totalSolicitacoes: number;
   registradoEm: string;
 }
+
+/** Evento do histórico de circulação (GET /api/historico). */
+export interface EventoHistorico {
+  id: number;
+  data: string;
+  evento: string;
+  eventoRotulo: string;
+  exemplarId: number;
+  livroId: number;
+  titulo: string;
+  bibliotecaId: number | null;
+  biblioteca: string | null;
+  /** Nome de quem fez, ou "Sistema" nas rotinas agendadas. */
+  responsavel: string;
+  observacoes: string | null;
+}
+
+/** GET /api/historico/exemplar/{id}: do evento mais antigo ao mais recente. */
+export interface LinhaDoTempo {
+  exemplarId: number;
+  titulo: string;
+  autor: string;
+  bibliotecaAtual: string;
+  status: string;
+  statusRotulo: string;
+  eventos: EventoHistorico[];
+}

@@ -30,6 +30,7 @@ import AdminCategorias from "./pages/AdminCategorias";
 import AdminBibliotecas from "./pages/AdminBibliotecas";
 import AdminBibliotecarios from "./pages/AdminBibliotecarios";
 import AdminDemandas from "./pages/AdminDemandas";
+import AdminHistorico from "./pages/AdminHistorico";
 import RegistrarInteresse from "./pages/RegistrarInteresse";
 
 export default function App() {
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/admin/bibliotecas" element={<AdminBibliotecas />} />
         <Route path="/admin/bibliotecarios" element={<AdminBibliotecarios />} />
         <Route path="/admin/demandas" element={<AdminDemandas />} />
+        <Route path="/admin/historico" element={<AdminHistorico />} />
       </Route>
 
       {/* URL desconhecida volta para o início do perfil (ou para o login) */}
