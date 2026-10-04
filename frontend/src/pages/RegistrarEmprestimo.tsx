@@ -360,7 +360,7 @@ export default function RegistrarEmprestimo() {
               </Callout>
             )}
 
-            <Callout tipo="info" titulo="Limite de empréstimos (RN01)">
+            <Callout tipo="info" titulo="Limite de empréstimos">
               Máximo de {situacao?.limite ?? 3} exemplares de títulos distintos
               simultaneamente
               {situacao &&
@@ -370,7 +370,7 @@ export default function RegistrarEmprestimo() {
 
             <Callout
               tipo="aviso"
-              titulo="Atraso bloqueia novos empréstimos (RN12)"
+              titulo="Atraso bloqueia novos empréstimos"
             >
               Cada dia de atraso soma 2 dias de bloqueio para novos empréstimos.
             </Callout>

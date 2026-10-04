@@ -72,11 +72,11 @@ public class EmprestimoService {
 
         if (bloqueado) {
             dto.setApto(false);
-            dto.setMotivo("RN12: usuário bloqueado até "
+            dto.setMotivo("Usuário bloqueado até "
                 + usuario.getBloqueadoAte().format(BR) + " por devolução em atraso.");
         } else if (emAberto.size() >= LIMITE_EMPRESTIMOS) {
             dto.setApto(false);
-            dto.setMotivo("RN01: o usuário já atingiu o limite de "
+            dto.setMotivo("O usuário já atingiu o limite de "
                 + LIMITE_EMPRESTIMOS + " empréstimos simultâneos.");
         } else {
             dto.setApto(true);
@@ -104,7 +104,7 @@ public class EmprestimoService {
 
         // RN05 — só exemplar DISPONIVEL ou RESERVADO (para quem reservou) pode sair
         if (!"DISPONIVEL".equals(exemplar.getStatus()) && !"RESERVADO".equals(exemplar.getStatus())) {
-            throw new RuntimeException("RN05: exemplar com status " + exemplar.getStatus()
+            throw new RuntimeException("Exemplar com status " + exemplar.getStatus()
                 + " não pode ser emprestado.");
         }
      // Exemplar RESERVADO só sai para quem reservou, e só depois de liberado para retirada
@@ -113,17 +113,17 @@ public class EmprestimoService {
             reservaDoExemplar = reservaRepository
                 .findFirstByExemplarAndStatus(exemplar, "DISPONIVEL")
                 .orElseThrow(() -> new RuntimeException(
-                    "RN05: este exemplar está separado para uma reserva e ainda não foi "
+                    "Este exemplar está separado para uma reserva e ainda não foi "
                     + "liberado para retirada."));
             if (!reservaDoExemplar.getUsuario().getId().equals(usuario.getId())) {
-                throw new RuntimeException("RN05: este exemplar está reservado para "
+                throw new RuntimeException("Este exemplar está reservado para "
                     + reservaDoExemplar.getUsuario().getNome() + ".");
             }
         }
 
         // RN12 — bloqueio por atraso anterior
         if (usuario.getBloqueadoAte() != null && usuario.getBloqueadoAte().isAfter(LocalDateTime.now())) {
-            throw new RuntimeException("RN12: usuário bloqueado para novos empréstimos até "
+            throw new RuntimeException("Usuário bloqueado para novos empréstimos até "
                 + usuario.getBloqueadoAte().format(BR) + ".");
         }
 
@@ -132,7 +132,7 @@ public class EmprestimoService {
 
         // RN01 — no máximo 3 simultâneos
         if (emAberto.size() >= LIMITE_EMPRESTIMOS) {
-            throw new RuntimeException("RN01: limite de " + LIMITE_EMPRESTIMOS
+            throw new RuntimeException("Limite de " + LIMITE_EMPRESTIMOS
                 + " empréstimos simultâneos atingido.");
         }
 
@@ -140,7 +140,7 @@ public class EmprestimoService {
         boolean jaTemEsseTitulo = emAberto.stream()
             .anyMatch(e -> e.getExemplar().getLivro().getId().equals(exemplar.getLivro().getId()));
         if (jaTemEsseTitulo) {
-            throw new RuntimeException("RN01: o usuário já possui um exemplar de \""
+            throw new RuntimeException("O usuário já possui um exemplar de \""
                 + exemplar.getLivro().getTitulo() + "\" emprestado.");
         }
 
@@ -208,7 +208,7 @@ public class EmprestimoService {
             usuario.setBloqueadoAte(base.plusDays(diasBloqueio));
             usuarioRepository.save(usuario);
 
-            System.out.println("[CIRCULA BOOK] RN12 aplicada: " + usuario.getNome()
+            System.out.println("[CIRCULA BOOK] Bloqueio por atraso aplicado: " + usuario.getNome()
                 + " bloqueado por " + diasBloqueio + " dias (até "
                 + usuario.getBloqueadoAte().format(BR) + ").");
         }

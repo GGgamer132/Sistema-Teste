@@ -212,7 +212,7 @@ export default function CadastrarExemplar() {
         }
         direita={
           <>
-            <Callout tipo="info" titulo="Cadastro de exemplar (RN10)">
+            <Callout tipo="info" titulo="Cadastro de exemplar">
               Um exemplar só pode ser cadastrado por um bibliotecário da biblioteca à qual
               pertencerá. O livro correspondente deve estar previamente cadastrado no sistema.
             </Callout>

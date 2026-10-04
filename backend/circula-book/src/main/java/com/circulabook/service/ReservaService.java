@@ -111,7 +111,7 @@ public class ReservaService {
         }
         long livres = naFila.stream().filter(e -> "DISPONIVEL".equals(e.getStatus())).count();
         if (livres > 0) {
-            throw new RuntimeException("RN03: a " + fila.getNome() + " tem " + livres
+            throw new RuntimeException("A " + fila.getNome() + " tem " + livres
                 + " exemplar(es) disponível(is). A reserva só vale quando todos estão emprestados; "
                 + "faça o empréstimo presencialmente.");
         }

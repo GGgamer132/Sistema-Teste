@@ -63,7 +63,7 @@ public class ExemplarService {
 
         if (!ehAdmin && !ehBibliotecarioDaCasa) {
             throw new RuntimeException(
-                "RN10: apenas um bibliotecário da " + biblioteca.getNome()
+                "Apenas um bibliotecário da " + biblioteca.getNome()
                 + " pode cadastrar exemplares nesta biblioteca.");
         }
 

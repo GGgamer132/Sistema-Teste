@@ -92,7 +92,7 @@ public class TransferenciaService {
 
         // RN04 — só exemplar disponível pode ser transferido
         if (!"DISPONIVEL".equals(exemplar.getStatus())) {
-            throw new RuntimeException("RN04: apenas exemplares DISPONIVEL podem ser transferidos. "
+            throw new RuntimeException("Apenas exemplares DISPONIVEL podem ser transferidos. "
                 + "Status atual: " + exemplar.getStatus() + ".");
         }
         if (Boolean.FALSE.equals(destino.getAtiva())) {
@@ -278,7 +278,7 @@ public class TransferenciaService {
         Usuario admin = usuarioRepository.findById(adminId)
             .orElseThrow(() -> new RuntimeException("Usuário não encontrado: ID " + adminId));
         if (!"ADMIN".equals(admin.getTipo())) {
-            throw new RuntimeException("RN04: apenas o Administrador da Rede pode realizar esta ação.");
+            throw new RuntimeException("Apenas o Administrador da Rede pode realizar esta ação.");
         }
         return admin;
     }

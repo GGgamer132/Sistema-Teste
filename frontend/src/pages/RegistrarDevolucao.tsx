@@ -85,7 +85,7 @@ export default function RegistrarDevolucao() {
       setSucesso(
         atraso > 0
           ? `Devolução registrada com ${atraso} dia(s) de atraso. ${selecionado.usuario.nome} ` +
-              `ficou bloqueado por ${atraso * DIAS_BLOQUEIO_POR_ATRASO} dias (RN12).`
+              `ficou bloqueado por ${atraso * DIAS_BLOQUEIO_POR_ATRASO} dias.`
           : "Devolução registrada dentro do prazo. O exemplar voltou para o acervo.",
       );
       setSelecionado(null);
@@ -218,7 +218,7 @@ export default function RegistrarDevolucao() {
         direita={
           <>
             {atraso > 0 ? (
-              <Callout tipo="aviso" titulo="Devolução com atraso (RN12)">
+              <Callout tipo="aviso" titulo="Devolução com atraso">
                 {atraso} dia(s) de atraso identificados. Para cada dia de
                 atraso, o usuário fica impedido de novos empréstimos por mais{" "}
                 {DIAS_BLOQUEIO_POR_ATRASO} dias — bloqueio total de{" "}
@@ -232,7 +232,7 @@ export default function RegistrarDevolucao() {
 
             <Callout
               tipo="info"
-              titulo="Atualização automática do Blackboard (RN05/RN06)"
+              titulo="Atualização automática do acervo"
             >
               O status do exemplar volta para DISPONÍVEL e o evento é registrado
               no histórico de circulação. Se houver reserva pendente, o próximo
