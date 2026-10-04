@@ -72,6 +72,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH, "/api/reservas/*/cancelar").hasRole(COMUM)
                 .requestMatchers("/api/reservas/**").hasRole(ADMIN) // inclui POST /expirar-vencidas
 
+                // Dados do próprio usuário (reservas, empréstimos, histórico): sempre do token
+                .requestMatchers(HttpMethod.GET, "/api/conta/**").hasRole(COMUM)
+                .requestMatchers("/api/conta/**").denyAll()
+
                 // Empréstimos: registrar/devolver só no balcão; listagens recortadas no controller
                 .requestMatchers(HttpMethod.POST, "/api/emprestimos/registrar",
                                  "/api/emprestimos/devolver").hasRole(BIBLIOTECARIO)
