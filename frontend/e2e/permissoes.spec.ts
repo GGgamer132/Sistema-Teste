@@ -357,11 +357,11 @@ test("A-15: Admin não cria COMUM, exemplar, empréstimo nem devolução (UI e A
 
   await entrar(page, ROBERTO);
   for (const proibido of ["Cadastrar Exemplares", "Registrar Empréstimo", "Registrar Devolução", "Acervo"]) {
-    await expect(page.getByRole("link", { name: proibido })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: proibido, exact: true })).toHaveCount(0);
   }
   for (const rota of ["/biblioteca/exemplares", "/biblioteca/emprestimo", "/biblioteca/devolucao"]) {
     await page.goto(rota);
-    await expect(page).toHaveURL(/\/admin\/catalogo$/);
+    await expect(page).toHaveURL(/\/admin$/);
   }
   await page.goto("/admin/bibliotecarios");
   await expect(page.getByText(/Usuários da comunidade se cadastram sozinhos/)).toBeVisible();

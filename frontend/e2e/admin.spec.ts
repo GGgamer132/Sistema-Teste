@@ -261,3 +261,66 @@ test("A-18: eventos recentes com filtros e linha do tempo do exemplar com ciclo 
   await expect(page.getByText("Exemplar nº 999999 não encontrado.")).toBeVisible();
   expect(problemas).toEqual([]);
 });
+
+// ───────────────────────── Bloco 3: dashboard ─────────────────────────
+
+type Kpis = Record<string, number>;
+
+async function kpis(request: APIRequestContext, admin: Cabecalho): Promise<Kpis> {
+  const d = await ok<Record<string, unknown>>(request.get(`${API}/admin/dashboard`, { headers: admin }));
+  const m: Kpis = {};
+  for (const [k, v] of Object.entries(d)) if (typeof v === "number") m[k] = v;
+  return m;
+}
+
+test("A-01: /admin é o painel e os KPIs batem com as operações do teste (por diferença)", async ({ page, request }) => {
+  const u = unico();
+  const admin = await token(request, ROBERTO);
+  const fernanda = await token(request, FERNANDA);
+  const antes = await kpis(request, admin);
+
+  // 2 exemplares novos na Central, os 2 emprestados, 1 leitor na fila e 1 demanda nova
+  const livro = await ok<{ id: number }>(request.post(`${API}/livros`, {
+    headers: admin, data: { titulo: `Painel ${u}`, autor: `Autor ${u}` },
+  }));
+  const ids = (await ok<{ id: number }[]>(request.post(`${API}/exemplares`, {
+    headers: fernanda, data: { livroId: livro.id, conservacao: "BOM", quantidade: 2 },
+  }))).map((e) => e.id);
+  for (const [i, exemplarId] of ids.entries()) {
+    const l = await novoLeitor(request, `Kpi${i}`, u);
+    await ok(request.post(`${API}/emprestimos/registrar`, { headers: fernanda, data: { exemplarId, usuarioId: l.id } }));
+  }
+  const fila = await novoLeitor(request, "Fila", u);
+  await ok(request.post(`${API}/reservas`, {
+    headers: fila.h, data: { livroId: livro.id, bibliotecaFilaId: 4, bibliotecaDestinoId: 4 },
+  }));
+  await ok(request.post(`${API}/demandas`, { headers: fila.h, data: { titulo: `Demanda ${u}`, autor: "Alguém" } }));
+
+  const esperado: Kpis = {
+    ...antes,
+    exemplaresTotal: antes.exemplaresTotal + 2,
+    emprestimosAtivos: antes.emprestimosAtivos + 2,
+    reservasEmFila: antes.reservasEmFila + 1,
+    demandasAbertas: antes.demandasAbertas + 1,
+  };
+
+  const problemas = vigiar(page);
+  await entrar(page, ROBERTO);
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole("heading", { name: "Painel da Rede" })).toBeVisible();
+  for (const chave of ["exemplaresTotal", "emprestimosAtivos", "reservasEmFila", "demandasAbertas",
+                       "bibliotecasAtivas", "emprestimosAtrasados", "transferenciasPendentes",
+                       "transferenciasEmTransito", "reservasProntas", "transferenciasAguardandoExemplar"]) {
+    await expect(page.getByTestId(`kpi-${chave}`).getByTestId("valor")).toHaveText(String(esperado[chave]));
+  }
+  await expect(page.getByTestId("exemplares-por-status")).toContainText("Emprestado (com fila)");
+  // Só cards e tabelas
+  await expect(page.locator("main canvas")).toHaveCount(0);
+  await expect(page.locator("main svg")).toHaveCount(0);
+
+  await page.getByTestId("kpi-demandasAbertas").click();
+  await expect(page).toHaveURL(/\/admin\/demandas$/);
+  await menu(page).getByRole("link", { name: "Painel" }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  expect(problemas).toEqual([]);
+});

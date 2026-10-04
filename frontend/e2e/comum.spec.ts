@@ -485,12 +485,11 @@ test("U-16: COMUM em /biblioteca e /admin volta para a busca; menu sem 'Em const
   expect(problemas).toEqual([]);
 });
 
-test("Admin: /admin redireciona para /admin/catalogo", async ({ page }) => {
+test("Admin: /admin é o painel da rede (não há mais redirecionamento)", async ({ page }) => {
   const problemas = vigiar(page);
   await entrar(page, ROBERTO);
-  await expect(page).toHaveURL(/\/admin\/catalogo$/);
-  await page.goto("/admin");
-  await expect(page).toHaveURL(/\/admin\/catalogo$/);
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole("heading", { name: "Painel da Rede" })).toBeVisible();
   await expect(page.getByText(/em constru[cç][aã]o/i)).toHaveCount(0);
   expect(problemas).toEqual([]);
 });

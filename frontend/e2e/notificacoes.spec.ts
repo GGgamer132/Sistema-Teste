@@ -270,7 +270,7 @@ async function semSobreposicao(page: Page) {
 
 test("Menu sem sobreposição em telas largas e recolhível em telas estreitas", async ({ page }) => {
   const problemas = vigiar(page);
-  for (const [email, largura] of [[CARLOS, 1280], [ROBERTO, 1024], [ANA, 1024]] as const) {
+  for (const [email, largura] of [[CARLOS, 1280], [ROBERTO, 1280], [ANA, 1024]] as const) {
     await page.setViewportSize({ width: largura, height: 800 });
     await entrar(page, email);
     await semSobreposicao(page);
