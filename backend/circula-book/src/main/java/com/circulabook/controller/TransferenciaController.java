@@ -60,6 +60,12 @@ public class TransferenciaController {
         return responder(() -> transferenciaService.acompanhamento(status, pagina, tamanho));
     }
 
+    /** A3 — bibliotecas ativas para a avulsa, com o motivo das que não podem receber (Admin). */
+    @GetMapping("/destinos-avulsa")
+    public ResponseEntity<?> destinosAvulsa() {
+        return responder(transferenciaService::destinosAvulsa);
+    }
+
     /** B5 — em trânsito para a biblioteca do bibliotecário logado. */
     @GetMapping("/biblioteca/a-receber")
     public ResponseEntity<?> aReceber(@AuthenticationPrincipal Jwt jwt) {

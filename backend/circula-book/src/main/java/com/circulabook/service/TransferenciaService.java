@@ -1,6 +1,7 @@
 package com.circulabook.service;
 
 import com.circulabook.dto.ContaDTOs.Pagina;
+import com.circulabook.dto.DestinoRetiradaDTO;
 import com.circulabook.dto.TransferenciaDTOs.*;
 import com.circulabook.model.*;
 import com.circulabook.repository.*;
@@ -103,6 +104,20 @@ public class TransferenciaService {
         int fim = Math.min(inicio + tamanho, total);
         return new Pagina<>(todas.subList(inicio, fim), pagina, tamanho, total,
             (int) Math.ceil(total / (double) tamanho));
+    }
+
+    /**
+     * A3 — destinos possíveis da avulsa: bibliotecas ativas, cada uma dizendo se aceita
+     * receber (RN22) e, se não, por quê. Sem a restrição de "destino sem o título".
+     */
+    public List<DestinoRetiradaDTO> destinosAvulsa() {
+        return bibliotecaRepository.findByAtivaTrue().stream()
+            .sorted(Comparator.comparing(Biblioteca::getNome))
+            .map(b -> {
+                String motivo = regras.motivoBloqueioDestino(b);
+                return new DestinoRetiradaDTO(b.getId(), b.getNome(), motivo == null, motivo);
+            })
+            .toList();
     }
 
     /** B5 — "A receber": em trânsito com destino na biblioteca. */

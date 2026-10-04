@@ -428,6 +428,21 @@ class TransferenciasTest extends ApoioApiTest {
         assertThat(transferenciaRepository.count()).isEqualTo(antes);
     }
 
+    @Test
+    @DisplayName("A3: destinos da avulsa listam todas as ativas, com motivo nas que não podem receber (RN22)")
+    void destinosAvulsa() throws Exception {
+        chamar(HttpMethod.GET, "/api/transferencias/destinos-avulsa", tokenAdmin, null)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(3))
+            .andExpect(jsonPath("$[?(@.nome == 'Biblioteca Vila Isabel')].permitido").value(contains(true)))
+            .andExpect(jsonPath("$[?(@.nome == 'Biblioteca Central')].permitido").value(contains(true)))
+            .andExpect(jsonPath("$[?(@.nome == 'Biblioteca Tijuca')].permitido").value(contains(false)))
+            .andExpect(jsonPath("$[?(@.nome == 'Biblioteca Tijuca')].motivo")
+                .value(contains(containsString("bibliotecário ativo"))));
+        chamar(HttpMethod.GET, "/api/transferencias/destinos-avulsa", tokenCarlos, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.GET, "/api/transferencias/destinos-avulsa", tokenAna, null).andExpect(status().isForbidden());
+    }
+
     // ───────────────────────── Bibliotecário: reservas ─────────────────────────
 
     @Test
