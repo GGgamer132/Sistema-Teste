@@ -324,3 +324,64 @@ test("A-01: /admin é o painel e os KPIs batem com as operações do teste (por 
   await expect(page).toHaveURL(/\/admin$/);
   expect(problemas).toEqual([]);
 });
+
+// ───────────────────────── Bloco 4: relatórios ─────────────────────────
+
+interface LinhaBib { bibliotecaId: number; total?: number; realizados?: number; devolvidos?: number }
+
+test("A-19: relatórios só em tabelas, batendo com as operações (por diferença) e com período", async ({ page, request }) => {
+  const u = unico();
+  const admin = await token(request, ROBERTO);
+  const fernanda = await token(request, FERNANDA);
+  const antes = await ok<{ acervo: LinhaBib[]; emprestimos: LinhaBib[] }>(
+    request.get(`${API}/admin/relatorios`, { headers: admin }),
+  );
+  const central = (l: LinhaBib[]) => l.find((x) => x.bibliotecaId === 4)!;
+
+  // 2 exemplares novos na Central; um deles emprestado, devolvido e emprestado de novo
+  const titulo = `Relatorio ${u}`;
+  const livro = await ok<{ id: number }>(request.post(`${API}/livros`, { headers: admin, data: { titulo, autor: `Autor ${u}` } }));
+  const [ex] = (await ok<{ id: number }[]>(request.post(`${API}/exemplares`, {
+    headers: fernanda, data: { livroId: livro.id, conservacao: "BOM", quantidade: 2 },
+  }))).map((e) => e.id);
+  const a = await novoLeitor(request, "Rel", u);
+  const emp = await ok<{ id: number }>(request.post(`${API}/emprestimos/registrar`, { headers: fernanda, data: { exemplarId: ex, usuarioId: a.id } }));
+  await ok(request.post(`${API}/emprestimos/devolver`, { headers: fernanda, data: { emprestimoId: emp.id, condicaoExemplar: "BOM" } }));
+  await ok(request.post(`${API}/emprestimos/registrar`, { headers: fernanda, data: { exemplarId: ex, usuarioId: a.id } }));
+
+  const problemas = vigiar(page);
+  await entrar(page, ROBERTO);
+  await menu(page).getByRole("link", { name: "Relatórios" }).click();
+  await expect(page).toHaveURL(/\/admin\/relatorios$/);
+  await expect(page.getByTestId("periodo")).toContainText("todo o período");
+
+  const linhaCentral = (id: string) => page.getByTestId(id).getByRole("row").filter({ hasText: "Biblioteca Central" });
+  await expect(linhaCentral("rel-acervo").getByRole("cell").last()).toHaveText(String(central(antes.acervo).total! + 2));
+  await expect(linhaCentral("rel-emprestimos").getByRole("cell").nth(1)).toHaveText(String(central(antes.emprestimos).realizados! + 2));
+  await expect(linhaCentral("rel-emprestimos").getByRole("cell").nth(2)).toHaveText(String(central(antes.emprestimos).devolvidos! + 1));
+  const livroLinha = page.getByTestId("rel-livros").getByRole("row").filter({ hasText: titulo });
+  await expect(livroLinha.getByRole("cell").last()).toHaveText("2");
+  for (const id of ["rel-acervo", "rel-emprestimos", "rel-atrasos", "rel-livros", "rel-demandas", "rel-transferencias"]) {
+    await expect(page.getByTestId(id).locator("table")).toHaveCount(1);
+  }
+  await expect(page.getByTestId("rel-transferencias")).toContainText("Em trânsito");
+
+  // Só tabelas: nada de canvas ou SVG de gráfico
+  await expect(page.locator("main canvas")).toHaveCount(0);
+  await expect(page.locator("main svg")).toHaveCount(0);
+
+  // Período a partir de amanhã: nenhum empréstimo novo
+  const amanha = new Date(Date.now() + 86_400_000);
+  const iso = `${amanha.getFullYear()}-${String(amanha.getMonth() + 1).padStart(2, "0")}-${String(amanha.getDate()).padStart(2, "0")}`;
+  await page.getByLabel("De", { exact: true }).fill(iso);
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page.getByTestId("periodo")).toContainText(`de ${iso.split("-").reverse().join("/")} até hoje`);
+  await expect(page.getByTestId("rel-livros")).toContainText("Nenhum empréstimo no período.");
+  await expect(linhaCentral("rel-emprestimos").getByRole("cell").nth(1)).toHaveText("0");
+
+  // Período invertido: erro do servidor
+  await page.getByLabel("Até", { exact: true }).fill("2020-01-01");
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page.getByText("A data inicial não pode ser depois da data final.")).toBeVisible();
+  expect(problemas).toEqual([]);
+});
