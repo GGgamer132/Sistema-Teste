@@ -68,6 +68,12 @@ public class ReservaController {
         }
     }
 
+    /** B6 — reservas prontas para retirada e filas por título da biblioteca do bibliotecário logado. */
+    @GetMapping("/biblioteca")
+    public ResponseEntity<?> painelBiblioteca(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(reservaService.painelBiblioteca(Ator.de(jwt).bibliotecaId()));
+    }
+
     /** UC03 — Entrar na fila (e, se for o caso, pedir retirada em outra biblioteca). */
     @PostMapping
     public ResponseEntity<?> criar(@RequestBody ReservaRequestDTO req,

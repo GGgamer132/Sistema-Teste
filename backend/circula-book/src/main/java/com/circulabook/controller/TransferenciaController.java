@@ -1,16 +1,19 @@
 package com.circulabook.controller;
 
 import com.circulabook.config.Ator;
-import com.circulabook.dto.TransferenciaAvulsaRequestDTO;
+import com.circulabook.dto.TransferenciaDTOs.AvulsaRequest;
+import com.circulabook.dto.TransferenciaDTOs.ChegadaRequest;
 import com.circulabook.model.SolicitacaoTransferencia;
 import com.circulabook.service.TransferenciaService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 @RestController
 @RequestMapping("/api/transferencias")
@@ -43,6 +46,32 @@ public class TransferenciaController {
         return transferenciaService.obterHistorico();
     }
 
+    /** A2 — pedidos PENDENTE com exemplar retido ou não e a situação da RN15 (Admin). */
+    @GetMapping("/pedidos-pendentes")
+    public ResponseEntity<?> pedidosPendentes() {
+        return responder(transferenciaService::pedidosPendentes);
+    }
+
+    /** A2 — acompanhamento paginado (pagina começa em 0), com filtro opcional por status (Admin). */
+    @GetMapping("/acompanhamento")
+    public ResponseEntity<?> acompanhamento(@RequestParam(required = false) String status,
+                                            @RequestParam(defaultValue = "0") int pagina,
+                                            @RequestParam(defaultValue = "10") int tamanho) {
+        return responder(() -> transferenciaService.acompanhamento(status, pagina, tamanho));
+    }
+
+    /** B5 — em trânsito para a biblioteca do bibliotecário logado. */
+    @GetMapping("/biblioteca/a-receber")
+    public ResponseEntity<?> aReceber(@AuthenticationPrincipal Jwt jwt) {
+        return responder(() -> transferenciaService.aReceber(Ator.de(jwt).bibliotecaId()));
+    }
+
+    /** B5 — saindo da biblioteca do bibliotecário logado (somente leitura). */
+    @GetMapping("/biblioteca/saindo")
+    public ResponseEntity<?> saindo(@AuthenticationPrincipal Jwt jwt) {
+        return responder(() -> transferenciaService.saindo(Ator.de(jwt).bibliotecaId()));
+    }
+
     /** Contadores do painel do Admin. */
     @GetMapping("/resumo")
     public Map<String, Long> obterResumo() {
@@ -55,17 +84,17 @@ public class TransferenciaController {
         );
     }
 
-    /** Transferência avulsa do Admin: nasce aprovada e sem restrição de destino. */
+    /**
+     * A3 — transferência avulsa em lote (tudo ou nada): {exemplarIds, bibliotecaDestinoId, observacoes}.
+     * Devolve as transferências criadas, já EM_TRANSITO.
+     */
     @PostMapping("/avulsa")
-    public ResponseEntity<?> criarAvulsa(@RequestBody TransferenciaAvulsaRequestDTO req,
+    public ResponseEntity<?> criarAvulsa(@RequestBody AvulsaRequest req,
                                          @AuthenticationPrincipal Jwt jwt) {
-        try {
-            return ResponseEntity.ok(transferenciaService.criarAvulsa(
-                req.getExemplarId(), req.getBibliotecaDestinoId(),
-                Ator.de(jwt).id(), req.getObservacoes()));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        List<Long> ids = req.exemplarIds() != null ? req.exemplarIds()
+            : req.exemplarId() != null ? List.of(req.exemplarId()) : List.of();
+        return responder(() -> transferenciaService.criarAvulsas(
+            ids, req.bibliotecaDestinoId(), Ator.de(jwt).id(), req.observacoes()));
     }
 
     /** Aprovar (somente ADMIN, RN04). */
@@ -90,12 +119,32 @@ public class TransferenciaController {
         }
     }
 
-    /** Confirmar chegada no destino (só EM_TRANSITO); o service valida que o bibliotecário é do destino. */
+    /**
+     * B5 — confirmar chegada (RN16): só o bibliotecário da biblioteca de DESTINO (outra -> 403).
+     * Corpo opcional: {danificado: true, observacao} para "chegou danificado".
+     */
     @PatchMapping("/{id}/confirmar-chegada")
     public ResponseEntity<?> confirmarChegada(@PathVariable Long id,
+                                              @RequestBody(required = false) ChegadaRequest req,
                                               @AuthenticationPrincipal Jwt jwt) {
+        Ator ator = Ator.de(jwt);
         try {
-            return ResponseEntity.ok(transferenciaService.confirmarChegada(id, Ator.de(jwt).id()));
+            SolicitacaoTransferencia s = transferenciaService.buscar(id);
+            if (ator.bibliotecaId() == null || !ator.bibliotecaId().equals(s.getBibliotecaDestino().getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Apenas um bibliotecário da "
+                    + s.getBibliotecaDestino().getNome() + " pode confirmar a chegada.");
+            }
+            boolean danificado = req != null && Boolean.TRUE.equals(req.danificado());
+            return ResponseEntity.ok(transferenciaService.confirmarChegada(
+                id, ator.id(), danificado, req != null ? req.observacao() : null));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    private ResponseEntity<?> responder(Supplier<Object> acao) {
+        try {
+            return ResponseEntity.ok(acao.get());
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

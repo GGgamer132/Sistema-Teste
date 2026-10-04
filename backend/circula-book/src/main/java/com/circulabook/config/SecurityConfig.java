@@ -70,6 +70,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/reservas/usuario/**", "/api/reservas/destinos").hasRole(COMUM)
                 .requestMatchers(HttpMethod.POST, "/api/reservas").hasRole(COMUM)
                 .requestMatchers(HttpMethod.PATCH, "/api/reservas/*/cancelar").hasRole(COMUM)
+                .requestMatchers(HttpMethod.GET, "/api/reservas/biblioteca").hasRole(BIBLIOTECARIO)
                 .requestMatchers("/api/reservas/**").hasRole(ADMIN) // inclui POST /expirar-vencidas
 
                 // Dados do próprio usuário (reservas, empréstimos, histórico): sempre do token
@@ -91,6 +92,7 @@ public class SecurityConfig {
 
                 // Transferências: chegada é do bibliotecário do destino; decisão e avulsa do Admin
                 .requestMatchers(HttpMethod.PATCH, "/api/transferencias/*/confirmar-chegada").hasRole(BIBLIOTECARIO)
+                .requestMatchers(HttpMethod.GET, "/api/transferencias/biblioteca/**").hasRole(BIBLIOTECARIO)
                 .requestMatchers(HttpMethod.GET, "/api/transferencias").hasAnyRole(COMUM, ADMIN)
                 .requestMatchers("/api/transferencias/**").hasRole(ADMIN)
 
