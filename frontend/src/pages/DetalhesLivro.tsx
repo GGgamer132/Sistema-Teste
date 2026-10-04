@@ -1,7 +1,8 @@
 /**
  * TELA 3 — Detalhes do Livro (UC02).
  * Mostra a ficha do título e a disponibilidade em cada biblioteca da rede.
- * O botão de cada linha leva para a reserva (RN03).
+ * Com exemplar livre, "Como retirar" explica o empréstimo presencial;
+ * sem exemplar livre, "Entrar na fila" leva à reserva.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";

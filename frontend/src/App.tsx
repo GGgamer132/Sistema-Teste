@@ -18,10 +18,10 @@ import RegistrarEmprestimo from "./pages/RegistrarEmprestimo";
 import RegistrarDevolucao from "./pages/RegistrarDevolucao";
 import CadastrarExemplar from "./pages/CadastrarExemplar";
 import TransferenciasAdmin from "./pages/TransferenciasAdmin";
-import EmConstrucao from "./pages/EmConstrucao";
 import EmprestimosBiblioteca from "./pages/EmprestimosBiblioteca";
 import MeusEmprestimos from "./pages/MeusEmprestimos";
 import MinhasReservas from "./pages/MinhasReservas";
+import MeuHistorico from "./pages/MeuHistorico";
 import AcervoBiblioteca from "./pages/AcervoBiblioteca";
 import AdminCatalogo from "./pages/AdminCatalogo";
 import AdminCategorias from "./pages/AdminCategorias";
@@ -45,10 +45,7 @@ export default function App() {
         <Route path="/livro/:livroId/reservar" element={<ReservarLivro />} />
         <Route path="/meus-emprestimos" element={<MeusEmprestimos />} />
         <Route path="/minhas-reservas" element={<MinhasReservas />} />
-        <Route
-          path="/historico"
-          element={<EmConstrucao titulo="Meu Histórico" />}
-        />
+        <Route path="/historico" element={<MeuHistorico />} />
       </Route>
 
       {/* ── Bibliotecário ── */}
@@ -65,10 +62,8 @@ export default function App() {
 
       {/* ── Administrador ── */}
       <Route element={<RotaProtegida perfis={["ADMIN"]} />}>
-        <Route
-          path="/admin"
-          element={<EmConstrucao titulo="Dashboard da Rede" />}
-        />
+        {/* Provisório: o dashboard da rede vem numa etapa futura */}
+        <Route path="/admin" element={<Navigate to="/admin/catalogo" replace />} />
         <Route path="/admin/transferencias" element={<TransferenciasAdmin />} />
         <Route path="/admin/catalogo" element={<AdminCatalogo />} />
         <Route path="/admin/categorias" element={<AdminCategorias />} />
