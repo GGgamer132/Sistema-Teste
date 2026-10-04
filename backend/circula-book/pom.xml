@@ -41,15 +41,10 @@
 			<artifactId>jackson-databind</artifactId>
 		</dependency>
 
-		<!--
-		  ATENCAO: o escopo mudou de "runtime" para o padrao (compile).
-		  O PgNotificationListener importa org.postgresql.PGConnection e
-		  org.postgresql.PGNotification em tempo de compilacao; com escopo
-		  runtime o projeto nao compila.
-		-->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
 		</dependency>
 
 		<dependency>
