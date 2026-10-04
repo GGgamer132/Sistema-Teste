@@ -39,4 +39,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     Optional<Reserva> findFirstByExemplarAndStatusIn(Exemplar exemplar, List<String> status);
 
     List<Reserva> findByUsuarioAndStatusIn(Usuario usuario, List<String> status);
+
+    long countByStatus(String status);
 }

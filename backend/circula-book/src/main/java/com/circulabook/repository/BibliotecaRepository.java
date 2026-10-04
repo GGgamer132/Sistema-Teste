@@ -8,4 +8,6 @@ import java.util.List;
 @Repository
 public interface BibliotecaRepository extends JpaRepository<Biblioteca, Long> {
     List<Biblioteca> findByAtivaTrue();
+
+    long countByAtivaTrue();
 }

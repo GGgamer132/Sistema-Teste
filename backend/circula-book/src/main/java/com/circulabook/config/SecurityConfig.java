@@ -97,6 +97,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/transferencias/**").hasRole(ADMIN)
 
                 .requestMatchers("/api/historico/**").hasRole(ADMIN)
+                .requestMatchers("/api/admin/**").hasRole(ADMIN)
 
                 // Demandas: o usuário comum registra interesse e vê os seus; o resto é do Admin (RN07)
                 .requestMatchers(HttpMethod.POST, "/api/demandas").hasRole(COMUM)

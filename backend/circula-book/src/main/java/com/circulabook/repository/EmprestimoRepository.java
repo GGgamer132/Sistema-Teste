@@ -22,4 +22,9 @@ public interface EmprestimoRepository extends JpaRepository<Emprestimo, Long> {
     Optional<Emprestimo> findFirstByExemplarAndStatusIn(Exemplar exemplar, List<String> status);
 
     List<Emprestimo> findByStatusInOrderByDataPrevDevolucaoAsc(List<String> status);
+
+    // Painel do Admin
+    long countByStatusIn(List<String> status);
+
+    long countByStatusInAndDataPrevDevolucaoBefore(List<String> status, java.time.LocalDateTime limite);
 }

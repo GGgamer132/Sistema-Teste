@@ -36,4 +36,6 @@ public interface SolicitacaoTransferenciaRepository extends JpaRepository<Solici
 
     // Pedido mais recente de uma reserva (situação mostrada em "Minhas reservas")
     Optional<SolicitacaoTransferencia> findFirstByReservaOrderByDataSolicitacaoDescIdDesc(Reserva reserva);
+
+    long countByStatusAndExemplarIsNull(String status);
 }

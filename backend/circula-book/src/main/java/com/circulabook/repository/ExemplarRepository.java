@@ -20,4 +20,6 @@ public interface ExemplarRepository extends JpaRepository<Exemplar, Long> {
 
     // RN15: total de exemplares do título na biblioteca (qualquer status)
     long countByLivroAndBiblioteca(Livro livro, Biblioteca biblioteca);
+
+    long countByStatus(String status);
 }
