@@ -266,3 +266,87 @@ export interface Pagina<T> {
   totalItens: number;
   totalPaginas: number;
 }
+
+/** Referência curta (id + nome) usada nos DTOs de transferência. */
+export interface Ref {
+  id: number;
+  nome: string;
+}
+
+/** Item de GET /api/transferencias/pedidos-pendentes (Admin). */
+export interface PedidoPendente {
+  id: number;
+  livroId: number;
+  titulo: string;
+  autor: string;
+  solicitante: Ref;
+  origem: Ref;
+  destino: Ref;
+  reservaId: number | null;
+  exemplarId: number | null;
+  /** RETIDO = exemplar já separado na origem; senão será vinculado na devolução. */
+  exemplar: "RETIDO" | "VINCULADO_NA_DEVOLUCAO";
+  descricaoExemplar: string;
+  /** Capacidade da origem: o próprio pedido não conta contra si. */
+  rn15: { total: number; abertas: number; permitido: boolean; motivo: string | null };
+  /** Motivo de o destino não poder receber (null = pode). */
+  bloqueioDestino: string | null;
+  dataSolicitacao: string;
+}
+
+export type EtapaTransferencia =
+  | "PENDENTE"
+  | "APROVADA"
+  | "APROVADA_AGUARDANDO_EXEMPLAR"
+  | "EM_TRANSITO"
+  | "CONCLUIDA"
+  | "REJEITADA"
+  | "CANCELADA";
+
+/** Linha de acompanhamento, "a receber" e "saindo". */
+export interface TransferenciaResumo {
+  id: number;
+  tipo: "RESERVA" | "AVULSA";
+  status: SolicitacaoTransferencia["status"];
+  etapa: EtapaTransferencia;
+  livroId: number;
+  titulo: string;
+  exemplarId: number | null;
+  origem: Ref;
+  destino: Ref;
+  solicitante: Ref | null;
+  aprovador: Ref | null;
+  reservaId: number | null;
+  /** Nome de quem vai retirar, enquanto a reserva estiver ativa. */
+  reservadoPara: string | null;
+  statusReserva: Reserva["status"] | null;
+  dataSolicitacao: string;
+  dataConclusao: string | null;
+  observacoes: string | null;
+}
+
+/** GET /api/reservas/biblioteca (bibliotecário). */
+export interface ReservasBiblioteca {
+  aguardandoRetirada: {
+    reservaId: number;
+    usuarioId: number;
+    usuario: string;
+    email: string;
+    livroId: number;
+    titulo: string;
+    exemplarId: number | null;
+    retireAte: string;
+  }[];
+  filas: {
+    livroId: number;
+    titulo: string;
+    fila: {
+      posicao: number;
+      reservaId: number;
+      usuarioId: number;
+      usuario: string;
+      dataReserva: string;
+      bibliotecaRetirada: string;
+    }[];
+  }[];
+}

@@ -6,8 +6,8 @@
  */
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, formatarData, qs } from "../api/client";
-import type { ItemHistorico, Pagina } from "../types";
+import { formatarData, todasAsPaginas } from "../api/client";
+import type { ItemHistorico } from "../types";
 import {
   Badge,
   Botao,
@@ -29,7 +29,6 @@ interface Filtros {
 }
 
 const VAZIO: Filtros = { tipo: "", de: "", ate: "" };
-const TAMANHO = 50; // máximo aceito pelo servidor por página
 
 const STATUS: Record<ItemHistorico["status"], { texto: string; tom: "verde" | "cinza" | "vermelho" | "azul" }> = {
   DEVOLVIDO: { texto: "Devolvido", tom: "verde" },
@@ -37,18 +36,6 @@ const STATUS: Record<ItemHistorico["status"], { texto: string; tom: "verde" | "c
   CANCELADA: { texto: "Cancelada", tom: "cinza" },
   EXPIRADA: { texto: "Expirada", tom: "vermelho" },
 };
-
-/** Busca todas as páginas do histórico com os filtros dados. */
-async function buscarTudo(f: Filtros): Promise<ItemHistorico[]> {
-  const itens: ItemHistorico[] = [];
-  for (let pagina = 0; ; pagina++) {
-    const p = await api.get<Pagina<ItemHistorico>>(
-      "/conta/historico" + qs({ ...f, pagina, tamanho: TAMANHO }),
-    );
-    itens.push(...p.itens);
-    if (pagina + 1 >= p.totalPaginas) return itens;
-  }
-}
 
 export default function MeuHistorico() {
   const [rascunho, setRascunho] = useState<Filtros>(VAZIO);
@@ -58,7 +45,7 @@ export default function MeuHistorico() {
 
   useEffect(() => {
     let ativo = true;
-    buscarTudo(filtros)
+    todasAsPaginas<ItemHistorico>("/conta/historico", { ...filtros })
       .then((r) => {
         if (!ativo) return;
         setItens(r);

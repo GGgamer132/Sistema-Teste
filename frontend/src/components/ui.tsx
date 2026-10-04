@@ -108,6 +108,21 @@ export function BadgeTransferencia({
   return <Badge tom={m.tom}>{m.texto}</Badge>;
 }
 
+/** Etapa legível de uma transferência (DTOs novos: já vem "APROVADA_AGUARDANDO_EXEMPLAR"). */
+export function BadgeEtapaTransferencia({ etapa }: { etapa: string }) {
+  const mapa: Record<string, { tom: Tom; texto: string }> = {
+    PENDENTE: { tom: "amarelo", texto: "Aguardando decisão" },
+    APROVADA: { tom: "azul", texto: "Aprovada" },
+    APROVADA_AGUARDANDO_EXEMPLAR: { tom: "azul", texto: "Aprovada, aguardando exemplar" },
+    EM_TRANSITO: { tom: "azul", texto: "Em trânsito" },
+    CONCLUIDA: { tom: "verde", texto: "Concluída" },
+    REJEITADA: { tom: "vermelho", texto: "Rejeitada" },
+    CANCELADA: { tom: "cinza", texto: "Cancelada" },
+  };
+  const m = mapa[etapa] ?? { tom: "cinza" as Tom, texto: etapa };
+  return <Badge tom={m.tom}>{m.texto}</Badge>;
+}
+
 /** Traduz o status de uma reserva. */
 export function BadgeReserva({ status }: { status: string }) {
   const mapa: Record<string, { tom: Tom; texto: string }> = {
