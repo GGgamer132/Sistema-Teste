@@ -1,6 +1,7 @@
 package com.circulabook.service;
 
 import com.circulabook.dto.DestinoRetiradaDTO;
+import com.circulabook.dto.ReservasBibliotecaDTO;
 import com.circulabook.model.*;
 import com.circulabook.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,7 @@ public class ReservaService {
     @Autowired private FilaEsperaService filaEsperaService;
     @Autowired private EstadoExemplarService estadoExemplar;
     @Autowired private EmprestimoRepository emprestimoRepository;
+    @Autowired private RegrasTransferenciaService regras;
 
     public List<Reserva> obterTodas() {
         return reservaRepository.findAll();
@@ -187,6 +189,39 @@ public class ReservaService {
         return destinos;
     }
 
+    /**
+     * B6 — painel do bibliotecário: reservas DISPONIVEL com retirada na biblioteca
+     * (prazo mais próximo primeiro) e a fila PENDENTE de cada título nela.
+     */
+    public ReservasBibliotecaDTO painelBiblioteca(Long bibliotecaId) {
+        List<ReservasBibliotecaDTO.AguardandoRetirada> prontas = reservaRepository.findByStatus("DISPONIVEL").stream()
+            .filter(r -> r.getBibliotecaDestino().getId().equals(bibliotecaId))
+            .sorted(Comparator.comparing(Reserva::getDataExpiracao))
+            .map(r -> new ReservasBibliotecaDTO.AguardandoRetirada(r.getId(), r.getUsuario().getId(),
+                r.getUsuario().getNome(), r.getUsuario().getEmail(), r.getLivro().getId(),
+                r.getLivro().getTitulo(), r.getExemplar() != null ? r.getExemplar().getId() : null,
+                r.getDataExpiracao()))
+            .toList();
+
+        java.util.Map<Livro, List<Reserva>> porTitulo = new java.util.TreeMap<>(
+            Comparator.comparing(Livro::getTitulo).thenComparing(Livro::getId));
+        reservaRepository.findByStatus("PENDENTE").stream()
+            .filter(r -> r.getBibliotecaFila().getId().equals(bibliotecaId))
+            .forEach(r -> porTitulo.computeIfAbsent(r.getLivro(), k -> new ArrayList<>()).add(r));
+        List<ReservasBibliotecaDTO.FilaTitulo> filas = new ArrayList<>();
+        porTitulo.forEach((livro, lista) -> {
+            lista.sort(Comparator.comparing(Reserva::getDataReserva));
+            List<ReservasBibliotecaDTO.NaFila> fila = new ArrayList<>();
+            for (int i = 0; i < lista.size(); i++) {
+                Reserva r = lista.get(i);
+                fila.add(new ReservasBibliotecaDTO.NaFila(i + 1, r.getId(), r.getUsuario().getId(),
+                    r.getUsuario().getNome(), r.getDataReserva(), r.getBibliotecaDestino().getNome()));
+            }
+            filas.add(new ReservasBibliotecaDTO.FilaTitulo(livro.getId(), livro.getTitulo(), fila));
+        });
+        return new ReservasBibliotecaDTO(prontas, filas);
+    }
+
     /** §5.1 item 1: só entra na fila de biblioteca que tem o título e não tem exemplar livre. */
     private void validarFila(Livro livro, Biblioteca fila) {
         List<Exemplar> naFila = exemplarRepository.findByLivroAndBiblioteca(livro, fila);
@@ -211,8 +246,8 @@ public class ReservaService {
             return "A " + destino.getNome() + " já possui exemplares deste título. "
                 + "Para retirar lá, entre na fila dessa biblioteca ou faça o empréstimo presencial.";
         }
-        String motivo = transferenciaService.motivoBloqueioOrigem(livro, fila);
-        return motivo != null ? motivo : transferenciaService.motivoBloqueioDestino(destino);
+        String motivo = regras.motivoBloqueioOrigem(livro, fila);
+        return motivo != null ? motivo : regras.motivoBloqueioDestino(destino);
     }
 
     /**

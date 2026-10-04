@@ -35,6 +35,7 @@ public class FilaEsperaService {
     @Autowired private SolicitacaoTransferenciaRepository transferenciaRepository;
     @Autowired private HistoricoService historicoService;
     @Autowired private EstadoExemplarService estadoExemplar;
+    @Autowired private RegrasTransferenciaService regras;
 
     /**
      * Chamar sempre que um exemplar ficar livre na biblioteca em que está.
@@ -72,11 +73,29 @@ public class FilaEsperaService {
 
         // Com transferência: vincula o exemplar ao pedido
         pedido.setExemplar(exemplar);
+
+        // §5.3 item 3: antes de despachar, a RN15 precisa continuar valendo; se deixou de
+        // valer, o pedido é cancelado e a reserva é atendida na própria origem (3 dias).
+        if ("APROVADA".equals(pedido.getStatus())) {
+            String motivo = regras.motivoBloqueioOrigem(reserva.getLivro(), pedido.getBibliotecaOrigem(), pedido);
+            if (motivo != null) {
+                pedido.setStatus("CANCELADA");
+                pedido.setDataConclusao(LocalDateTime.now());
+                pedido.setObservacoes("Cancelada no despacho: " + motivo + " A reserva segue com retirada na "
+                    + pedido.getBibliotecaOrigem().getNome() + ".");
+                transferenciaRepository.save(pedido);
+                reserva.setBibliotecaDestino(reserva.getBibliotecaFila());
+                liberarParaRetirada(reserva, exemplar);
+                System.out.println("[FILA] Transferência #" + pedido.getId() + " cancelada no despacho (RN15).");
+                return;
+            }
+        }
+
         reserva.setStatus("AGUARDANDO_TRANSFERENCIA");
         reservaRepository.save(reserva);
 
         if ("APROVADA".equals(pedido.getStatus())) {
-            despachar(pedido, null);              // já aprovada: segue viagem agora
+            despachar(pedido, null);              // já aprovada: segue viagem agora (T4 + T9 na mesma transação)
         } else {
             transferenciaRepository.save(pedido); // PENDENTE: espera o Admin decidir
             System.out.println("[FILA] Exemplar nº " + exemplar.getId()
