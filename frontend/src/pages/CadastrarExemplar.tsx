@@ -1,113 +1,122 @@
 /**
- * TELA 7 — Cadastrar Livro/Exemplar (UC11 / UC20).
- * Dois modos: vincular a um título existente ou criar um título novo.
- * RN10 (só bibliotecário da casa) é validada no backend.
+ * B4 — Cadastrar exemplares (entrada no acervo).
+ * O bibliotecário escolhe um livro JÁ cadastrado pelo Admin, a conservação e a
+ * quantidade (1 a 50). Os exemplares entram na biblioteca do bibliotecário logado:
+ * DISPONIVEL ou, se houver fila do título aqui, RESERVADO para o próximo da fila.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, nomeExemplar } from "../api/client";
-import type { Biblioteca, Categoria, Exemplar, Livro } from "../types";
+import type { Exemplar, Livro } from "../types";
 import { useUsuarioLogado } from "../auth/contexto";
 import {
-  AreaTexto, Botao, Campo, CardResumo, Callout, DuasColunas, Entrada, Erro,
-  GrupoRadio, LinhaResumo, SectionCard, Selecao, Sucesso, TituloPagina, Trilha,
+  Botao, Callout, Campo, CardResumo, Carregando, DuasColunas, Entrada, Erro,
+  GrupoRadio, LinhaResumo, SectionCard, Sucesso, TituloPagina, Trilha,
 } from "../components/ui";
+import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
+import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 
-type Modo = "EXISTENTE" | "NOVO";
-type Estado = "NOVO" | "BOM" | "USADO";
+type Conservacao = "NOVO" | "BOM" | "USADO";
+
+const ROTULO_CONSERVACAO: Record<Conservacao, string> = { NOVO: "Novo", BOM: "Bom", USADO: "Usado" };
 
 export default function CadastrarExemplar() {
-  // O exemplar é sempre cadastrado na biblioteca do bibliotecário logado
-  const { bibliotecaId, bibliotecaNome } = useUsuarioLogado();
-  const [modo, setModo] = useState<Modo>("NOVO");
-  const [livros, setLivros] = useState<Livro[]>([]);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [bibliotecas, setBibliotecas] = useState<Biblioteca[]>([]);
-
-  const [livroId, setLivroId] = useState<number | "">("");
-  const [titulo, setTitulo] = useState("");
-  const [autor, setAutor] = useState("");
-  const [editora, setEditora] = useState("");
-  const [isbn, setIsbn] = useState("");
-  const [ano, setAno] = useState("");
-  const [categoriaId, setCategoriaId] = useState<number | "">("");
-  const [sinopse, setSinopse] = useState("");
-
-  const [estado, setEstado] = useState<Estado>("NOVO");
-
+  const { bibliotecaNome } = useUsuarioLogado();
+  const [livros, setLivros] = useState<Livro[] | null>(null);
+  const [busca, setBusca] = useState("");
+  const [livro, setLivro] = useState<Livro | null>(null);
+  const [conservacao, setConservacao] = useState<Conservacao>("NOVO");
+  const [quantidade, setQuantidade] = useState("1");
+  const [confirmando, setConfirmando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
-  const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      api.get<Livro[]>("/livros"),
-      api.get<Categoria[]>("/categorias"),
-      api.get<Biblioteca[]>("/bibliotecas"),
-    ])
-      .then(([l, c, b]) => {
-        setLivros(l);
-        setCategorias(c);
-        setBibliotecas(b);
-      })
-      .catch((e) => setErro(e.message));
+    api.get<Livro[]>("/livros").then(setLivros).catch((e) => setErro(e.message));
   }, []);
 
-  const livroSelecionado = livros.find((l) => l.id === livroId);
-  const nomeBiblioteca =
-    bibliotecas.find((b) => b.id === bibliotecaId)?.nome ?? bibliotecaNome ?? "—";
-  const nomeCategoria =
-    modo === "EXISTENTE"
-      ? livroSelecionado?.categoria?.nome ?? "—"
-      : categorias.find((c) => c.id === categoriaId)?.nome ?? "—";
+  const filtrados = useMemo(() => {
+    const t = busca.trim().toLowerCase();
+    return (livros ?? [])
+      .filter(
+        (l) =>
+          !t ||
+          l.titulo.toLowerCase().includes(t) ||
+          l.autor.toLowerCase().includes(t) ||
+          (l.isbn ?? "").toLowerCase().includes(t) ||
+          (l.categoria?.nome ?? "").toLowerCase().includes(t),
+      )
+      .sort((a, b) => a.titulo.localeCompare(b.titulo));
+  }, [livros, busca]);
+
+  const qtd = Number(quantidade);
+  const quantidadeValida = Number.isInteger(qtd) && qtd >= 1 && qtd <= 50;
 
   async function cadastrar() {
+    if (!livro) return;
     setEnviando(true);
     setErro("");
     setSucesso("");
     try {
-      const corpo =
-        modo === "EXISTENTE"
-          ? { livroId, bibliotecaId, estadoConservacao: estado }
-          : {
-              titulo, autor, editora, isbn,
-              anoPublicacao: ano ? Number(ano) : null,
-              categoriaId: categoriaId || null,
-              sinopse,
-              bibliotecaId,
-              estadoConservacao: estado,
-            };
-
-      const ex = await api.post<Exemplar>(
-        "/exemplares",
-        corpo,
-      );
-
+      const criados = await api.post<Exemplar[]>("/exemplares", {
+        livroId: livro.id,
+        conservacao,
+        quantidade: qtd,
+      });
+      const reservados = criados.filter((e) => e.status === "RESERVADO").length;
       setSucesso(
-        `${nomeExemplar(ex.id)} de "${ex.livro.titulo}" cadastrado em ` +
-          `${ex.biblioteca.nome} com status ${ex.status}.`,
+        `${criados.length} exemplar(es) de "${livro.titulo}" cadastrado(s) na ${bibliotecaNome}: ` +
+          criados.map((e) => nomeExemplar(e.id)).join(", ") +
+          "." +
+          (reservados > 0
+            ? ` ${reservados} já foi(ram) separado(s) para quem estava na fila deste título.`
+            : ""),
       );
-
-      // Limpa o formulário e recarrega a lista de títulos
-      setTitulo(""); setAutor(""); setEditora(""); setIsbn(""); setAno("");
-      setCategoriaId(""); setSinopse(""); setLivroId("");
-      api.get<Livro[]>("/livros").then(setLivros).catch(() => {});
+      setLivro(null);
+      setQuantidade("1");
+      setConservacao("NOVO");
     } catch (e) {
       setErro((e as Error).message);
     } finally {
       setEnviando(false);
+      setConfirmando(false);
     }
   }
 
-  const podeCadastrar =
-    !enviando &&
-    (modo === "EXISTENTE" ? !!livroId : titulo.trim() !== "" && autor.trim() !== "");
+  const colunas: Coluna<Livro>[] = [
+    {
+      titulo: "Título",
+      render: (l) => (
+        <div>
+          <p className="font-semibold text-[#2c3e50]">{l.titulo}</p>
+          <p className="text-[12px] text-[#66707d]">{l.autor}</p>
+        </div>
+      ),
+    },
+    { titulo: "Categoria", render: (l) => l.categoria?.nome ?? "—" },
+    { titulo: "ISBN", render: (l) => l.isbn || "—" },
+    {
+      titulo: "Ação",
+      className: "text-right",
+      render: (l) =>
+        livro?.id === l.id ? (
+          <span className="text-[13px] font-semibold text-[#1976d2]">Selecionado</span>
+        ) : (
+          <Botao variante="secundario" className="!px-3 !py-[6px] !text-[13px]" onClick={() => setLivro(l)}>
+            Selecionar
+          </Botao>
+        ),
+    },
+  ];
+
+  if (livros === null && !erro) return <Carregando texto="Carregando catálogo..." />;
 
   return (
     <>
-      <Trilha itens={[{ rotulo: "Painel da Biblioteca" }, { rotulo: "Cadastrar Exemplar" }]} />
+      <Trilha voltarPara="/biblioteca" itens={[{ rotulo: "Empréstimos", to: "/biblioteca" }, { rotulo: "Cadastrar exemplares" }]} />
       <TituloPagina
-        titulo="Cadastrar Novo Exemplar"
-        subtitulo={`${nomeBiblioteca} · UC11/UC20 - Cadastro de livro e exemplar`}
+        titulo="Cadastrar Exemplares"
+        subtitulo={`${bibliotecaNome ?? ""} · entrada de exemplares de livros já cadastrados no catálogo`}
       />
 
       {erro && <Erro mensagem={erro} />}
@@ -116,125 +125,104 @@ export default function CadastrarExemplar() {
       <DuasColunas
         esquerda={
           <>
-            <SectionCard titulo="1. Selecionar ou cadastrar livro">
-              <GrupoRadio<Modo>
-                valor={modo}
-                onChange={setModo}
-                opcoes={[
-                  { valor: "EXISTENTE", rotulo: "Livro já cadastrado" },
-                  { valor: "NOVO", rotulo: "Novo título" },
-                ]}
+            <SectionCard titulo="1. Escolher o livro">
+              <Entrada
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="🔎 Buscar por título, autor, ISBN ou categoria..."
+                aria-label="Buscar livro do catálogo"
               />
-
-              {modo === "EXISTENTE" && (
-                <div className="mt-4">
-                  <Campo label="Escolha o título já existente no catálogo">
-                    <Selecao
-                      value={livroId}
-                      onChange={(e) => setLivroId(Number(e.target.value))}
-                    >
-                      <option value="">Selecione um livro...</option>
-                      {livros.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.titulo} — {l.autor}
-                        </option>
-                      ))}
-                    </Selecao>
-                  </Campo>
-                </div>
-              )}
-            </SectionCard>
-
-            {modo === "NOVO" && (
-              <SectionCard titulo="2. Dados do novo título">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <Campo label="Título">
-                    <Entrada value={titulo} onChange={(e) => setTitulo(e.target.value)}
-                             placeholder="Ex: Iracema" />
-                  </Campo>
-                  <Campo label="Autor">
-                    <Entrada value={autor} onChange={(e) => setAutor(e.target.value)}
-                             placeholder="Ex: José de Alencar" />
-                  </Campo>
-                  <Campo label="Editora">
-                    <Entrada value={editora} onChange={(e) => setEditora(e.target.value)}
-                             placeholder="Ex: Ática" />
-                  </Campo>
-                  <Campo label="ISBN">
-                    <Entrada value={isbn} onChange={(e) => setIsbn(e.target.value)}
-                             placeholder="Ex: 978-85-08-..." />
-                  </Campo>
-                  <Campo label="Ano de publicação">
-                    <Entrada type="number" value={ano} onChange={(e) => setAno(e.target.value)}
-                             placeholder="Ex: 1865" />
-                  </Campo>
-                  <Campo label="Categoria">
-                    <Selecao value={categoriaId}
-                             onChange={(e) => setCategoriaId(Number(e.target.value))}>
-                      <option value="">Selecione...</option>
-                      {categorias.map((c) => (
-                        <option key={c.id} value={c.id}>{c.nome}</option>
-                      ))}
-                    </Selecao>
-                  </Campo>
-                </div>
-                <div className="mt-5">
-                  <Campo label="Sinopse">
-                    <AreaTexto value={sinopse} onChange={(e) => setSinopse(e.target.value)}
-                               placeholder="Breve resumo da obra..." />
-                  </Campo>
-                </div>
-              </SectionCard>
-            )}
-
-            <SectionCard titulo={modo === "NOVO" ? "3. Dados do exemplar" : "2. Dados do exemplar"}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <Campo label="Biblioteca">
-                  <Entrada value={`${nomeBiblioteca} (fixo)`} readOnly />
-                </Campo>
-              </div>
-              <div className="mt-5">
-                <p className="text-[13px] font-medium text-[#66707d] mb-2">
-                  Estado de conservação
-                </p>
-                <GrupoRadio<Estado>
-                  valor={estado}
-                  onChange={setEstado}
-                  opcoes={[
-                    { valor: "NOVO", rotulo: "Novo" },
-                    { valor: "BOM", rotulo: "Bom" },
-                    { valor: "USADO", rotulo: "Usado" },
-                  ]}
+              <div className="mt-4 -mx-6">
+                <TabelaPaginada
+                  dados={filtrados}
+                  colunas={colunas}
+                  chave={(l) => l.id}
+                  porPagina={8}
+                  textoVazio="Nenhum livro do catálogo corresponde a essa busca."
                 />
               </div>
+            </SectionCard>
+
+            <SectionCard titulo="2. Dados dos exemplares">
+              <p className="text-[13px] font-medium text-[#66707d] mb-2">Conservação</p>
+              <GrupoRadio<Conservacao>
+                valor={conservacao}
+                onChange={setConservacao}
+                opcoes={[
+                  { valor: "NOVO", rotulo: "Novo" },
+                  { valor: "BOM", rotulo: "Bom" },
+                  { valor: "USADO", rotulo: "Usado" },
+                ]}
+              />
+              <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+                <Campo label="Quantidade (1 a 50)">
+                  <Entrada
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={quantidade}
+                    onChange={(e) => setQuantidade(e.target.value)}
+                  />
+                </Campo>
+                <Campo label="Biblioteca">
+                  <Entrada value={bibliotecaNome ?? ""} readOnly />
+                </Campo>
+              </div>
+              {!quantidadeValida && (
+                <p className="mt-2 text-[13px] text-[#d32f2f]">Informe uma quantidade de 1 a 50.</p>
+              )}
             </SectionCard>
           </>
         }
         direita={
           <>
-            <Callout tipo="info" titulo="Cadastro de exemplar">
-              Um exemplar só pode ser cadastrado por um bibliotecário da biblioteca à qual
-              pertencerá. O livro correspondente deve estar previamente cadastrado no sistema.
+            <Callout tipo="info" titulo="Só livros do catálogo">
+              Livros novos são cadastrados pelo administrador. Aqui você dá entrada nos
+              exemplares da sua biblioteca.
             </Callout>
-
             <CardResumo
               titulo="Resumo do cadastro"
               rodape={
-                <Botao onClick={cadastrar} disabled={!podeCadastrar} className="w-full">
-                  {enviando ? "Cadastrando..." : "📚 Cadastrar Exemplar"}
+                <Botao
+                  onClick={() => setConfirmando(true)}
+                  disabled={!livro || !quantidadeValida || enviando}
+                  className="w-full"
+                >
+                  📚 Cadastrar Exemplares
                 </Botao>
               }
             >
-              <LinhaResumo
-                rotulo="Título"
-                valor={modo === "EXISTENTE" ? livroSelecionado?.titulo ?? "—" : titulo || "—"}
-              />
-              <LinhaResumo rotulo="Categoria" valor={nomeCategoria} />
-              <LinhaResumo rotulo="Biblioteca" valor={nomeBiblioteca} />
+              <LinhaResumo rotulo="Livro" valor={livro?.titulo ?? "—"} />
+              <LinhaResumo rotulo="Conservação" valor={ROTULO_CONSERVACAO[conservacao]} />
+              <LinhaResumo rotulo="Quantidade" valor={quantidadeValida ? String(qtd) : "—"} />
+              <LinhaResumo rotulo="Biblioteca" valor={bibliotecaNome ?? "—"} />
             </CardResumo>
           </>
         }
       />
+
+      <ModalConfirmacao
+        aberto={confirmando}
+        titulo="Cadastrar exemplares?"
+        confirmarRotulo="Cadastrar"
+        tom="verde"
+        carregando={enviando}
+        onConfirmar={cadastrar}
+        onCancelar={() => setConfirmando(false)}
+      >
+        <ResumoModal
+          linhas={[
+            ["Livro", livro?.titulo ?? "—"],
+            ["Quantidade", String(qtd)],
+            ["Conservação", ROTULO_CONSERVACAO[conservacao]],
+            ["Biblioteca", bibliotecaNome ?? "—"],
+          ]}
+        />
+        <p>
+          Se houver fila deste título na sua biblioteca, os novos exemplares já são
+          separados para os primeiros da fila.
+        </p>
+      </ModalConfirmacao>
     </>
   );
 }
