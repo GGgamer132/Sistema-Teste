@@ -24,6 +24,7 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
     { rotulo: "Meus Empréstimos", to: "/meus-emprestimos" },
     { rotulo: "Minhas Reservas", to: "/minhas-reservas" },
     { rotulo: "Meu Histórico", to: "/historico" },
+    { rotulo: "Pedir um Livro", to: "/interesse" },
   ],
   BIBLIOTECARIO: [
     { rotulo: "Empréstimos", to: "/biblioteca" },
@@ -40,6 +41,7 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
     { rotulo: "Categorias", to: "/admin/categorias" },
     { rotulo: "Bibliotecas", to: "/admin/bibliotecas" },
     { rotulo: "Bibliotecários", to: "/admin/bibliotecarios" },
+    { rotulo: "Demandas", to: "/admin/demandas" },
   ],
 };
 

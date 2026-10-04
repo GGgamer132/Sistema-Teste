@@ -362,3 +362,38 @@ export interface Notificacao {
   /** Tela relacionada (rota do front), quando houver. */
   link: string | null;
 }
+
+export type StatusDemanda = "ABERTA" | "EM_ANALISE" | "APROVADA" | "REJEITADA";
+
+/** Demanda de aquisição (GET /api/demandas, Admin). */
+export interface Demanda {
+  id: number;
+  titulo: string;
+  autor: string;
+  totalSolicitacoes: number;
+  status: StatusDemanda;
+  statusRotulo: string;
+  /** Situações para as quais o Admin pode mudar agora. */
+  proximosStatus: StatusDemanda[];
+  criadaEm: string;
+  atualizadaEm: string;
+}
+
+/** Resposta de POST /api/demandas. */
+export interface InteresseResposta {
+  demanda: Demanda;
+  /** true = criou a demanda; false = somou ao pedido de outras pessoas. */
+  nova: boolean;
+  mensagem: string;
+}
+
+/** Item de GET /api/demandas/minhas. */
+export interface MeuInteresse {
+  demandaId: number;
+  titulo: string;
+  autor: string;
+  status: StatusDemanda;
+  statusRotulo: string;
+  totalSolicitacoes: number;
+  registradoEm: string;
+}

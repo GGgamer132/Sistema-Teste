@@ -29,6 +29,8 @@ import AdminCatalogo from "./pages/AdminCatalogo";
 import AdminCategorias from "./pages/AdminCategorias";
 import AdminBibliotecas from "./pages/AdminBibliotecas";
 import AdminBibliotecarios from "./pages/AdminBibliotecarios";
+import AdminDemandas from "./pages/AdminDemandas";
+import RegistrarInteresse from "./pages/RegistrarInteresse";
 
 export default function App() {
   const { usuario } = useAuth();
@@ -48,6 +50,7 @@ export default function App() {
         <Route path="/meus-emprestimos" element={<MeusEmprestimos />} />
         <Route path="/minhas-reservas" element={<MinhasReservas />} />
         <Route path="/historico" element={<MeuHistorico />} />
+        <Route path="/interesse" element={<RegistrarInteresse />} />
       </Route>
 
       {/* ── Bibliotecário ── */}
@@ -73,6 +76,7 @@ export default function App() {
         <Route path="/admin/categorias" element={<AdminCategorias />} />
         <Route path="/admin/bibliotecas" element={<AdminBibliotecas />} />
         <Route path="/admin/bibliotecarios" element={<AdminBibliotecarios />} />
+        <Route path="/admin/demandas" element={<AdminDemandas />} />
       </Route>
 
       {/* URL desconhecida volta para o início do perfil (ou para o login) */}
