@@ -1,9 +1,11 @@
 /**
  * Barra azul do topo, presente em todas as telas.
- * O menu muda conforme o perfil e o item da página atual fica em destaque.
+ * O menu muda conforme o perfil do usuário logado e o item da página atual
+ * fica em destaque.
  */
 import { Link, NavLink, useLocation } from "react-router-dom";
 import type { Perfil } from "../types";
+import { NOME_PERFIL, TELA_INICIAL, useAuth, useUsuarioLogado } from "../auth/contexto";
 
 interface ItemMenu {
   rotulo: string;
@@ -32,26 +34,23 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
   ],
 };
 
-const IDENTIFICACAO: Record<Perfil, string> = {
-  COMUM: "👤 Ana Souza · Usuário da Comunidade",
-  BIBLIOTECARIO: "🧑‍💼 Carlos Lima · Bibliotecário — Biblioteca Vila Isabel",
-  ADMIN: "🛡️ Roberto Dias · Administrador da Rede",
+const ICONE: Record<Perfil, string> = {
+  COMUM: "👤",
+  BIBLIOTECARIO: "🧑‍💼",
+  ADMIN: "🛡️",
 };
 
-export default function Header({
-  perfil,
-  trocarPerfil,
-}: {
-  perfil: Perfil;
-  trocarPerfil: (p: Perfil) => void;
-}) {
+export default function Header() {
   const { pathname } = useLocation();
+  const { sair } = useAuth();
+  const usuario = useUsuarioLogado();
+  const perfil = usuario.perfil;
 
   return (
     <header className="bg-[#1976d2] text-white">
       <div className="h-[76px] px-10 flex items-center justify-between gap-6">
         <div className="flex items-center gap-9 min-w-0">
-          <Link to="/" className="text-[20px] font-bold shrink-0">
+          <Link to={TELA_INICIAL[perfil]} className="text-[20px] font-bold shrink-0">
             📚 Circula Book
           </Link>
 
@@ -81,31 +80,19 @@ export default function Header({
         </div>
 
         <div className="flex items-center gap-4 shrink-0">
-          <span className="hidden lg:inline text-[13px] font-medium">
-            {IDENTIFICACAO[perfil]}
+          <span className="hidden lg:inline text-[13px] font-medium" data-testid="identificacao">
+            {ICONE[perfil]} {usuario.nome} · {NOME_PERFIL[perfil]}
+            {usuario.bibliotecaNome ? ` — ${usuario.bibliotecaNome}` : ""}
           </span>
 
-          {/*
-            Trocador de perfil: substitui o login, que ainda não existe.
-            Permite demonstrar as telas dos três atores sem autenticação.
-          */}
-          <select
-            aria-label="Trocar perfil de demonstração"
-            value={perfil}
-            onChange={(e) => trocarPerfil(e.target.value as Perfil)}
+          <button
+            type="button"
+            onClick={sair}
             className="bg-white/15 border border-white/40 rounded-[8px] px-3 py-[6px]
-                       text-[13px] text-white"
+                       text-[13px] text-white hover:bg-white/25"
           >
-            <option className="text-[#2c3e50]" value="COMUM">
-              Usuário
-            </option>
-            <option className="text-[#2c3e50]" value="BIBLIOTECARIO">
-              Bibliotecário
-            </option>
-            <option className="text-[#2c3e50]" value="ADMIN">
-              Admin
-            </option>
-          </select>
+            Sair
+          </button>
         </div>
       </div>
     </header>

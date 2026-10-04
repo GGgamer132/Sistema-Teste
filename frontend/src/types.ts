@@ -2,6 +2,23 @@
 
 export type Perfil = "COMUM" | "BIBLIOTECARIO" | "ADMIN";
 
+/** Usuário da sessão, como devolvido por /api/auth/login, /cadastro e /me. */
+export interface UsuarioSessao {
+  id: number;
+  nome: string;
+  email: string;
+  perfil: Perfil;
+  bibliotecaId: number | null;
+  bibliotecaNome: string | null;
+}
+
+/** Resposta de /api/auth/login e /api/auth/cadastro. */
+export interface Sessao {
+  token: string;
+  expiraEm: string;
+  usuario: UsuarioSessao;
+}
+
 export interface Usuario {
   id: number;
   nome: string;
@@ -101,6 +118,8 @@ export interface Reserva {
   exemplar?: Exemplar | null;
   dataReserva: string;
   dataExpiracao: string;
+  /** Posição na fila (só nas reservas PENDENTE de /reservas/usuario). */
+  posicaoFila?: number | null;
   status:
     | "PENDENTE"
     | "AGUARDANDO_TRANSFERENCIA"

@@ -1,12 +1,14 @@
 /**
  * Roteador do aplicativo (react-router-dom).
  * Cada tela tem uma URL própria: o F5 mantém a tela e o botão voltar do
- * navegador funciona.
+ * navegador funciona. Cada grupo de rotas exige o perfil correspondente.
  */
-import { useState } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
-import Layout from "./components/Layout";
-import type { Perfil } from "./types";
+import { Navigate, Route, Routes } from "react-router-dom";
+import RotaProtegida from "./auth/RotaProtegida";
+import { TELA_INICIAL, useAuth } from "./auth/contexto";
+
+import Login from "./pages/Login";
+import Cadastro from "./pages/Cadastro";
 
 import BuscaLivros from "./pages/BuscaLivros";
 import ResultadosBusca from "./pages/ResultadosBusca";
@@ -21,26 +23,17 @@ import EmprestimosBiblioteca from "./pages/EmprestimosBiblioteca";
 import MeusEmprestimos from "./pages/MeusEmprestimos";
 import MinhasReservas from "./pages/MinhasReservas";
 
-/** Ao trocar de perfil, cai na tela inicial daquele ator. */
-const TELA_INICIAL: Record<Perfil, string> = {
-  COMUM: "/",
-  BIBLIOTECARIO: "/biblioteca",
-  ADMIN: "/admin/transferencias", // trocar por /admin quando o Dashboard existir
-};
-
 export default function App() {
-  const [perfil, setPerfil] = useState<Perfil>("COMUM");
-  const navigate = useNavigate();
-
-  function trocarPerfil(novo: Perfil) {
-    setPerfil(novo);
-    navigate(TELA_INICIAL[novo], { replace: true });
-  }
+  const { usuario } = useAuth();
 
   return (
-    <Layout perfil={perfil} trocarPerfil={trocarPerfil}>
-      <Routes>
-        {/* ── Usuário da comunidade ── */}
+    <Routes>
+      {/* ── Acesso (público) ── */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/cadastro" element={<Cadastro />} />
+
+      {/* ── Usuário da comunidade ── */}
+      <Route element={<RotaProtegida perfis={["COMUM"]} />}>
         <Route path="/" element={<BuscaLivros />} />
         <Route path="/resultados" element={<ResultadosBusca />} />
         <Route path="/livro/:livroId" element={<DetalhesLivro />} />
@@ -51,8 +44,10 @@ export default function App() {
           path="/historico"
           element={<EmConstrucao titulo="Meu Histórico" />}
         />
+      </Route>
 
-        {/* ── Bibliotecário ── */}
+      {/* ── Bibliotecário ── */}
+      <Route element={<RotaProtegida perfis={["BIBLIOTECARIO"]} />}>
         <Route path="/biblioteca" element={<EmprestimosBiblioteca />} />
         <Route
           path="/biblioteca/emprestimo"
@@ -60,8 +55,10 @@ export default function App() {
         />
         <Route path="/biblioteca/devolucao" element={<RegistrarDevolucao />} />
         <Route path="/biblioteca/exemplares" element={<CadastrarExemplar />} />
+      </Route>
 
-        {/* ── Administrador ── */}
+      {/* ── Administrador ── */}
+      <Route element={<RotaProtegida perfis={["ADMIN"]} />}>
         <Route
           path="/admin"
           element={<EmConstrucao titulo="Dashboard da Rede" />}
@@ -71,10 +68,15 @@ export default function App() {
           path="/admin/catalogo"
           element={<EmConstrucao titulo="Catálogo de Livros" />}
         />
+      </Route>
 
-        {/* URL desconhecida volta para o início */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Layout>
+      {/* URL desconhecida volta para o início do perfil (ou para o login) */}
+      <Route
+        path="*"
+        element={
+          <Navigate to={usuario ? TELA_INICIAL[usuario.perfil] : "/login"} replace />
+        }
+      />
+    </Routes>
   );
 }

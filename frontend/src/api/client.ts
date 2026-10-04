@@ -3,15 +3,57 @@
  *
  * O Vite está configurado (vite.config.ts) para redirecionar /api
  * para http://localhost:8080, então basta usar caminhos relativos.
+ *
+ * Toda requisição leva o token da sessão (Authorization: Bearer). Um 401
+ * fora do login/cadastro significa sessão inválida ou expirada: a sessão é
+ * limpa e o AuthContext manda o usuário para /login.
  */
+import type { Sessao } from "../types";
 
 const BASE = "/api";
+const CHAVE_SESSAO = "circulabook.sessao";
+
+/** Lê a sessão salva no localStorage (null se ausente ou corrompida). */
+export function lerSessao(): Sessao | null {
+  try {
+    const bruto = localStorage.getItem(CHAVE_SESSAO);
+    return bruto ? (JSON.parse(bruto) as Sessao) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function salvarSessao(sessao: Sessao | null) {
+  if (sessao) localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
+  else localStorage.removeItem(CHAVE_SESSAO);
+}
+
+let aoNaoAutorizado: () => void = () => {};
+
+/** O AuthContext registra aqui o que fazer quando a API responde 401. */
+export function definirAoNaoAutorizado(fn: () => void) {
+  aoNaoAutorizado = fn;
+}
+
+/** Login e cadastro são públicos: não levam token e o 401 é só mensagem de erro. */
+const ROTAS_PUBLICAS = ["/auth/login", "/auth/cadastro"];
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const publica = ROTAS_PUBLICAS.includes(path);
+  const token = publica ? null : lerSessao()?.token;
   const resp = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
+
+  if (resp.status === 401 && !publica) {
+    salvarSessao(null);
+    aoNaoAutorizado();
+    throw new Error("Sua sessão expirou. Faça login novamente.");
+  }
 
   if (!resp.ok) {
     // O backend devolve a mensagem de erro em texto puro no badRequest()
