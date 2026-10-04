@@ -46,6 +46,7 @@ public class NotificacaoService {
     public static final String TIPO_NOVO_PEDIDO = "NOVO_PEDIDO";
     public static final String TIPO_EXEMPLAR_RETIDO = "EXEMPLAR_RETIDO";
     public static final String TIPO_PEDIDO_CANCELADO_CAPACIDADE = "PEDIDO_CANCELADO_CAPACIDADE";
+    public static final String TIPO_NOVA_DEMANDA = "NOVA_DEMANDA";
 
     public static final int DIAS_AVISO_VENCIMENTO = 2;
 
@@ -54,6 +55,7 @@ public class NotificacaoService {
     private static final String LINK_BIB_TRANSFERENCIAS = "/biblioteca/transferencias";
     private static final String LINK_BIB_RESERVAS = "/biblioteca/reservas";
     private static final String LINK_ADMIN_TRANSFERENCIAS = "/admin/transferencias";
+    private static final String LINK_ADMIN_DEMANDAS = "/admin/demandas";
 
     private static final DateTimeFormatter DIA_MES = DateTimeFormatter.ofPattern("dd/MM");
     private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -231,6 +233,16 @@ public class NotificacaoService {
                 "O Exemplar nº " + e.getId() + " de \"" + titulo + "\" deve ser enviado para a "
                 + s.getBibliotecaDestino().getNome() + ".",
                 LINK_BIB_TRANSFERENCIAS, s.getId());
+        }
+    }
+
+    /** Admins: alguém pediu um livro que a rede não tem (só na criação da demanda, não nos incrementos). */
+    public void novaDemanda(DemandaAquisicao d, Usuario solicitante) {
+        for (Usuario a : admins()) {
+            criar(a, TIPO_NOVA_DEMANDA, "Nova demanda de aquisição",
+                solicitante.getNome() + " registrou interesse em \"" + d.getTitulo() + "\", de "
+                + d.getAutor() + ", que a rede ainda não tem.",
+                LINK_ADMIN_DEMANDAS, d.getId());
         }
     }
 

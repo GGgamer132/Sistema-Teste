@@ -98,6 +98,11 @@ public class SecurityConfig {
 
                 .requestMatchers("/api/historico/**").hasRole(ADMIN)
 
+                // Demandas: o usuário comum registra interesse e vê os seus; o resto é do Admin (RN07)
+                .requestMatchers(HttpMethod.POST, "/api/demandas").hasRole(COMUM)
+                .requestMatchers(HttpMethod.GET, "/api/demandas/minhas").hasRole(COMUM)
+                .requestMatchers("/api/demandas/**").hasRole(ADMIN)
+
                 // Notificações: cada perfil só as suas (recorte no service); a rotina manual é do Admin
                 .requestMatchers(HttpMethod.POST, "/api/notificacoes/verificar-vencimentos").hasRole(ADMIN)
                 .requestMatchers("/api/notificacoes/**").authenticated()

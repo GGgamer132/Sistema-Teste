@@ -1,0 +1,187 @@
+package com.circulabook.controller;
+
+import com.circulabook.model.DemandaAquisicao;
+import com.circulabook.model.Notificacao;
+import com.circulabook.model.Usuario;
+import com.circulabook.repository.DemandaAquisicaoRepository;
+import com.circulabook.repository.NotificacaoRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
+import org.springframework.test.web.servlet.ResultActions;
+
+import java.util.List;
+
+import static com.circulabook.service.NotificacaoService.TIPO_NOVA_DEMANDA;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/** Demandas de aquisição (RN07, U8, A9): U-14, transições, permissões e aviso ao Admin. */
+class DemandasTest extends ApoioApiTest {
+
+    @Autowired private DemandaAquisicaoRepository demandaRepository;
+    @Autowired private NotificacaoRepository notificacaoRepository;
+
+    private Usuario roberto, rita, ana, bruno, camila;
+    private String tokenAdmin, tokenCarlos, tokenAna, tokenBruno, tokenCamila;
+
+    @BeforeEach
+    void montar() throws Exception {
+        roberto = usuario("Roberto Dias", "ADMIN", null);
+        rita = usuario("Rita Admin", "ADMIN", null);
+        Usuario carlos = usuario("Carlos Lima", "BIBLIOTECARIO", biblioteca("Biblioteca Vila Isabel"));
+        ana = usuario("Ana Souza", "COMUM", null);
+        bruno = usuario("Bruno Alves", "COMUM", null);
+        camila = usuario("Camila Duarte", "COMUM", null);
+        tokenAdmin = login(roberto);
+        tokenCarlos = login(carlos);
+        tokenAna = login(ana);
+        tokenBruno = login(bruno);
+        tokenCamila = login(camila);
+    }
+
+    @Test
+    @DisplayName("U-14: cria ABERTA com 1; outro usuário incrementa (caixa/acento/espaço); mesmo usuário barrado")
+    void u14_consolidacao() throws Exception {
+        interesse(tokenAna, "Torto Arado", "Itamar Vieira Junior")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.nova").value(true))
+            .andExpect(jsonPath("$.demanda.status").value("ABERTA"))
+            .andExpect(jsonPath("$.demanda.totalSolicitacoes").value(1));
+
+        // Bruno escreve diferente: caixa, acento e espaços extras
+        interesse(tokenBruno, "  TORTO   árado ", "itamar  vieira júnior")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.nova").value(false))
+            .andExpect(jsonPath("$.demanda.totalSolicitacoes").value(2))
+            .andExpect(jsonPath("$.mensagem").value(containsString("2 pessoas")));
+
+        // Ana de novo (também escrito diferente): barrada, contador não muda
+        interesse(tokenAna, "torto arado", "ITAMAR VIEIRA JUNIOR")
+            .andExpect(status().isBadRequest())
+            .andExpect(content().string("Você já registrou interesse neste livro."));
+
+        List<DemandaAquisicao> todas = demandaRepository.findAll();
+        assertThat(todas).hasSize(1);
+        assertThat(todas.get(0).getTotalSolicitacoes()).isEqualTo(2);
+        assertThat(todas.get(0).getTitulo()).isEqualTo("Torto Arado");
+
+        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenBruno, null)
+            .andExpect(jsonPath("$[0].titulo").value("Torto Arado"))
+            .andExpect(jsonPath("$[0].statusRotulo").value("Aberta"));
+        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenCamila, null).andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("Incremento vale em qualquer situação e não muda a situação")
+    void incrementoEmOutraSituacao() throws Exception {
+        long id = demandaId(interesse(tokenAna, "Vidas Secas", "Graciliano Ramos"));
+        mudarStatus(id, "EM_ANALISE").andExpect(status().isOk());
+        mudarStatus(id, "APROVADA").andExpect(status().isOk());
+        interesse(tokenBruno, "vidas secas", "graciliano ramos")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.demanda.status").value("APROVADA"))
+            .andExpect(jsonPath("$.demanda.totalSolicitacoes").value(2));
+    }
+
+    @Test
+    @DisplayName("Campos obrigatórios")
+    void validacao() throws Exception {
+        interesse(tokenAna, "  ", "Autor").andExpect(status().isBadRequest())
+            .andExpect(content().string("Informe o título do livro."));
+        interesse(tokenAna, "Título", null).andExpect(status().isBadRequest())
+            .andExpect(content().string("Informe o autor do livro."));
+        assertThat(demandaRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("A-17: transições válidas e inválidas, listagem por mais pedidas com filtro")
+    void a17_transicoes() throws Exception {
+        long a = demandaId(interesse(tokenAna, "A Hora da Estrela", "Clarice Lispector"));
+        long b = demandaId(interesse(tokenAna, "Ensaio sobre a Cegueira", "José Saramago"));
+        interesse(tokenBruno, "Ensaio sobre a cegueira", "Jose Saramago").andExpect(status().isOk());
+        interesse(tokenCamila, "ENSAIO SOBRE A CEGUEIRA", "josé saramago").andExpect(status().isOk());
+
+        chamar(HttpMethod.GET, "/api/demandas", tokenAdmin, null)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItens").value(2))
+            .andExpect(jsonPath("$.itens[0].id").value(b))          // mais pedida primeiro
+            .andExpect(jsonPath("$.itens[0].totalSolicitacoes").value(3))
+            .andExpect(jsonPath("$.itens[0].proximosStatus", contains("EM_ANALISE")));
+
+        mudarStatus(a, "APROVADA").andExpect(status().isBadRequest())
+            .andExpect(content().string(containsString("Não é possível passar de Aberta para Aprovada")));
+        mudarStatus(a, "XYZ").andExpect(status().isBadRequest());
+        mudarStatus(a, "EM_ANALISE").andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("EM_ANALISE"))
+            .andExpect(jsonPath("$.proximosStatus", containsInAnyOrder("APROVADA", "REJEITADA")));
+        mudarStatus(a, "ABERTA").andExpect(status().isBadRequest());
+        mudarStatus(a, "REJEITADA").andExpect(status().isOk());
+        mudarStatus(a, "EM_ANALISE").andExpect(status().isBadRequest())
+            .andExpect(content().string(containsString("não muda mais de situação")));
+        mudarStatus(999999, "EM_ANALISE").andExpect(status().isBadRequest());
+
+        chamar(HttpMethod.GET, "/api/demandas?status=REJEITADA", tokenAdmin, null)
+            .andExpect(jsonPath("$.totalItens").value(1))
+            .andExpect(jsonPath("$.itens[0].statusRotulo").value("Rejeitada"));
+        chamar(HttpMethod.GET, "/api/demandas?status=OUTRO", tokenAdmin, null).andExpect(status().isBadRequest());
+        chamar(HttpMethod.GET, "/api/demandas?tamanho=1&pagina=1", tokenAdmin, null)
+            .andExpect(jsonPath("$.itens[0].id").value(a)).andExpect(jsonPath("$.totalPaginas").value(2));
+    }
+
+    @Test
+    @DisplayName("Permissões: só COMUM registra; só ADMIN lista e decide")
+    void permissoes() throws Exception {
+        interesse(tokenAdmin, "X", "Y").andExpect(status().isForbidden());
+        interesse(tokenCarlos, "X", "Y").andExpect(status().isForbidden());
+        interesse(null, "X", "Y").andExpect(status().isUnauthorized());
+        long id = demandaId(interesse(tokenAna, "X", "Y"));
+        for (String t : new String[]{tokenAna, tokenCarlos}) {
+            chamar(HttpMethod.GET, "/api/demandas", t, null).andExpect(status().isForbidden());
+            mudarStatus(id, "EM_ANALISE", t).andExpect(status().isForbidden());
+        }
+        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenAdmin, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenCarlos, null).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Admins ativos são avisados só na criação da demanda, não nos incrementos")
+    void notificacaoSoNaCriacao() throws Exception {
+        rita.setAtivo(false);
+        usuarioRepository.save(rita);
+        interesse(tokenAna, "Torto Arado", "Itamar Vieira Junior").andExpect(status().isOk());
+        interesse(tokenBruno, "Torto Arado", "Itamar Vieira Junior").andExpect(status().isOk());
+        interesse(tokenCamila, "torto arado", "itamar vieira junior").andExpect(status().isOk());
+
+        List<Notificacao> doRoberto = notificacaoRepository.findByUsuarioIdOrderByIdAsc(roberto.getId());
+        assertThat(doRoberto).extracting(Notificacao::getTipo).containsExactly(TIPO_NOVA_DEMANDA);
+        assertThat(doRoberto.get(0).getMensagem()).contains("Ana Souza", "Torto Arado", "Itamar Vieira Junior");
+        assertThat(doRoberto.get(0).getLink()).isEqualTo("/admin/demandas");
+        assertThat(notificacaoRepository.findByUsuarioIdOrderByIdAsc(rita.getId())).isEmpty();
+        assertThat(notificacaoRepository.findByUsuarioIdOrderByIdAsc(ana.getId())).isEmpty();
+    }
+
+    // ───────────────────────── Apoio ─────────────────────────
+
+    private ResultActions interesse(String token, String titulo, String autor) throws Exception {
+        String corpo = "{\"titulo\":" + (titulo == null ? "null" : "\"" + titulo + "\"")
+            + ",\"autor\":" + (autor == null ? "null" : "\"" + autor + "\"") + "}";
+        return chamar(HttpMethod.POST, "/api/demandas", token, corpo);
+    }
+
+    private ResultActions mudarStatus(long id, String status) throws Exception {
+        return mudarStatus(id, status, tokenAdmin);
+    }
+
+    private ResultActions mudarStatus(long id, String status, String token) throws Exception {
+        return chamar(HttpMethod.PATCH, "/api/demandas/" + id + "/status", token, "{\"status\":\"" + status + "\"}");
+    }
+
+    private long demandaId(ResultActions r) throws Exception {
+        String json = r.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return Long.parseLong(json.replaceAll(".*\"demanda\":\\{\"id\":(\\d+).*", "$1"));
+    }
+}
