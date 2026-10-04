@@ -29,6 +29,7 @@ import AdminCatalogo from "./pages/AdminCatalogo";
 import AdminCategorias from "./pages/AdminCategorias";
 import AdminBibliotecas from "./pages/AdminBibliotecas";
 import AdminBibliotecarios from "./pages/AdminBibliotecarios";
+import AdminDashboard from "./pages/AdminDashboard";
 import AdminDemandas from "./pages/AdminDemandas";
 import AdminHistorico from "./pages/AdminHistorico";
 import RegistrarInteresse from "./pages/RegistrarInteresse";
@@ -70,8 +71,7 @@ export default function App() {
 
       {/* ── Administrador ── */}
       <Route element={<RotaProtegida perfis={["ADMIN"]} />}>
-        {/* Provisório: o dashboard da rede vem numa etapa futura */}
-        <Route path="/admin" element={<Navigate to="/admin/catalogo" replace />} />
+        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/transferencias" element={<TransferenciasAdmin />} />
         <Route path="/admin/catalogo" element={<AdminCatalogo />} />
         <Route path="/admin/categorias" element={<AdminCategorias />} />

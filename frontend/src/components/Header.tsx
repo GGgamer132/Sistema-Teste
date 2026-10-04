@@ -36,6 +36,7 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
     { rotulo: "Reservas", to: "/biblioteca/reservas" },
   ],
   ADMIN: [
+    { rotulo: "Painel", to: "/admin" },
     { rotulo: "Transferências", to: "/admin/transferencias" },
     { rotulo: "Catálogo", to: "/admin/catalogo" },
     { rotulo: "Categorias", to: "/admin/categorias" },
@@ -48,11 +49,11 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
 
 /**
  * A partir de que largura o menu cabe em linha (classes fixas para o Tailwind achar):
- * até 5 itens cabem a partir de 1024 px; os 7 do bibliotecário, a partir de 1280 px.
+ * os 5 do usuário comum cabem a partir de 1024 px; os do bibliotecário e do Admin, a partir de 1280 px.
  */
 const EM_LINHA: Record<Perfil, { nav: string; botao: string }> = {
   COMUM: { nav: "hidden lg:flex", botao: "lg:hidden" },
-  ADMIN: { nav: "hidden lg:flex", botao: "lg:hidden" },
+  ADMIN: { nav: "hidden xl:flex", botao: "xl:hidden" },
   BIBLIOTECARIO: { nav: "hidden xl:flex", botao: "xl:hidden" },
 };
 

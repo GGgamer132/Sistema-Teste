@@ -424,3 +424,20 @@ export interface LinhaDoTempo {
   statusRotulo: string;
   eventos: EventoHistorico[];
 }
+
+/** GET /api/admin/dashboard. */
+export interface Dashboard {
+  bibliotecasAtivas: number;
+  bibliotecasTotal: number;
+  exemplaresTotal: number;
+  exemplaresPorStatus: { status: Exemplar["status"]; rotulo: string; total: number }[];
+  emprestimosAtivos: number;
+  emprestimosAtrasados: number;
+  reservasEmFila: number;
+  reservasProntas: number;
+  transferenciasPendentes: number;
+  transferenciasAguardandoExemplar: number;
+  transferenciasEmTransito: number;
+  demandasAbertas: number;
+  demandasEmAnalise: number;
+}
