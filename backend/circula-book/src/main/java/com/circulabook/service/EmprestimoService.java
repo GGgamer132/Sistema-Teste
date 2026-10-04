@@ -33,6 +33,7 @@ public class EmprestimoService {
     @Autowired private HistoricoService historicoService;
     @Autowired private FilaEsperaService filaEsperaService;
     @Autowired private EstadoExemplarService estadoExemplar;
+    @Autowired private NotificacaoService notificacoes;
 
     public List<Emprestimo> obterTodos() {
         return emprestimoRepository.findAll();
@@ -212,6 +213,7 @@ public class EmprestimoService {
                                  ? usuario.getBloqueadoAte() : agora;
             usuario.setBloqueadoAte(base.plusDays(diasBloqueio));
             usuarioRepository.save(usuario);
+            notificacoes.bloqueioAplicado(usuario, diasAtraso, usuario.getBloqueadoAte());
 
             System.out.println("[CIRCULA BOOK] Bloqueio por atraso aplicado: " + usuario.getNome()
                 + " bloqueado por " + diasBloqueio + " dias (até "

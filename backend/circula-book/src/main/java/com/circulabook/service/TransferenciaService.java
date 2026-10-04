@@ -38,6 +38,7 @@ public class TransferenciaService {
     @Autowired private FilaEsperaService filaEsperaService;
     @Autowired private EstadoExemplarService estadoExemplar;
     @Autowired private RegrasTransferenciaService regras;
+    @Autowired private NotificacaoService notificacoes;
 
     public List<SolicitacaoTransferencia> obterTodas() {
         return transferenciaRepository.findAll();
@@ -159,6 +160,7 @@ public class TransferenciaService {
             + ", retirada na " + reserva.getBibliotecaDestino().getNome()
             + ". O exemplar será vinculado quando for devolvido.");
         transferenciaRepository.save(s);
+        notificacoes.pedidoCriado(s);
 
         System.out.println("[BLACKBOARD] Pedido de transferência #" + s.getId() + " criado pela reserva #"
             + reserva.getId() + " (aguardando decisão do Admin).");
@@ -279,6 +281,7 @@ public class TransferenciaService {
         }
 
         s.setAprovador(admin);
+        notificacoes.pedidoAprovado(s);
         Exemplar exemplar = s.getExemplar();
         if (exemplar != null) {
             Reserva reserva = s.getReserva();
@@ -320,6 +323,7 @@ public class TransferenciaService {
         transferenciaRepository.save(s);
 
         if (reserva != null && RESERVA_ATIVA.contains(reserva.getStatus())) {
+            notificacoes.pedidoRejeitado(s);
             reserva.setBibliotecaDestino(reserva.getBibliotecaFila()); // retirada na origem
 
             Exemplar exemplar = s.getExemplar();
@@ -387,6 +391,8 @@ public class TransferenciaService {
                 reserva.setExemplar(null);
                 reserva.setBibliotecaDestino(reserva.getBibliotecaFila()); // retirada na origem
                 reservaRepository.save(reserva);
+                notificacoes.reservaVoltouParaFila(reserva,
+                    "O exemplar que vinha para você chegou danificado à " + s.getBibliotecaDestino().getNome() + ".");
             }
         } else if (reservaAguardando) {
             estadoExemplar.mudarStatus(exemplar, StatusExemplar.RESERVADO); // T10

@@ -30,6 +30,7 @@ public class ExemplarService {
     @Autowired private EstadoExemplarService estadoExemplar;
     @Autowired private ReservaRepository reservaRepository;
     @Autowired private SolicitacaoTransferenciaRepository transferenciaRepository;
+    @Autowired private NotificacaoService notificacoes;
 
     public List<Exemplar> obterTodos() {
         return exemplarRepository.findAll();
@@ -139,6 +140,8 @@ public class ExemplarService {
                 transferenciaRepository.save(p);
             }
             obs += " A reserva de " + afetada.getUsuario().getNome() + " voltou para a fila.";
+            notificacoes.reservaVoltouParaFila(afetada,
+                "O exemplar separado para você ficou indisponível na " + exemplar.getBiblioteca().getNome() + ".");
             estadoExemplar.sincronizarMarcaDeFila(afetada.getLivro(), afetada.getBibliotecaFila());
         }
         estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());

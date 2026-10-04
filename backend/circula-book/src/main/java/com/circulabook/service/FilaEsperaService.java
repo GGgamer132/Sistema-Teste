@@ -36,6 +36,7 @@ public class FilaEsperaService {
     @Autowired private HistoricoService historicoService;
     @Autowired private EstadoExemplarService estadoExemplar;
     @Autowired private RegrasTransferenciaService regras;
+    @Autowired private NotificacaoService notificacoes;
 
     /**
      * Chamar sempre que um exemplar ficar livre na biblioteca em que está.
@@ -86,6 +87,7 @@ public class FilaEsperaService {
                 transferenciaRepository.save(pedido);
                 reserva.setBibliotecaDestino(reserva.getBibliotecaFila());
                 liberarParaRetirada(reserva, exemplar);
+                notificacoes.pedidoCanceladoPorCapacidade(pedido);
                 System.out.println("[FILA] Transferência #" + pedido.getId() + " cancelada no despacho (RN15).");
                 return;
             }
@@ -98,6 +100,7 @@ public class FilaEsperaService {
             despachar(pedido, null);              // já aprovada: segue viagem agora (T4 + T9 na mesma transação)
         } else {
             transferenciaRepository.save(pedido); // PENDENTE: espera o Admin decidir
+            notificacoes.exemplarRetido(pedido);
             System.out.println("[FILA] Exemplar nº " + exemplar.getId()
                 + " separado para " + reserva.getUsuario().getNome()
                 + ", aguardando aprovação da transferência #" + pedido.getId() + ".");
@@ -111,6 +114,7 @@ public class FilaEsperaService {
         reserva.setStatus("DISPONIVEL");
         reserva.setDataExpiracao(LocalDateTime.now().plusDays(DIAS_PARA_RETIRADA));
         reservaRepository.save(reserva);
+        notificacoes.reservaPronta(reserva);
 
         historicoService.registrar(exemplar, "RESERVA", reserva.getUsuario(),
             exemplar.getBiblioteca(),
@@ -139,6 +143,8 @@ public class FilaEsperaService {
             "Saída da " + pedido.getBibliotecaOrigem().getNome()
             + " rumo à " + pedido.getBibliotecaDestino().getNome() + ".");
 
+        notificacoes.transferenciaDespachada(pedido);
+
         System.out.println("[FILA] Transferência #" + pedido.getId() + " em trânsito: "
             + pedido.getBibliotecaOrigem().getNome() + " -> " + pedido.getBibliotecaDestino().getNome());
     }
@@ -157,6 +163,7 @@ public class FilaEsperaService {
         for (Reserva reserva : vencidas) {
             reserva.setStatus("EXPIRADA");
             reservaRepository.save(reserva);
+            notificacoes.reservaExpirada(reserva);
 
             Exemplar exemplar = reserva.getExemplar();
             if (exemplar != null && RESERVADO.equals(exemplar.getStatus())) {
