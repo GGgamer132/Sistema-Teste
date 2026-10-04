@@ -56,10 +56,10 @@ INSERT INTO exemplar (id, livro_id, biblioteca_id, status, estado_conservacao, a
 (3,  1, 2, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
 (4,  1, 4, 'DISPONIVEL',       'NOVO', CURRENT_TIMESTAMP),
 (5,  1, 3, 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
--- Memorias Postumas: TODOS emprestados -> habilita a fila de espera da Tela 5
-(6,  2, 4, 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
-(7,  2, 4, 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
-(8,  2, 3, 'EMPRESTADO',       'USADO',CURRENT_TIMESTAMP),
+-- Memorias Postumas: TODOS emprestados e com fila (reservas 1-3) -> EMPRESTADO_RESERVADO
+(6,  2, 4, 'EMPRESTADO_RESERVADO', 'BOM',  CURRENT_TIMESTAMP),
+(7,  2, 4, 'EMPRESTADO_RESERVADO', 'BOM',  CURRENT_TIMESTAMP),
+(8,  2, 3, 'EMPRESTADO_RESERVADO', 'USADO',CURRENT_TIMESTAMP),
 -- Quincas Borba
 (9,  3, 6, 'EM_TRANSFERENCIA', 'BOM',  CURRENT_TIMESTAMP),
 (10, 3, 5, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
