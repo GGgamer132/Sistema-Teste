@@ -276,15 +276,25 @@ test("A-07: origem sem capacidade desabilita Aprovar com o motivo; nova reserva 
   expect(r.status()).toBe(400);
   expect(await r.text()).toContain("deixaria sem o livro");
 
-  // Seed atual: Memórias Póstumas da Central (2 exemplares) já tem 2 pedidos abertos
+  // Pelas regras atuais não dá para chegar, via API, a um pedido pendente com a origem sem
+  // capacidade (só com dados legados). Para a tela, o servidor "responde" isso para o nosso pedido.
+  const motivo = "A Biblioteca Central já tem 2 transferência(s) deste título em andamento; mais uma a deixaria sem o livro.";
+  await page.route("**/api/transferencias/pedidos-pendentes", async (route) => {
+    const resp = await route.fetch();
+    const lista = (await resp.json()) as { id: number; rn15: Record<string, unknown> }[];
+    for (const p of lista) {
+      if (p.id === c.pedidoId) p.rn15 = { ...p.rn15, permitido: false, motivo };
+    }
+    await route.fulfill({ response: resp, json: lista });
+  });
   const problemas = vigiar(page);
   await entrar(page, ROBERTO);
   await page.goto("/admin/transferencias");
-  const legado = cardPedido(page, "Memorias Postumas");
-  await expect(legado).toContainText("Não pode ser aprovado agora");
-  await expect(legado).toContainText("deixaria sem o livro");
-  await expect(legado.getByRole("button", { name: /Aprovar/ })).toBeDisabled();
-  await expect(legado.getByRole("button", { name: /Rejeitar/ })).toBeEnabled();
+  const card = cardPedido(page, c.livros.hobbit.titulo);
+  await expect(card).toContainText("Não pode ser aprovado agora");
+  await expect(card).toContainText("deixaria sem o livro");
+  await expect(card.getByRole("button", { name: /Aprovar/ })).toBeDisabled();
+  await expect(card.getByRole("button", { name: /Rejeitar/ })).toBeEnabled();
   expect(problemas).toEqual([]);
 });
 
