@@ -3,7 +3,7 @@
  * Mostra o cálculo de atraso e o bloqueio resultante (RN12) antes de confirmar.
  */
 import { useEffect, useState } from "react";
-import { api, diasDeAtraso, formatarData } from "../api/client";
+import { api, nomeExemplar, diasDeAtraso, formatarData } from "../api/client";
 import type { Emprestimo } from "../types";
 import { useUsuarioLogado } from "../auth/contexto";
 import {
@@ -61,8 +61,7 @@ export default function RegistrarDevolucao() {
         const t = busca.toLowerCase();
         return (
           e.usuario.nome.toLowerCase().includes(t) ||
-          e.exemplar.livro.titulo.toLowerCase().includes(t) ||
-          e.exemplar.codigoBarras?.toLowerCase().includes(t)
+          e.exemplar.livro.titulo.toLowerCase().includes(t)
         );
       })
     : emprestimos;
@@ -150,8 +149,7 @@ export default function RegistrarDevolucao() {
                           {e.exemplar.livro.titulo} — {e.exemplar.livro.autor}
                         </p>
                         <p className="text-[13px] text-[#66707d] mt-1">
-                          Exemplar:{" "}
-                          {e.exemplar.codigoBarras ?? `#${e.exemplar.id}`} ·
+                          {nomeExemplar(e.exemplar.id)} ·
                           Emprestado para: {e.usuario.nome}
                         </p>
                       </div>

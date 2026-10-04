@@ -3,7 +3,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, diasDeAtraso, formatarData } from "../api/client";
+import { api, nomeExemplar, diasDeAtraso, formatarData } from "../api/client";
 import type { Emprestimo } from "../types";
 import {
   Badge,
@@ -121,10 +121,7 @@ export default function EmprestimosBiblioteca() {
         (emprestimo) =>
           !termo ||
           emprestimo.usuario.nome.toLowerCase().includes(termo) ||
-          emprestimo.exemplar.livro.titulo.toLowerCase().includes(termo) ||
-          (emprestimo.exemplar.codigoBarras ?? "")
-            .toLowerCase()
-            .includes(termo),
+          emprestimo.exemplar.livro.titulo.toLowerCase().includes(termo),
       )
       .sort(
         (a, b) =>
@@ -173,7 +170,7 @@ export default function EmprestimosBiblioteca() {
             {emprestimo.exemplar.livro.titulo}
           </p>
           <p className="text-[12px] text-[#66707d]">
-            {emprestimo.exemplar.codigoBarras ?? `#${emprestimo.exemplar.id}`} ·{" "}
+            {nomeExemplar(emprestimo.exemplar.id)} ·{" "}
             {emprestimo.exemplar.livro.autor}
           </p>
         </div>
@@ -344,7 +341,7 @@ export default function EmprestimosBiblioteca() {
                 ["Livro", alvo.exemplar.livro.titulo],
                 [
                   "Exemplar",
-                  alvo.exemplar.codigoBarras ?? `#${alvo.exemplar.id}`,
+                  nomeExemplar(alvo.exemplar.id),
                 ],
                 ["Usuário", alvo.usuario.nome],
                 ["Prevista para", formatarData(alvo.dataPrevDevolucao)],

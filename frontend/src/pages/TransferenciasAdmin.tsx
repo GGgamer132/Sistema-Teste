@@ -9,7 +9,7 @@
  *  - O Admin também pode criar uma transferência AVULSA (exemplar disponível -> qualquer biblioteca).
  */
 import { useEffect, useMemo, useState } from "react";
-import { api, formatarData, qs } from "../api/client";
+import { api, nomeExemplar, formatarData, qs } from "../api/client";
 import type {
   Biblioteca,
   Exemplar,
@@ -44,11 +44,9 @@ import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
 
 type Decisao = { s: SolicitacaoTransferencia; acao: "aprovar" | "rejeitar" };
 
-/** Texto "EX-001" ou "Aguardando exemplar". */
+/** Texto "Exemplar nº X" ou "Aguardando exemplar". */
 function rotuloExemplar(s: SolicitacaoTransferencia): string {
-  return s.exemplar
-    ? (s.exemplar.codigoBarras ?? `#${s.exemplar.id}`)
-    : "Aguardando exemplar";
+  return s.exemplar ? nomeExemplar(s.exemplar.id) : "Aguardando exemplar";
 }
 
 /** Quem pediu, e por qual caminho (reserva do usuário ou avulsa do Admin). */
@@ -133,7 +131,6 @@ export default function TransferenciasAdmin() {
         !t ||
         e.livro.titulo.toLowerCase().includes(t) ||
         e.livro.autor.toLowerCase().includes(t) ||
-        (e.codigoBarras ?? "").toLowerCase().includes(t) ||
         e.biblioteca.nome.toLowerCase().includes(t),
     );
   }, [exemplares, busca]);
@@ -196,7 +193,7 @@ export default function TransferenciasAdmin() {
         observacoes: obs.trim() || undefined,
       });
       setSucesso(
-        `Transferência avulsa criada: "${exemplarSel.livro.titulo}" (${exemplarSel.codigoBarras ?? `#${exemplarSel.id}`}) saiu da ${exemplarSel.biblioteca.nome} rumo à ${destinoSel?.nome}.`,
+        `Transferência avulsa criada: "${exemplarSel.livro.titulo}" (${nomeExemplar(exemplarSel.id)}) saiu da ${exemplarSel.biblioteca.nome} rumo à ${destinoSel?.nome}.`,
       );
       setConfirmandoAvulsa(false);
       fecharAvulsa();
@@ -221,7 +218,7 @@ export default function TransferenciasAdmin() {
         </div>
       ),
     },
-    { titulo: "Código", render: (e) => e.codigoBarras ?? `#${e.id}` },
+    { titulo: "Exemplar", render: (e) => nomeExemplar(e.id) },
     { titulo: "Biblioteca atual", render: (e) => e.biblioteca.nome },
     {
       titulo: "Ação",
@@ -451,7 +448,7 @@ export default function TransferenciasAdmin() {
                         <strong className="text-[#2c3e50]">
                           {exemplarSel.livro.titulo}
                         </strong>{" "}
-                        ({exemplarSel.codigoBarras ?? `#${exemplarSel.id}`}) ·
+                        ({nomeExemplar(exemplarSel.id)}) ·
                         hoje na {exemplarSel.biblioteca.nome}
                       </p>
 
@@ -634,7 +631,7 @@ export default function TransferenciasAdmin() {
                 ["Livro", exemplarSel.livro.titulo],
                 [
                   "Exemplar",
-                  exemplarSel.codigoBarras ?? `#${exemplarSel.id}`,
+                  nomeExemplar(exemplarSel.id),
                 ],
                 ["De", exemplarSel.biblioteca.nome],
                 ["Para", destinoSel.nome],

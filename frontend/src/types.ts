@@ -59,7 +59,6 @@ export interface Exemplar {
   id: number;
   livro: Livro;
   biblioteca: Biblioteca;
-  codigoBarras?: string;
   status:
     | "DISPONIVEL"
     | "EMPRESTADO"

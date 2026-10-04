@@ -4,7 +4,7 @@
  * A coluna direita mostra em tempo real se o usuário está apto (RN01/RN12).
  */
 import { useEffect, useMemo, useState } from "react";
-import { api, formatarData } from "../api/client";
+import { api, nomeExemplar, formatarData } from "../api/client";
 import type { Emprestimo, Exemplar, SituacaoUsuario, Usuario } from "../types";
 import {
   Badge,
@@ -39,7 +39,6 @@ export default function RegistrarEmprestimo() {
   const [usuarioSel, setUsuarioSel] = useState<Usuario | null>(null);
   const [situacao, setSituacao] = useState<SituacaoUsuario | null>(null);
 
-  const [codigo, setCodigo] = useState("");
   const [buscaExemplar, setBuscaExemplar] = useState("");
   const [exemplarSel, setExemplarSel] = useState<Exemplar | null>(null);
 
@@ -103,29 +102,11 @@ export default function RegistrarEmprestimo() {
     if (!termo) return emprestaveis;
     return emprestaveis.filter(
       (e) =>
-        (e.codigoBarras ?? "").toLowerCase().includes(termo) ||
         e.livro.titulo.toLowerCase().includes(termo) ||
         e.livro.autor.toLowerCase().includes(termo) ||
         (e.livro.categoria?.nome ?? "").toLowerCase().includes(termo),
     );
   }, [emprestaveis, buscaExemplar]);
-
-  function lerCodigo() {
-    const termo = codigo.trim().toLowerCase();
-    if (!termo) return;
-    const achado = emprestaveis.find(
-      (e) => (e.codigoBarras ?? "").toLowerCase() === termo,
-    );
-    if (achado) {
-      setExemplarSel(achado);
-      setErro("");
-      setCodigo("");
-    } else {
-      setErro(
-        `Código “${codigo.trim()}” não encontrado entre os exemplares disponíveis desta biblioteca.`,
-      );
-    }
-  }
 
   // eslint-disable-next-line react-hooks/purity
   const devolucaoPrevista = new Date(Date.now() + prazo * 86_400_000);
@@ -164,10 +145,10 @@ export default function RegistrarEmprestimo() {
 
   const colunas: Coluna<Exemplar>[] = [
     {
-      titulo: "Código",
+      titulo: "Exemplar",
       render: (e) => (
-        <span className="font-mono text-[13px]">
-          {e.codigoBarras ?? `#${e.id}`}
+        <span className="text-[13px] whitespace-nowrap">
+          {nomeExemplar(e.id)}
         </span>
       ),
     },
@@ -299,17 +280,8 @@ export default function RegistrarEmprestimo() {
             </SectionCard>
 
             <SectionCard titulo="2. Escolher o exemplar">
-              <Campo label="Código de barras (leitor ou digitação + Enter)">
-                <Entrada
-                  value={codigo}
-                  onChange={(e) => setCodigo(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && lerCodigo()}
-                  placeholder="📷 EX-00232"
-                />
-              </Campo>
-
               {exemplarSel && (
-                <div className="mt-4 flex flex-wrap items-center gap-4 rounded-[10px] border border-[#1976d2] bg-[#e8f0fc] p-4">
+                <div className="flex flex-wrap items-center gap-4 rounded-[10px] border border-[#1976d2] bg-[#e8f0fc] p-4">
                   <span aria-hidden className="text-[26px]">
                     📕
                   </span>
@@ -318,8 +290,7 @@ export default function RegistrarEmprestimo() {
                       {exemplarSel.livro.titulo} — {exemplarSel.livro.autor}
                     </p>
                     <p className="text-[13px] text-[#66707d]">
-                      Exemplar{" "}
-                      {exemplarSel.codigoBarras ?? `#${exemplarSel.id}`}
+                      {nomeExemplar(exemplarSel.id)}
                     </p>
                   </div>
                   <Botao
@@ -336,7 +307,7 @@ export default function RegistrarEmprestimo() {
                   <Entrada
                     value={buscaExemplar}
                     onChange={(e) => setBuscaExemplar(e.target.value)}
-                    placeholder="🔎 Ou busque por título, autor, categoria ou código..."
+                    placeholder="🔎 Busque por título, autor ou categoria..."
                   />
                   <p className="mt-2 text-[12px] text-[#66707d]">
                     Mostrando apenas exemplares da sua biblioteca (
@@ -456,7 +427,7 @@ export default function RegistrarEmprestimo() {
         <ResumoModal
           linhas={[
             ["Livro", exemplarSel?.livro.titulo ?? "—"],
-            ["Exemplar", exemplarSel?.codigoBarras ?? "—"],
+            ["Exemplar", exemplarSel ? nomeExemplar(exemplarSel.id) : "—"],
             ["Usuário", usuarioSel?.nome ?? "—"],
             ["Prazo", `${prazo} dias`],
             [

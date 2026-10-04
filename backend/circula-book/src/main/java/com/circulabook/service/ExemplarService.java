@@ -39,12 +39,6 @@ public class ExemplarService {
         return exemplarRepository.findByLivro(l);
     }
 
-    /** Busca por código de tombo — usado nas telas de empréstimo e devolução. */
-    public Exemplar obterPorCodigo(String codigo) {
-        return exemplarRepository.findByCodigoBarras(codigo)
-            .orElseThrow(() -> new RuntimeException("Exemplar não encontrado: " + codigo));
-    }
-
     /**
      * Cadastra um exemplar, criando o título antes caso seja um livro novo.
      *
@@ -75,11 +69,6 @@ public class ExemplarService {
 
         Livro livro = resolverLivro(dto);
 
-        if (dto.getCodigoBarras() != null && !dto.getCodigoBarras().isBlank()
-            && exemplarRepository.findByCodigoBarras(dto.getCodigoBarras()).isPresent()) {
-            throw new RuntimeException("Já existe um exemplar com o código " + dto.getCodigoBarras());
-        }
-
         // RN11 — único exemplar do título na rede fica indisponível para empréstimo
         long jaExistentes = exemplarRepository.countByLivro(livro);
         String statusInicial = (jaExistentes == 0) ? "INDISPONIVEL" : "DISPONIVEL";
@@ -87,7 +76,6 @@ public class ExemplarService {
         Exemplar exemplar = new Exemplar();
         exemplar.setLivro(livro);
         exemplar.setBiblioteca(biblioteca);
-        exemplar.setCodigoBarras(dto.getCodigoBarras());
         exemplar.setEstadoConservacao(
             dto.getEstadoConservacao() != null ? dto.getEstadoConservacao() : "NOVO");
         exemplar.setStatus(statusInicial);

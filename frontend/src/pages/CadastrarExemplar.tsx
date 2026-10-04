@@ -4,7 +4,7 @@
  * RN10 (só bibliotecário da casa) e RN11 (exemplar único) são validadas no backend.
  */
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, nomeExemplar } from "../api/client";
 import type { Biblioteca, Categoria, Exemplar, Livro } from "../types";
 import { useUsuarioLogado } from "../auth/contexto";
 import {
@@ -32,7 +32,6 @@ export default function CadastrarExemplar() {
   const [categoriaId, setCategoriaId] = useState<number | "">("");
   const [sinopse, setSinopse] = useState("");
 
-  const [codigo, setCodigo] = useState("");
   const [estado, setEstado] = useState<Estado>("NOVO");
 
   const [erro, setErro] = useState("");
@@ -68,13 +67,12 @@ export default function CadastrarExemplar() {
     try {
       const corpo =
         modo === "EXISTENTE"
-          ? { livroId, codigoBarras: codigo, bibliotecaId, estadoConservacao: estado }
+          ? { livroId, bibliotecaId, estadoConservacao: estado }
           : {
               titulo, autor, editora, isbn,
               anoPublicacao: ano ? Number(ano) : null,
               categoriaId: categoriaId || null,
               sinopse,
-              codigoBarras: codigo,
               bibliotecaId,
               estadoConservacao: estado,
             };
@@ -85,7 +83,7 @@ export default function CadastrarExemplar() {
       );
 
       setSucesso(
-        `Exemplar ${ex.codigoBarras ?? `#${ex.id}`} de "${ex.livro.titulo}" cadastrado em ` +
+        `${nomeExemplar(ex.id)} de "${ex.livro.titulo}" cadastrado em ` +
           `${ex.biblioteca.nome} com status ${ex.status}.` +
           (ex.status === "INDISPONIVEL"
             ? " Por ser o único exemplar do título na rede, ele nasce indisponível para empréstimo (RN11)."
@@ -93,7 +91,6 @@ export default function CadastrarExemplar() {
       );
 
       // Limpa o formulário e recarrega a lista de títulos
-      setCodigo("");
       setTitulo(""); setAutor(""); setEditora(""); setIsbn(""); setAno("");
       setCategoriaId(""); setSinopse(""); setLivroId("");
       api.get<Livro[]>("/livros").then(setLivros).catch(() => {});
@@ -195,10 +192,6 @@ export default function CadastrarExemplar() {
 
             <SectionCard titulo={modo === "NOVO" ? "3. Dados do exemplar" : "2. Dados do exemplar"}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <Campo label="Código do exemplar (tombo)">
-                  <Entrada value={codigo} onChange={(e) => setCodigo(e.target.value)}
-                           placeholder="Ex: EX-01045" />
-                </Campo>
                 <Campo label="Biblioteca">
                   <Entrada value={`${nomeBiblioteca} (fixo)`} readOnly />
                 </Campo>
@@ -246,7 +239,6 @@ export default function CadastrarExemplar() {
               />
               <LinhaResumo rotulo="Categoria" valor={nomeCategoria} />
               <LinhaResumo rotulo="Biblioteca" valor={nomeBiblioteca} />
-              <LinhaResumo rotulo="Código" valor={codigo || "—"} />
             </CardResumo>
           </>
         }

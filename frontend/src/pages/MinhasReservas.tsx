@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, formatarData } from "../api/client";
+import { api, nomeExemplar, formatarData } from "../api/client";
 import type { Reserva, SolicitacaoTransferencia } from "../types";
 import {
   BadgeReserva,
@@ -244,9 +244,9 @@ export default function MinhasReservas() {
                           {r.bibliotecaFila.id !== r.bibliotecaDestino.id &&
                             ` → retirada na ${r.bibliotecaDestino.nome}`}
                         </p>
-                        {r.exemplar?.codigoBarras && (
+                        {r.exemplar && (
                           <p className="text-[12px] text-[#66707d]">
-                            Exemplar separado: {r.exemplar.codigoBarras}
+                            Exemplar separado: {nomeExemplar(r.exemplar.id)}
                           </p>
                         )}
                         <p

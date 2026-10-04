@@ -30,10 +30,6 @@ public class Exemplar {
     @JoinColumn(name = "biblioteca_id", nullable = false)
     private Biblioteca biblioteca;
 
-    // Código de tombo exibido nas telas (ex.: EX-00231)
-    @Column(length = 50, unique = true)
-    private String codigoBarras;
-
     // DISPONIVEL | EMPRESTADO | RESERVADO | EM_TRANSFERENCIA | INDISPONIVEL
     @Column(nullable = false, length = 30)
     private String status;

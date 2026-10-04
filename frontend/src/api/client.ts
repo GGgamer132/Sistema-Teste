@@ -87,6 +87,11 @@ export function qs(params: Record<string, string | number | undefined | null>): 
   return s ? `?${s}` : "";
 }
 
+/** O exemplar é identificado pelo número sequencial (id). */
+export function nomeExemplar(id: number): string {
+  return `Exemplar nº ${id}`;
+}
+
 /** Formata ISO date-time do Java para dd/mm/aaaa. */
 export function formatarData(iso?: string | null): string {
   if (!iso) return "—";

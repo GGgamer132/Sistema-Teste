@@ -4,7 +4,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, diasDeAtraso, formatarData } from "../api/client";
+import { api, nomeExemplar, diasDeAtraso, formatarData } from "../api/client";
 import type { Emprestimo, SituacaoUsuario } from "../types";
 import {
   Badge,
@@ -188,8 +188,7 @@ export default function MeusEmprestimos() {
                         </p>
                         <p className="text-[13px] text-[#125ca8]">
                           📍 {e.biblioteca.nome}
-                          {e.exemplar.codigoBarras &&
-                            ` · Exemplar ${e.exemplar.codigoBarras}`}
+                          {` · ${nomeExemplar(e.exemplar.id)}`}
                         </p>
                         <p className="text-[12px] text-[#66707d]">
                           Retirado em {formatarData(e.dataEmprestimo)} · devolver

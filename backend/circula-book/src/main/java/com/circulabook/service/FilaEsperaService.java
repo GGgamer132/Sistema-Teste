@@ -72,7 +72,7 @@ public class FilaEsperaService {
             despachar(pedido, null);              // já aprovada: segue viagem agora
         } else {
             transferenciaRepository.save(pedido); // PENDENTE: espera o Admin decidir
-            System.out.println("[FILA] Exemplar " + exemplar.getCodigoBarras()
+            System.out.println("[FILA] Exemplar nº " + exemplar.getId()
                 + " separado para " + reserva.getUsuario().getNome()
                 + ", aguardando aprovação da transferência #" + pedido.getId() + ".");
         }

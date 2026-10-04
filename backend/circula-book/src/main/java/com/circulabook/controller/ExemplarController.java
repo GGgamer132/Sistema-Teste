@@ -41,16 +41,6 @@ public class ExemplarController {
         }
     }
 
-    /** Telas 4 e 6 — localizar exemplar pelo código de tombo (ex.: EX-00231). */
-    @GetMapping("/codigo/{codigo}")
-    public ResponseEntity<?> obterPorCodigo(@PathVariable String codigo) {
-        try {
-            return ResponseEntity.ok(exemplarService.obterPorCodigo(codigo));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
     /** Tela 7 — cadastro de exemplar: sempre na biblioteca do bibliotecário logado. */
     @PostMapping
     public ResponseEntity<?> cadastrar(@RequestBody CadastroExemplarDTO dto,

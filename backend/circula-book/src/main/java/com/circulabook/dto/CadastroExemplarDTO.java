@@ -20,7 +20,6 @@ public class CadastroExemplarDTO {
     private String sinopse;
 
     // Dados do exemplar
-    private String codigoBarras;
     private Long bibliotecaId;
     private String estadoConservacao; // NOVO | BOM | USADO
 
@@ -49,9 +48,6 @@ public class CadastroExemplarDTO {
 
     public String getSinopse() { return sinopse; }
     public void setSinopse(String sinopse) { this.sinopse = sinopse; }
-
-    public String getCodigoBarras() { return codigoBarras; }
-    public void setCodigoBarras(String codigoBarras) { this.codigoBarras = codigoBarras; }
 
     public Long getBibliotecaId() { return bibliotecaId; }
     public void setBibliotecaId(Long bibliotecaId) { this.bibliotecaId = bibliotecaId; }

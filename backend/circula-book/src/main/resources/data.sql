@@ -49,28 +49,28 @@ INSERT INTO livro (id, titulo, autor, isbn, editora, ano_publicacao, sinopse, ca
     'Considerado o primeiro romance urbano brasileiro, narra o namoro entre Augusto e Carolina.', 1);
 
 -- ─── Exemplares (o "Blackboard" do sistema) ───
-INSERT INTO exemplar (id, livro_id, biblioteca_id, codigo_barras, status, estado_conservacao, adicionado_em) VALUES
+INSERT INTO exemplar (id, livro_id, biblioteca_id, status, estado_conservacao, adicionado_em) VALUES
 -- Dom Casmurro: disponivel em 3 bibliotecas (alimenta a Tela 3)
-(1,  1, 1, 'EX-00231', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
-(2,  1, 1, 'EX-00232', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
-(3,  1, 2, 'EX-00233', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
-(4,  1, 4, 'EX-00234', 'DISPONIVEL',       'NOVO', CURRENT_TIMESTAMP),
-(5,  1, 3, 'EX-00235', 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
+(1,  1, 1, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
+(2,  1, 1, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
+(3,  1, 2, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
+(4,  1, 4, 'DISPONIVEL',       'NOVO', CURRENT_TIMESTAMP),
+(5,  1, 3, 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
 -- Memorias Postumas: TODOS emprestados -> habilita a fila de espera da Tela 5
-(6,  2, 4, 'EX-00589', 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
-(7,  2, 4, 'EX-00590', 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
-(8,  2, 3, 'EX-00591', 'EMPRESTADO',       'USADO',CURRENT_TIMESTAMP),
+(6,  2, 4, 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
+(7,  2, 4, 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP),
+(8,  2, 3, 'EMPRESTADO',       'USADO',CURRENT_TIMESTAMP),
 -- Quincas Borba
-(9,  3, 6, 'EX-00812', 'EM_TRANSFERENCIA', 'BOM',  CURRENT_TIMESTAMP),
-(10, 3, 5, 'EX-00813', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
+(9,  3, 6, 'EM_TRANSFERENCIA', 'BOM',  CURRENT_TIMESTAMP),
+(10, 3, 5, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
 -- O Alienista
-(11, 4, 5, 'EX-00733', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
-(12, 4, 4, 'EX-00734', 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
+(11, 4, 5, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
+(12, 4, 4, 'DISPONIVEL',       'BOM',  CURRENT_TIMESTAMP),
 -- Iracema: exemplar unico na rede -> RN11 deixa INDISPONIVEL
-(13, 5, 1, 'EX-01045', 'INDISPONIVEL',     'NOVO', CURRENT_TIMESTAMP),
+(13, 5, 1, 'INDISPONIVEL',     'NOVO', CURRENT_TIMESTAMP),
 -- A Moreninha
-(14, 6, 3, 'EX-00456', 'DISPONIVEL',       'USADO',CURRENT_TIMESTAMP),
-(15, 6, 2, 'EX-00457', 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP);
+(14, 6, 3, 'DISPONIVEL',       'USADO',CURRENT_TIMESTAMP),
+(15, 6, 2, 'EMPRESTADO',       'BOM',  CURRENT_TIMESTAMP);
 
 -- ─── Emprestimos ───
 INSERT INTO emprestimo (id, exemplar_id, usuario_id, biblioteca_id, data_emprestimo, data_prev_devolucao, data_devolucao, status) VALUES
