@@ -1,5 +1,6 @@
 package com.circulabook.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -23,6 +24,8 @@ public class Usuario {
     @Column(nullable = false, length = 255, unique = true)
     private String email;
 
+    // Hash BCrypt: nunca vai para o JSON
+    @JsonIgnore
     @Column(nullable = false, length = 255)
     private String senhaHash;
 

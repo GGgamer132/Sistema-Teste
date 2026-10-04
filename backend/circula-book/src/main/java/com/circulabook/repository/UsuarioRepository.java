@@ -11,6 +11,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     Optional<Usuario> findByEmail(String email);
 
+    Optional<Usuario> findByEmailIgnoreCase(String email);
+
     List<Usuario> findByTipo(String tipo);
 
     // Usado na tela de empréstimo: busca o usuário digitando parte do nome ou e-mail
