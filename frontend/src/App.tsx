@@ -18,6 +18,8 @@ import RegistrarEmprestimo from "./pages/RegistrarEmprestimo";
 import RegistrarDevolucao from "./pages/RegistrarDevolucao";
 import CadastrarExemplar from "./pages/CadastrarExemplar";
 import TransferenciasAdmin from "./pages/TransferenciasAdmin";
+import TransferenciasBiblioteca from "./pages/TransferenciasBiblioteca";
+import ReservasBiblioteca from "./pages/ReservasBiblioteca";
 import EmprestimosBiblioteca from "./pages/EmprestimosBiblioteca";
 import MeusEmprestimos from "./pages/MeusEmprestimos";
 import MinhasReservas from "./pages/MinhasReservas";
@@ -58,6 +60,8 @@ export default function App() {
         <Route path="/biblioteca/devolucao" element={<RegistrarDevolucao />} />
         <Route path="/biblioteca/exemplares" element={<CadastrarExemplar />} />
         <Route path="/biblioteca/acervo" element={<AcervoBiblioteca />} />
+        <Route path="/biblioteca/transferencias" element={<TransferenciasBiblioteca />} />
+        <Route path="/biblioteca/reservas" element={<ReservasBiblioteca />} />
       </Route>
 
       {/* ── Administrador ── */}

@@ -27,6 +27,8 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
     { rotulo: "Registrar Devolução", to: "/biblioteca/devolucao" },
     { rotulo: "Cadastrar Exemplares", to: "/biblioteca/exemplares" },
     { rotulo: "Acervo", to: "/biblioteca/acervo" },
+    { rotulo: "Transferências", to: "/biblioteca/transferencias" },
+    { rotulo: "Reservas", to: "/biblioteca/reservas" },
   ],
   ADMIN: [
     { rotulo: "Transferências", to: "/admin/transferencias" },
