@@ -55,6 +55,19 @@ public class ReservaController {
         }
     }
 
+    /**
+     * Tela de reserva — destinos possíveis para "retirar em outra biblioteca"
+     * (sem a própria biblioteca da fila), com o motivo de cada um bloqueado.
+     */
+    @GetMapping("/destinos")
+    public ResponseEntity<?> destinos(@RequestParam Long livroId, @RequestParam Long bibliotecaFilaId) {
+        try {
+            return ResponseEntity.ok(reservaService.destinosPossiveis(livroId, bibliotecaFilaId));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     /** UC03 — Entrar na fila (e, se for o caso, pedir retirada em outra biblioteca). */
     @PostMapping
     public ResponseEntity<?> criar(@RequestBody ReservaRequestDTO req,

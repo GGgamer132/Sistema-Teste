@@ -23,6 +23,8 @@ public class TransferenciaService {
     private static final List<String> RESERVA_ATIVA =
         List.of("PENDENTE", "AGUARDANDO_TRANSFERENCIA", "DISPONIVEL");
 
+    public static final List<String> TRANSFERENCIA_ABERTA = List.of("PENDENTE", "APROVADA", "EM_TRANSITO");
+
     @Autowired private SolicitacaoTransferenciaRepository transferenciaRepository;
     @Autowired private ExemplarRepository exemplarRepository;
     @Autowired private BibliotecaRepository bibliotecaRepository;
@@ -48,6 +50,36 @@ public class TransferenciaService {
 
     public long contarPorStatus(String status) {
         return transferenciaRepository.countByStatus(status);
+    }
+
+    /**
+     * RN15 (§5.3): a origem nunca fica sem o título. Com {@code total} = exemplares do
+     * título na origem (qualquer status) e {@code abertas} = transferências do título
+     * saindo dela em PENDENTE/APROVADA/EM_TRANSITO, mais uma só cabe se
+     * {@code abertas + 1 <= total - 1}. Devolve o motivo do bloqueio, ou null se pode.
+     */
+    public String motivoBloqueioOrigem(Livro livro, Biblioteca origem) {
+        long total = exemplarRepository.countByLivroAndBiblioteca(livro, origem);
+        long abertas = transferenciaRepository.countByLivroAndBibliotecaOrigemAndStatusIn(
+            livro, origem, TRANSFERENCIA_ABERTA);
+        if (abertas + 1 <= total - 1) return null;
+        if (total <= 1) {
+            return "A " + origem.getNome() + " tem só 1 exemplar deste título, e ele não pode sair de lá: "
+                + "nenhuma biblioteca pode ficar sem o livro.";
+        }
+        return "A " + origem.getNome() + " já tem " + abertas + " transferência(s) deste título em andamento; "
+            + "mais uma a deixaria sem o livro.";
+    }
+
+    /** RN22: o destino precisa estar ativo e ter ao menos um bibliotecário ativo para receber. */
+    public String motivoBloqueioDestino(Biblioteca destino) {
+        if (Boolean.FALSE.equals(destino.getAtiva())) {
+            return "A " + destino.getNome() + " está inativa.";
+        }
+        if (!usuarioRepository.existsByTipoAndBibliotecaAndAtivoTrue("BIBLIOTECARIO", destino)) {
+            return "A " + destino.getNome() + " ainda não tem bibliotecário ativo para receber o livro.";
+        }
+        return null;
     }
 
     /**

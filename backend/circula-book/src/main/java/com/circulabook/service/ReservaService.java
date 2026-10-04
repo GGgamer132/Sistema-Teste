@@ -1,5 +1,6 @@
 package com.circulabook.service;
 
+import com.circulabook.dto.DestinoRetiradaDTO;
 import com.circulabook.model.*;
 import com.circulabook.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -30,6 +33,7 @@ public class ReservaService {
     @Autowired private TransferenciaService transferenciaService;
     @Autowired private FilaEsperaService filaEsperaService;
     @Autowired private EstadoExemplarService estadoExemplar;
+    @Autowired private EmprestimoRepository emprestimoRepository;
 
     public List<Reserva> obterTodas() {
         return reservaRepository.findAll();
@@ -72,12 +76,15 @@ public class ReservaService {
     }
 
     /**
-     * UC03 — Entrar na fila de espera.
+     * UC03 — Entrar na fila de espera (§5.1).
      *
      * Regras:
-     *  1) a biblioteca da fila precisa ter o título e NENHUM exemplar disponível;
-     *  2) retirar em outra biblioteca exige que ela não tenha nenhum exemplar do título;
-     *  3) retirar em outra biblioteca gera um pedido de transferência (PENDENTE, sem exemplar).
+     *  1) só usuário COMUM, sem reserva ativa do título e sem o título emprestado;
+     *  2) a biblioteca da fila precisa ter o título e NENHUM exemplar disponível;
+     *  3) retirar em outra biblioteca exige destino sem nenhum exemplar do título,
+     *     que a origem não fique sem o livro (RN15) e destino apto a receber (RN22);
+     *  4) retirar em outra biblioteca gera um pedido de transferência (PENDENTE, sem exemplar).
+     * A posição devolvida conta só as reservas PENDENTE do título naquela biblioteca.
      */
     @Transactional
     public Reserva criar(Long livroId, Long usuarioId, Long bibliotecaFilaId, Long bibliotecaDestinoId) {
@@ -88,8 +95,23 @@ public class ReservaService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
             .orElseThrow(() -> new RuntimeException("Usuário não encontrado: ID " + usuarioId));
 
+        if (!"COMUM".equals(usuario.getTipo())) {
+            throw new RuntimeException("Somente usuários da comunidade podem fazer reservas.");
+        }
         if (Boolean.FALSE.equals(usuario.getAtivo())) {
             throw new RuntimeException("Usuário inativo não pode fazer reservas.");
+        }
+
+        // ── Regra 1: uma reserva ativa por título, e nada de reservar o que já está com você ──
+        if (!reservaRepository.findByLivroAndUsuarioAndStatusIn(livro, usuario, STATUS_ATIVOS).isEmpty()) {
+            throw new RuntimeException("Você já possui uma reserva ativa para este título.");
+        }
+        boolean jaEmprestado = emprestimoRepository
+            .findByUsuarioAndStatusIn(usuario, List.of("ATIVO", "ATRASADO")).stream()
+            .anyMatch(e -> e.getExemplar().getLivro().getId().equals(livro.getId()));
+        if (jaEmprestado) {
+            throw new RuntimeException("Você já está com um exemplar de \"" + livro.getTitulo()
+                + "\" emprestado e não pode reservar o mesmo título.");
         }
 
         // Compatibilidade: se só um dos ids vier, a retirada é na própria biblioteca da fila
@@ -104,35 +126,14 @@ public class ReservaService {
         Biblioteca destino = bibliotecaRepository.findById(retiradaId)
             .orElseThrow(() -> new RuntimeException("Biblioteca não encontrada: ID " + retiradaId));
 
-        // ── Regra 1: reserva é por biblioteca ──
-        List<Exemplar> naFila = exemplarRepository.findByLivroAndBiblioteca(livro, fila);
-        if (naFila.isEmpty()) {
-            throw new RuntimeException("A " + fila.getNome()
-                + " não possui exemplares deste título, então não há fila para entrar.");
-        }
-        long livres = naFila.stream().filter(e -> "DISPONIVEL".equals(e.getStatus())).count();
-        if (livres > 0) {
-            throw new RuntimeException("A " + fila.getNome() + " tem " + livres
-                + " exemplar(es) disponível(is). A reserva só vale quando todos estão emprestados; "
-                + "faça o empréstimo presencialmente.");
-        }
+        // ── Regra 2: reserva é por biblioteca ──
+        validarFila(livro, fila);
 
-        // ── Regra 2: retirada em outra biblioteca ──
+        // ── Regra 3: retirada em outra biblioteca ──
         boolean comTransferencia = !fila.getId().equals(destino.getId());
         if (comTransferencia) {
-            if (Boolean.FALSE.equals(destino.getAtiva())) {
-                throw new RuntimeException("A " + destino.getNome() + " está inativa.");
-            }
-            if (!exemplarRepository.findByLivroAndBiblioteca(livro, destino).isEmpty()) {
-                throw new RuntimeException("A " + destino.getNome() + " já possui exemplares deste título. "
-                    + "Para retirar lá, entre na fila dessa biblioteca ou faça o empréstimo presencial.");
-            }
-        }
-
-        // Um usuário não pode ter duas reservas ativas do mesmo título
-        List<Reserva> jaTem = reservaRepository.findByLivroAndUsuarioAndStatusIn(livro, usuario, STATUS_ATIVOS);
-        if (!jaTem.isEmpty()) {
-            throw new RuntimeException("Você já possui uma reserva ativa para este título.");
+            String motivo = motivoBloqueioRetirada(livro, fila, destino);
+            if (motivo != null) throw new RuntimeException(motivo);
         }
 
         Reserva reserva = new Reserva();
@@ -147,24 +148,83 @@ public class ReservaService {
         // T3: com a fila, os emprestados do título nesta biblioteca viram EMPRESTADO_RESERVADO
         estadoExemplar.sincronizarMarcaDeFila(livro, fila);
 
-        // ── Regra 3: a transferência é consequência da reserva ──
+        // ── Regra 4: a transferência é consequência da reserva ──
         if (comTransferencia) {
             transferenciaService.criarPedidoDeReserva(reserva);
         }
 
+        // Entrou por último: a posição é o tamanho da fila daquela biblioteca
+        reserva.setPosicaoFila((int) reservaRepository.countByLivroAndBibliotecaFilaAndStatus(
+            livro, fila, "PENDENTE"));
+
         System.out.println("[CIRCULA BOOK] Reserva criada: " + livro.getTitulo()
             + " para " + usuario.getNome() + " | Fila: " + fila.getNome()
-            + " | Retirada: " + destino.getNome()
+            + " (posição " + reserva.getPosicaoFila() + ") | Retirada: " + destino.getNome()
             + (comTransferencia ? " (com pedido de transferência)" : ""));
 
         return reserva;
     }
 
     /**
-     * UC07 — Cancelar reserva.
-     *  - pedido de transferência ainda não despachado é cancelado;
-     *  - exemplar já separado (RESERVADO) é liberado e atende o próximo da fila;
-     *  - se o exemplar já está em trânsito, a viagem continua e ele chega como DISPONIVEL.
+     * Tela de reserva — "retirar em outra biblioteca": todas as bibliotecas ativas,
+     * menos a da fila, cada uma dizendo se pode ser escolhida e, se não, por quê.
+     * Recusa (400) se a fila em si não é válida (sem o título ou com exemplar disponível).
+     */
+    public List<DestinoRetiradaDTO> destinosPossiveis(Long livroId, Long bibliotecaFilaId) {
+        Livro livro = livroRepository.findById(livroId)
+            .orElseThrow(() -> new RuntimeException("Livro não encontrado: ID " + livroId));
+        Biblioteca fila = bibliotecaRepository.findById(bibliotecaFilaId)
+            .orElseThrow(() -> new RuntimeException("Biblioteca não encontrada: ID " + bibliotecaFilaId));
+        validarFila(livro, fila);
+
+        List<DestinoRetiradaDTO> destinos = new ArrayList<>();
+        for (Biblioteca b : bibliotecaRepository.findByAtivaTrue()) {
+            if (b.getId().equals(fila.getId())) continue;
+            String motivo = motivoBloqueioRetirada(livro, fila, b);
+            destinos.add(new DestinoRetiradaDTO(b.getId(), b.getNome(), motivo == null, motivo));
+        }
+        destinos.sort(Comparator.comparing(DestinoRetiradaDTO::nome));
+        return destinos;
+    }
+
+    /** §5.1 item 1: só entra na fila de biblioteca que tem o título e não tem exemplar livre. */
+    private void validarFila(Livro livro, Biblioteca fila) {
+        List<Exemplar> naFila = exemplarRepository.findByLivroAndBiblioteca(livro, fila);
+        if (naFila.isEmpty()) {
+            throw new RuntimeException("A " + fila.getNome()
+                + " não possui exemplares deste título, então não há fila para entrar.");
+        }
+        long livres = naFila.stream().filter(e -> StatusExemplar.DISPONIVEL.equals(e.getStatus())).count();
+        if (livres > 0) {
+            throw new RuntimeException("A " + fila.getNome() + " tem " + livres
+                + " exemplar(es) disponível(is). A reserva só vale quando todos estão emprestados; "
+                + "faça o empréstimo presencialmente.");
+        }
+    }
+
+    /**
+     * §5.1 item 4: por que não dá para retirar no destino (ou null se dá).
+     * Ordem: destino já tem o título; origem ficaria sem o livro (RN15); destino sem bibliotecário (RN22).
+     */
+    private String motivoBloqueioRetirada(Livro livro, Biblioteca fila, Biblioteca destino) {
+        if (!exemplarRepository.findByLivroAndBiblioteca(livro, destino).isEmpty()) {
+            return "A " + destino.getNome() + " já possui exemplares deste título. "
+                + "Para retirar lá, entre na fila dessa biblioteca ou faça o empréstimo presencial.";
+        }
+        String motivo = transferenciaService.motivoBloqueioOrigem(livro, fila);
+        return motivo != null ? motivo : transferenciaService.motivoBloqueioDestino(destino);
+    }
+
+    /**
+     * UC07 — Cancelar reserva (§5.2, casos de borda).
+     *  - pedido PENDENTE/APROVADA é cancelado; o exemplar já separado (RESERVADO) atende
+     *    o próximo da fila (T7b) ou fica DISPONIVEL (T7);
+     *  - pedido EM_TRANSITO não é tocado: a viagem continua. A reserva fica CANCELADA
+     *    (ainda apontando para o exemplar, só como registro) e o exemplar segue
+     *    EM_TRANSFERENCIA; na chegada, como a reserva não está mais aguardando, o
+     *    exemplar entra no acervo do destino como DISPONIVEL (T11) ou atende o 1º da
+     *    fila de lá (T10) — ver TransferenciaService.confirmarChegada;
+     *  - se a fila esvaziou, os emprestados voltam a EMPRESTADO (T12).
      */
     @Transactional
     public Reserva cancelar(Long reservaId) {

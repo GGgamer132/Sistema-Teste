@@ -1,6 +1,7 @@
 package com.circulabook.repository;
 
 import com.circulabook.model.Usuario;
+import com.circulabook.model.Biblioteca;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
@@ -17,4 +18,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     // Usado na tela de empréstimo: busca o usuário digitando parte do nome ou e-mail
     List<Usuario> findByNomeContainingIgnoreCaseOrEmailContainingIgnoreCase(String nome, String email);
+
+    // RN22: destino de transferência precisa de ao menos um bibliotecário ativo
+    boolean existsByTipoAndBibliotecaAndAtivoTrue(String tipo, Biblioteca biblioteca);
 }

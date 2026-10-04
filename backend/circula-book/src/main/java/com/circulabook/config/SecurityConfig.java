@@ -67,10 +67,10 @@ public class SecurityConfig {
 
                 // Reservas: criar/cancelar/ver as próprias é do usuário comum
                 .requestMatchers(HttpMethod.GET, "/api/reservas/posicao/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/reservas/usuario/**").hasRole(COMUM)
+                .requestMatchers(HttpMethod.GET, "/api/reservas/usuario/**", "/api/reservas/destinos").hasRole(COMUM)
                 .requestMatchers(HttpMethod.POST, "/api/reservas").hasRole(COMUM)
                 .requestMatchers(HttpMethod.PATCH, "/api/reservas/*/cancelar").hasRole(COMUM)
-                .requestMatchers("/api/reservas/**").hasRole(ADMIN)
+                .requestMatchers("/api/reservas/**").hasRole(ADMIN) // inclui POST /expirar-vencidas
 
                 // Empréstimos: registrar/devolver só no balcão; listagens recortadas no controller
                 .requestMatchers(HttpMethod.POST, "/api/emprestimos/registrar",

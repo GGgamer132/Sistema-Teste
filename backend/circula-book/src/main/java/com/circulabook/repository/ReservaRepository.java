@@ -37,4 +37,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
     // Reserva à qual um exemplar RESERVADO está vinculado
     Optional<Reserva> findFirstByExemplarAndStatusIn(Exemplar exemplar, List<String> status);
+
+    List<Reserva> findByUsuarioAndStatusIn(Usuario usuario, List<String> status);
 }
