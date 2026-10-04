@@ -118,11 +118,111 @@ class PainelAdminTest extends ApoioApiTest {
     }
 
     @Test
-    @DisplayName("Dashboard só para o Admin")
+    @DisplayName("A-19: cada relatório muda exatamente com as operações; período filtra")
+    void a19_relatoriosPorDiferenca() throws Exception {
+        String r0 = relatorios("");
+        Livro hobbit = livro("O Hobbit");
+        List<Long> ex = cadastrar(hobbit, 2);
+        long emp = emprestar(ex.get(0), ana);
+        devolver(emp);
+        emprestar(ex.get(0), camila);
+        Emprestimo atrasado = emprestimo(exemplar(livro("Duna"), central, EMPRESTADO), bruno, 20);    // 6 dias
+        Emprestimo devolveTarde = emprestimo(exemplar(livro("Sapiens"), central, EMPRESTADO), ana, 18);
+        devolver(devolveTarde.getId());                                                            // 4 dias
+        chamar(HttpMethod.POST, "/api/transferencias/avulsa", tokenAdmin,
+            "{\"exemplarIds\":[" + ex.get(1) + "],\"bibliotecaDestinoId\":" + vilaIsabel.getId() + "}")
+            .andExpect(status().isOk());
+        chamar(HttpMethod.POST, "/api/demandas", tokenAna, "{\"titulo\":\"Torto Arado\",\"autor\":\"Itamar\"}")
+            .andExpect(status().isOk());
+        String r1 = relatorios("");
+
+        // 1) Acervo da Central: +4 exemplares (2 Hobbit, Duna, Sapiens)
+        assertThat(num(r1, central, "acervo", "total") - num(r0, central, "acervo", "total")).isEqualTo(4);
+        assertThat(statusAcervo(r1, central, "EMPRESTADO") - statusAcervo(r0, central, "EMPRESTADO")).isEqualTo(2);
+        assertThat(statusAcervo(r1, central, "DISPONIVEL") - statusAcervo(r0, central, "DISPONIVEL")).isEqualTo(1);
+        assertThat(statusAcervo(r1, central, "EM_TRANSFERENCIA") - statusAcervo(r0, central, "EM_TRANSFERENCIA")).isEqualTo(1);
+
+        // 2) Empréstimos da Central: 4 realizados, 2 devolvidos (1 com atraso), 2 em aberto
+        assertThat(num(r1, central, "emprestimos", "realizados") - num(r0, central, "emprestimos", "realizados")).isEqualTo(4);
+        assertThat(num(r1, central, "emprestimos", "devolvidos") - num(r0, central, "emprestimos", "devolvidos")).isEqualTo(2);
+        assertThat(num(r1, central, "emprestimos", "devolvidosComAtraso")
+            - num(r0, central, "emprestimos", "devolvidosComAtraso")).isEqualTo(1);
+        assertThat(num(r1, central, "emprestimos", "emAberto") - num(r0, central, "emprestimos", "emAberto")).isEqualTo(2);
+
+        // 3) Atrasos: um em aberto (6 dias) e um devolvido com atraso (4 dias)
+        List<Map<String, Object>> atrasos = JsonPath.read(r1, "$.atrasos");
+        assertThat(atrasos.size() - ((List<?>) JsonPath.read(r0, "$.atrasos")).size()).isEqualTo(2);
+        assertThat(atrasos).filteredOn(a -> ((Number) a.get("emprestimoId")).longValue() == atrasado.getId())
+            .singleElement().satisfies(a -> {
+                assertThat(a.get("situacao")).isEqualTo("Em aberto");
+                assertThat(((Number) a.get("diasAtraso")).longValue()).isEqualTo(6);
+            });
+        assertThat(atrasos).filteredOn(a -> ((Number) a.get("emprestimoId")).longValue() == devolveTarde.getId())
+            .singleElement().satisfies(a -> {
+                assertThat(a.get("situacao")).isEqualTo("Devolvido com atraso");
+                assertThat(((Number) a.get("diasAtraso")).longValue()).isEqualTo(4);
+            });
+
+        // 4) Mais emprestados: o Hobbit com 2 empréstimos no topo
+        assertThat((String) JsonPath.read(r1, "$.maisEmprestados[0].titulo")).isEqualTo("O Hobbit");
+        assertThat((Integer) JsonPath.read(r1, "$.maisEmprestados[0].emprestimos")).isEqualTo(2);
+
+        // 5) Demandas mais pedidas e 6) transferências por situação
+        List<String> demandas = JsonPath.read(r1, "$.demandasMaisPedidas[*].titulo");
+        assertThat(demandas).contains("Torto Arado");
+        assertThat(transf(r1, "EM_TRANSITO", "avulsas") - transf(r0, "EM_TRANSITO", "avulsas")).isEqualTo(1);
+        assertThat(transf(r1, "EM_TRANSITO", "total") - transf(r0, "EM_TRANSITO", "total")).isEqualTo(1);
+
+        // Período: amanhã em diante não tem nada novo; o atraso em aberto continua (é a situação atual)
+        String amanha = java.time.LocalDate.now().plusDays(1).toString();
+        String futuro = relatorios("?de=" + amanha);
+        assertThat(num(futuro, central, "emprestimos", "realizados")).isZero();
+        assertThat(num(futuro, central, "emprestimos", "devolvidos")).isZero();
+        assertThat((List<?>) JsonPath.read(futuro, "$.maisEmprestados")).isEmpty();
+        assertThat((List<?>) JsonPath.read(futuro, "$.demandasMaisPedidas")).isEmpty();
+        assertThat(transf(futuro, "EM_TRANSITO", "total")).isZero();
+        List<String> situacoes = JsonPath.read(futuro, "$.atrasos[*].situacao");
+        assertThat(situacoes).containsOnly("Em aberto");
+        assertThat(num(futuro, central, "acervo", "total")).isEqualTo(num(r1, central, "acervo", "total"));
+
+        // Só o período do empréstimo de 20 dias atrás
+        String dia = java.time.LocalDate.now().minusDays(20).toString();
+        String antigo = relatorios("?de=" + dia + "&ate=" + dia);
+        assertThat(num(antigo, central, "emprestimos", "realizados")).isEqualTo(1);
+
+        chamar(HttpMethod.GET, "/api/admin/relatorios?de=" + amanha + "&ate=" + java.time.LocalDate.now(), tokenAdmin, null)
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Dashboard e relatórios só para o Admin")
     void permissoes() throws Exception {
-        chamar(HttpMethod.GET, "/api/admin/dashboard", tokenFernanda, null).andExpect(status().isForbidden());
-        chamar(HttpMethod.GET, "/api/admin/dashboard", tokenAna, null).andExpect(status().isForbidden());
-        chamar(HttpMethod.GET, "/api/admin/dashboard", null, null).andExpect(status().isUnauthorized());
+        for (String url : List.of("/api/admin/dashboard", "/api/admin/relatorios")) {
+            chamar(HttpMethod.GET, url, tokenFernanda, null).andExpect(status().isForbidden());
+            chamar(HttpMethod.GET, url, tokenAna, null).andExpect(status().isForbidden());
+            chamar(HttpMethod.GET, url, null, null).andExpect(status().isUnauthorized());
+        }
+    }
+
+    private String relatorios(String query) throws Exception {
+        return chamar(HttpMethod.GET, "/api/admin/relatorios" + query, tokenAdmin, null)
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    }
+
+    /** Campo numérico da linha da biblioteca numa seção (0 se a biblioteca não aparece). */
+    private static long num(String json, Biblioteca b, String secao, String campo) {
+        List<Number> v = JsonPath.read(json, "$." + secao + "[?(@.bibliotecaId == " + b.getId() + ")]." + campo);
+        return v.isEmpty() ? 0 : v.get(0).longValue();
+    }
+
+    private static long statusAcervo(String json, Biblioteca b, String status) {
+        List<Number> v = JsonPath.read(json, "$.acervo[?(@.bibliotecaId == " + b.getId() + ")].porStatus." + status);
+        return v.isEmpty() ? 0 : v.get(0).longValue();
+    }
+
+    private static long transf(String json, String status, String campo) {
+        List<Number> v = JsonPath.read(json, "$.transferencias[?(@.status == '" + status + "')]." + campo);
+        return v.isEmpty() ? 0 : v.get(0).longValue();
     }
 
     // ───────────────────────── Apoio ─────────────────────────
