@@ -25,10 +25,11 @@ public class HistoricoController {
                                     @RequestParam(required = false) Long exemplarId,
                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate de,
                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate ate,
+                                    @RequestParam(defaultValue = "false") boolean ocultarFila,
                                     @RequestParam(defaultValue = "0") int pagina,
                                     @RequestParam(defaultValue = "20") int tamanho) {
         try {
-            return ResponseEntity.ok(historicoService.listar(evento, bibliotecaId, exemplarId, de, ate, pagina, tamanho));
+            return ResponseEntity.ok(historicoService.listar(evento, bibliotecaId, exemplarId, de, ate, ocultarFila, pagina, tamanho));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

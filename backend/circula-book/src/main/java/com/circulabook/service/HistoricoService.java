@@ -96,6 +96,15 @@ public class HistoricoService {
      */
     public Pagina<EventoDTO> listar(String evento, Long bibliotecaId, Long exemplarId,
                                     LocalDate de, LocalDate ate, int pagina, int tamanho) {
+        return listar(evento, bibliotecaId, exemplarId, de, ate, false, pagina, tamanho);
+    }
+
+    /**
+     * Igual ao anterior; com ocultarFila, deixa de fora as marcas de fila (evento FILA, T3/T12),
+     * a não ser que o filtro de evento peça justamente FILA.
+     */
+    public Pagina<EventoDTO> listar(String evento, Long bibliotecaId, Long exemplarId,
+                                    LocalDate de, LocalDate ate, boolean ocultarFila, int pagina, int tamanho) {
         if (pagina < 0) throw new RuntimeException("A página começa em 0.");
         if (tamanho < 1 || tamanho > 50) throw new RuntimeException("O tamanho da página deve ser de 1 a 50.");
         if (de != null && ate != null && de.isAfter(ate)) {
@@ -109,6 +118,7 @@ public class HistoricoService {
         Specification<HistoricoCirculacao> filtro = (root, q, cb) -> {
             List<Predicate> p = new ArrayList<>();
             if (ev != null) p.add(cb.equal(root.get("evento"), ev));
+            else if (ocultarFila) p.add(cb.notEqual(root.get("evento"), "FILA"));
             if (bibliotecaId != null) p.add(cb.equal(root.get("biblioteca").get("id"), bibliotecaId));
             if (exemplarId != null) p.add(cb.equal(root.get("exemplar").get("id"), exemplarId));
             if (de != null) p.add(cb.greaterThanOrEqualTo(root.get("dataEvento"), de.atStartOfDay()));

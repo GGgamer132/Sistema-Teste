@@ -51,11 +51,16 @@ function dataHora(iso: string): string {
   return `${d.toLocaleDateString("pt-BR")} ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-async function buscarRecentes(f: Filtros): Promise<{ itens: EventoHistorico[]; total: number }> {
+async function buscarRecentes(
+  f: Filtros,
+  mostrarFila: boolean,
+): Promise<{ itens: EventoHistorico[]; total: number }> {
   const itens: EventoHistorico[] = [];
   let total = 0;
   for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
-    const p = await api.get<Pagina<EventoHistorico>>("/historico" + qs({ ...f, pagina, tamanho: 50 }));
+    const p = await api.get<Pagina<EventoHistorico>>(
+      "/historico" + qs({ ...f, ocultarFila: mostrarFila ? "" : "true", pagina, tamanho: 50 }),
+    );
     itens.push(...p.itens);
     total = p.totalItens;
     if (pagina + 1 >= p.totalPaginas) break;
@@ -72,6 +77,8 @@ export default function AdminHistorico() {
   const [rascunho, setRascunho] = useState<Filtros>(VAZIO);
   const [filtros, setFiltros] = useState<Filtros>(VAZIO);
   const [recentes, setRecentes] = useState<{ itens: EventoHistorico[]; total: number } | null>(null);
+  /** Marcas de fila (emprestado ↔ emprestado com fila) poluem o histórico: ficam ocultas por padrão. */
+  const [mostrarFila, setMostrarFila] = useState(false);
   const [linha, setLinha] = useState<LinhaDoTempo | null>(null);
   const [numero, setNumero] = useState(exemplarAberto ?? "");
   const [erro, setErro] = useState("");
@@ -91,7 +98,7 @@ export default function AdminHistorico() {
 
   useEffect(() => {
     let ativo = true;
-    buscarRecentes(filtros)
+    buscarRecentes(filtros, mostrarFila)
       .then((r) => {
         if (!ativo) return;
         setRecentes(r);
@@ -101,7 +108,7 @@ export default function AdminHistorico() {
     return () => {
       ativo = false;
     };
-  }, [filtros]);
+  }, [filtros, mostrarFila]);
 
   useEffect(() => {
     if (!exemplarAberto) return;
@@ -127,6 +134,8 @@ export default function AdminHistorico() {
     setNumero(String(id));
     setSearchParams({ exemplar: String(id) });
   }
+
+  const eventosDaLinha = (linha?.eventos ?? []).filter((e) => mostrarFila || e.evento !== "FILA");
 
   const colunas: Coluna<EventoHistorico>[] = [
     { titulo: "Quando", render: (e) => <span className="whitespace-nowrap text-[13px]">{dataHora(e.data)}</span> },
@@ -158,6 +167,11 @@ export default function AdminHistorico() {
       />
 
       {erro && <Erro mensagem={erro} />}
+
+      <label className="mb-4 flex w-fit items-center gap-2 text-[13px] text-[#2c3e50] cursor-pointer">
+        <input type="checkbox" checked={mostrarFila} onChange={(e) => setMostrarFila(e.target.checked)} />
+        Mostrar marcas de fila (exemplar emprestado que ganhou ou perdeu fila de espera)
+      </label>
 
       <SectionCard titulo="Linha do tempo de um exemplar">
         <form
@@ -201,11 +215,11 @@ export default function AdminHistorico() {
             <p className="text-[13px] text-[#66707d]">
               {linha.autor} · hoje na {linha.bibliotecaAtual} · {linha.statusRotulo}
             </p>
-            {linha.eventos.length === 0 ? (
+            {eventosDaLinha.length === 0 ? (
               <p className="mt-3 text-[13px] text-[#66707d]">Nenhum evento registrado para este exemplar.</p>
             ) : (
               <ol className="mt-4 flex flex-col border-l-2 border-[#deedfc] pl-5">
-                {linha.eventos.map((e) => (
+                {eventosDaLinha.map((e) => (
                   <li key={e.id} data-testid="evento-linha" className="relative pb-4 last:pb-0">
                     <span className="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2 border-white bg-[#1976d2]" />
                     <div className="flex flex-wrap items-center gap-2">
