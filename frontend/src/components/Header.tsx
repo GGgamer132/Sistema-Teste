@@ -20,6 +20,7 @@ interface ItemMenu {
 const MENUS: Record<Perfil, ItemMenu[]> = {
   COMUM: [
     { rotulo: "Buscar livros", to: "/", tambem: ["/resultados", "/livro"] },
+    { rotulo: "Minhas reservas", to: "/minhas-reservas" },
   ],
   BIBLIOTECARIO: [
     { rotulo: "Empréstimo", to: "/biblioteca/emprestimo" },

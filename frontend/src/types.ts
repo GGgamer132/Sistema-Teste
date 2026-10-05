@@ -114,7 +114,24 @@ export interface Reserva {
   dataExpiracao: string;
   /** Posição na fila (devolvida ao criar a reserva). */
   posicaoFila?: number | null;
-  status: "PENDENTE" | "DISPONIVEL" | "RETIRADA" | "EXPIRADA";
+  status: "PENDENTE" | "DISPONIVEL" | "RETIRADA" | "EXPIRADA" | "CANCELADA";
+}
+
+/** Item de GET /api/reservas/minhas (só reservas ativas do usuário do token). */
+export interface MinhaReserva {
+  id: number;
+  livroId: number;
+  titulo: string;
+  autor: string;
+  /** Biblioteca da fila, onde também é feita a retirada. */
+  bibliotecaId: number;
+  biblioteca: string;
+  /** Só quando PENDENTE. */
+  posicao: number | null;
+  status: "PENDENTE" | "DISPONIVEL";
+  dataReserva: string;
+  /** Só quando DISPONIVEL. */
+  retireAte: string | null;
 }
 
 /** Resposta de /api/emprestimos/situacao/{id} — alimenta os alertas da tela de empréstimo. */

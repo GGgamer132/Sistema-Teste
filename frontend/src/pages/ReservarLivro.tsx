@@ -5,7 +5,7 @@
  * Ao confirmar, a própria tela mostra o livro, a biblioteca e a posição na fila.
  */
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { LivroResumo, Reserva } from "../types";
 import {
@@ -124,6 +124,12 @@ export default function ReservarLivro() {
           />
           <LinhaResumo rotulo="Prazo p/ retirada" valor="3 dias corridos após a devolução" />
         </CardResumo>
+        <Link
+          to="/minhas-reservas"
+          className="mt-4 inline-block text-[14px] font-semibold text-[#1976d2] hover:underline"
+        >
+          Ver minhas reservas →
+        </Link>
       </>
     );
   }
