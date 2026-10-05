@@ -1,12 +1,8 @@
 package com.circulabook;
 
-import com.circulabook.service.VerificadorConsistencia;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -16,33 +12,12 @@ import java.util.TreeMap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Sobe a aplicação com o data.sql REAL no PostgreSQL local (num schema separado,
- * "seed_teste", para não mexer no banco do backend em execução) e confere que o
- * seed de demonstração (§8) é coerente com as regras e com o roteiro de gravação (§9.0).
+ * Confere que o seed de demonstração (data.sql real, §8) é coerente com as regras e com o
+ * roteiro de gravação (§9.0). Ver {@link ApoioSeedTest}.
  */
-@SpringBootTest(properties = {
-    "spring.datasource.url=jdbc:postgresql://localhost:5432/circula_book_db?currentSchema=seed_teste",
-    "spring.datasource.driver-class-name=org.postgresql.Driver",
-    "spring.datasource.username=circula_user",
-    "spring.datasource.password=circula_senha_123",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.default_schema=seed_teste",
-    "spring.datasource.hikari.connection-init-sql=CREATE SCHEMA IF NOT EXISTS seed_teste",
-    "spring.jpa.defer-datasource-initialization=true",
-    "spring.sql.init.mode=always",
-    "spring.sql.init.encoding=UTF-8"
-})
-@Import(VerificadorConsistencia.class)
-class SeedDemonstracaoTest {
+class SeedDemonstracaoTest extends ApoioSeedTest {
 
-    @Autowired private JdbcTemplate jdbc;
-    @Autowired private VerificadorConsistencia verificador;
     @Autowired private PasswordEncoder passwordEncoder;
-
-    private long contar(String sql, Object... args) {
-        Long n = jdbc.queryForObject(sql, Long.class, args);
-        return n == null ? 0 : n;
-    }
 
     @Test
     @DisplayName("Usuários exatamente como na §8.1, senha senha123, todos ativos")
