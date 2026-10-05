@@ -1,5 +1,7 @@
 package com.circulabook.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.circulabook.dto.ContaDTOs.Pagina;
 import com.circulabook.dto.DestinoRetiradaDTO;
 import com.circulabook.dto.TransferenciaDTOs.*;
@@ -26,6 +28,8 @@ import java.util.*;
 @Service
 public class TransferenciaService {
 
+    private static final Logger log = LoggerFactory.getLogger(TransferenciaService.class);
+
     private static final List<String> RESERVA_ATIVA =
         List.of("PENDENTE", "AGUARDANDO_TRANSFERENCIA", "DISPONIVEL");
 
@@ -46,12 +50,6 @@ public class TransferenciaService {
 
     public List<SolicitacaoTransferencia> obterPendentes() {
         return transferenciaRepository.findByStatusOrderByDataSolicitacaoAsc("PENDENTE");
-    }
-
-    /** Tudo que já saiu da fila de pendentes (inclui "aprovada, aguardando exemplar"). */
-    public List<SolicitacaoTransferencia> obterHistorico() {
-        return transferenciaRepository.findByStatusInOrderByDataSolicitacaoDesc(
-            List.of("APROVADA", "EM_TRANSITO", "CONCLUIDA", "REJEITADA", "CANCELADA"));
     }
 
     public long contarPorStatus(String status) {
@@ -162,7 +160,7 @@ public class TransferenciaService {
         transferenciaRepository.save(s);
         notificacoes.pedidoCriado(s);
 
-        System.out.println("[BLACKBOARD] Pedido de transferência #" + s.getId() + " criado pela reserva #"
+        log.info("[BLACKBOARD] Pedido de transferência #" + s.getId() + " criado pela reserva #"
             + reserva.getId() + " (aguardando decisão do Admin).");
         return s;
     }
@@ -257,7 +255,7 @@ public class TransferenciaService {
             filaEsperaService.despachar(s, admin); // T8: DISPONIVEL -> EM_TRANSFERENCIA
             criadas.add(s);
         }
-        System.out.println("[BLACKBOARD] " + criadas.size() + " transferência(s) avulsa(s) para " + destino.getNome());
+        log.info("[BLACKBOARD] " + criadas.size() + " transferência(s) avulsa(s) para " + destino.getNome());
         return criadas;
     }
 
@@ -295,7 +293,7 @@ public class TransferenciaService {
             transferenciaRepository.save(s);
         }
 
-        System.out.println("[BLACKBOARD] Transferência #" + id + " aprovada por " + admin.getNome()
+        log.info("[BLACKBOARD] Transferência #" + id + " aprovada por " + admin.getNome()
             + (exemplar == null ? " (aguardando exemplar)." : " (em trânsito)."));
         return s;
     }
@@ -335,7 +333,7 @@ public class TransferenciaService {
             estadoExemplar.sincronizarMarcaDeFila(reserva.getLivro(), reserva.getBibliotecaFila());
         }
 
-        System.out.println("[BLACKBOARD] Transferência #" + id + " rejeitada por " + admin.getNome());
+        log.info("[BLACKBOARD] Transferência #" + id + " rejeitada por " + admin.getNome());
         return s;
     }
 
@@ -405,7 +403,7 @@ public class TransferenciaService {
         estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), s.getBibliotecaDestino());
         estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), origem);
 
-        System.out.println("[BLACKBOARD] Transferência #" + id + " concluída"
+        log.info("[BLACKBOARD] Transferência #" + id + " concluída"
             + (danificado ? " (chegou danificado)" : "") + ". Exemplar agora em "
             + s.getBibliotecaDestino().getNome());
         return s;

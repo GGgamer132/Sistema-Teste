@@ -1,5 +1,7 @@
 package com.circulabook.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.circulabook.model.*;
 import static com.circulabook.model.StatusExemplar.*;
 import com.circulabook.repository.*;
@@ -28,6 +30,8 @@ import java.util.List;
  */
 @Service
 public class FilaEsperaService {
+
+    private static final Logger log = LoggerFactory.getLogger(FilaEsperaService.class);
 
     public static final int DIAS_PARA_RETIRADA = 3; // RN03
 
@@ -94,7 +98,7 @@ public class FilaEsperaService {
                 reserva.setBibliotecaDestino(reserva.getBibliotecaFila());
                 liberarParaRetirada(reserva, exemplar);
                 notificacoes.pedidoCanceladoPorCapacidade(pedido);
-                System.out.println("[FILA] Transferência #" + pedido.getId() + " cancelada no despacho (RN15).");
+                log.info("[FILA] Transferência #" + pedido.getId() + " cancelada no despacho (RN15).");
                 return;
             }
         }
@@ -110,7 +114,7 @@ public class FilaEsperaService {
             historicoService.registrar(exemplar, "RESERVA", exemplar.getBiblioteca(),
                 "Separado para " + reserva.getUsuario().getNome() + " (1º da fila), aguardando a decisão "
                 + "da transferência para a " + pedido.getBibliotecaDestino().getNome() + ".");
-            System.out.println("[FILA] Exemplar nº " + exemplar.getId()
+            log.info("[FILA] Exemplar nº " + exemplar.getId()
                 + " separado para " + reserva.getUsuario().getNome()
                 + ", aguardando aprovação da transferência #" + pedido.getId() + ".");
         }
@@ -130,7 +134,7 @@ public class FilaEsperaService {
             + ". Retirada na " + reserva.getBibliotecaDestino().getNome()
             + " em até " + DIAS_PARA_RETIRADA + " dias.");
 
-        System.out.println("[FILA] " + reserva.getUsuario().getNome()
+        log.info("[FILA] " + reserva.getUsuario().getNome()
             + " foi notificado: " + exemplar.getLivro().getTitulo()
             + " disponível para retirada na " + reserva.getBibliotecaDestino().getNome() + ".");
     }
@@ -152,7 +156,7 @@ public class FilaEsperaService {
 
         notificacoes.transferenciaDespachada(pedido);
 
-        System.out.println("[FILA] Transferência #" + pedido.getId() + " em trânsito: "
+        log.info("[FILA] Transferência #" + pedido.getId() + " em trânsito: "
             + pedido.getBibliotecaOrigem().getNome() + " -> " + pedido.getBibliotecaDestino().getNome());
     }
 
@@ -178,7 +182,7 @@ public class FilaEsperaService {
                     + " expirou sem retirada."); // T7 (fila vazia) ou T7b (reatribui ao próximo)
             }
             estadoExemplar.sincronizarMarcaDeFila(reserva.getLivro(), reserva.getBibliotecaFila());
-            System.out.println("[FILA] Reserva #" + reserva.getId() + " expirou.");
+            log.info("[FILA] Reserva #" + reserva.getId() + " expirou.");
         }
     }
 }

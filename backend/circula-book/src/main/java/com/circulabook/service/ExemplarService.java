@@ -1,5 +1,7 @@
 package com.circulabook.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.circulabook.dto.CadastroExemplarDTO;
 import com.circulabook.model.*;
 import static com.circulabook.model.StatusExemplar.*;
@@ -17,6 +19,8 @@ import java.util.Set;
  */
 @Service
 public class ExemplarService {
+
+    private static final Logger log = LoggerFactory.getLogger(ExemplarService.class);
 
     public static final int QUANTIDADE_MAXIMA = 50;
     private static final Set<String> CONSERVACOES_NO_CADASTRO = Set.of("NOVO", "BOM", "USADO");
@@ -96,7 +100,7 @@ public class ExemplarService {
             criados.add(exemplar);
         }
 
-        System.out.println("[CIRCULA BOOK] " + quantidade + " exemplar(es) de " + livro.getTitulo()
+        log.info("[CIRCULA BOOK] " + quantidade + " exemplar(es) de " + livro.getTitulo()
             + " cadastrado(s) na " + biblioteca.getNome() + ".");
         return criados;
     }

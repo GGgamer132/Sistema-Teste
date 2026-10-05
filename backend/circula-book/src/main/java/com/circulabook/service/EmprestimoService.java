@@ -1,5 +1,7 @@
 package com.circulabook.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.circulabook.dto.SituacaoUsuarioDTO;
 import com.circulabook.model.*;
 import static com.circulabook.model.StatusExemplar.*;
@@ -19,6 +21,8 @@ import java.util.List;
  */
 @Service
 public class EmprestimoService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmprestimoService.class);
 
     public static final int LIMITE_EMPRESTIMOS = 3;   // RN01
     public static final int PRAZO_EMPRESTIMO_DIAS = 14; // RN02: prazo fixo, em dias corridos
@@ -169,7 +173,7 @@ public class EmprestimoService {
         }
         estadoExemplar.sincronizarMarcaDeFila(exemplar.getLivro(), exemplar.getBiblioteca());
 
-        System.out.println("[CIRCULA BOOK] Empréstimo registrado: "
+        log.info("[CIRCULA BOOK] Empréstimo registrado: "
             + exemplar.getLivro().getTitulo() + " -> " + usuario.getNome()
             + " | Devolução prevista: " + emprestimo.getDataPrevDevolucao().format(BR));
 
@@ -212,7 +216,7 @@ public class EmprestimoService {
             usuarioRepository.save(usuario);
             notificacoes.bloqueioAplicado(usuario, diasAtraso, usuario.getBloqueadoAte());
 
-            System.out.println("[CIRCULA BOOK] Bloqueio por atraso aplicado: " + usuario.getNome()
+            log.info("[CIRCULA BOOK] Bloqueio por atraso aplicado: " + usuario.getNome()
                 + " bloqueado por " + diasBloqueio + " dias (até "
                 + usuario.getBloqueadoAte().format(BR) + ").");
         }

@@ -1,5 +1,7 @@
 package com.circulabook.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.circulabook.dto.DestinoRetiradaDTO;
 import com.circulabook.dto.ReservasBibliotecaDTO;
 import com.circulabook.model.*;
@@ -22,6 +24,8 @@ import java.util.List;
  */
 @Service
 public class ReservaService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReservaService.class);
 
     private static final List<String> STATUS_ATIVOS =
         List.of("PENDENTE", "AGUARDANDO_TRANSFERENCIA", "DISPONIVEL");
@@ -159,7 +163,7 @@ public class ReservaService {
         reserva.setPosicaoFila((int) reservaRepository.countByLivroAndBibliotecaFilaAndStatus(
             livro, fila, "PENDENTE"));
 
-        System.out.println("[CIRCULA BOOK] Reserva criada: " + livro.getTitulo()
+        log.info("[CIRCULA BOOK] Reserva criada: " + livro.getTitulo()
             + " para " + usuario.getNome() + " | Fila: " + fila.getNome()
             + " (posição " + reserva.getPosicaoFila() + ") | Retirada: " + destino.getNome()
             + (comTransferencia ? " (com pedido de transferência)" : ""));
