@@ -14,10 +14,6 @@ import java.util.Optional;
 @Repository
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
-    List<Reserva> findByUsuario(Usuario usuario);
-
-    List<Reserva> findByStatus(String status);
-
     // Contagem global de um título (usada no resumo do livro)
     long countByLivroAndStatus(Livro livro, String status);
 
@@ -35,10 +31,4 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     // Reserva ligada a um exemplar (usada ao registrar o empréstimo)
     Optional<Reserva> findFirstByExemplarAndStatus(Exemplar exemplar, String status);
 
-    // Reserva à qual um exemplar RESERVADO está vinculado
-    Optional<Reserva> findFirstByExemplarAndStatusIn(Exemplar exemplar, List<String> status);
-
-    List<Reserva> findByUsuarioAndStatusIn(Usuario usuario, List<String> status);
-
-    long countByStatus(String status);
 }

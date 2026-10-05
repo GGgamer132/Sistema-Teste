@@ -8,10 +8,7 @@ import java.time.LocalDateTime;
 
 /**
  * Reserva = entrada na fila de espera de UMA biblioteca.
- *
- * bibliotecaFila    -> onde o usuário está na fila (de onde o exemplar sai)
- * bibliotecaDestino -> onde o usuário vai RETIRAR o exemplar.
- *                      Se for igual à da fila, não há transferência.
+ * A retirada é sempre feita na mesma biblioteca da fila (bibliotecaFila).
  */
 @Data
 @NoArgsConstructor
@@ -36,10 +33,6 @@ public class Reserva {
     @JoinColumn(name = "biblioteca_fila_id", nullable = false)
     private Biblioteca bibliotecaFila;
 
-    @ManyToOne
-    @JoinColumn(name = "biblioteca_destino_id", nullable = false)
-    private Biblioteca bibliotecaDestino;
-
     // Exemplar separado para esta reserva (preenchido quando o 1º da fila é atendido)
     @ManyToOne
     @JoinColumn(name = "exemplar_id")
@@ -51,11 +44,11 @@ public class Reserva {
     @Column(nullable = false)
     private LocalDateTime dataExpiracao;
 
-    // PENDENTE | AGUARDANDO_TRANSFERENCIA | DISPONIVEL | RETIRADA | CANCELADA | EXPIRADA
+    // PENDENTE | DISPONIVEL | RETIRADA | EXPIRADA
     @Column(nullable = false, length = 30)
     private String status;
 
-    // Posição na fila (só PENDENTE); calculada em "minhas reservas", não é persistida
+    // Posição na fila (só PENDENTE); calculada ao criar a reserva, não é persistida
     @Transient
     private Integer posicaoFila;
 

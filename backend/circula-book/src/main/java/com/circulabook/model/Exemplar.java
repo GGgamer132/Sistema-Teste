@@ -30,13 +30,9 @@ public class Exemplar {
     @JoinColumn(name = "biblioteca_id", nullable = false)
     private Biblioteca biblioteca;
 
-    // DISPONIVEL | EMPRESTADO | RESERVADO | EM_TRANSFERENCIA | INDISPONIVEL
+    // DISPONIVEL | EMPRESTADO | EMPRESTADO_RESERVADO | RESERVADO
     @Column(nullable = false, length = 30)
     private String status;
-
-    // NOVO | BOM | USADO | DANIFICADO
-    @Column(length = 30)
-    private String estadoConservacao;
 
     @Column
     private LocalDateTime adicionadoEm;

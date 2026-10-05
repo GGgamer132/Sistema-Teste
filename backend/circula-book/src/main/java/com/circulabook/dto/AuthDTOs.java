@@ -4,17 +4,13 @@ import com.circulabook.model.Usuario;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.Instant;
 
-/** Payloads de /api/auth (login, cadastro, me). */
+/** Payloads de /api/auth (login, me). */
 public final class AuthDTOs {
 
     private AuthDTOs() {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record LoginRequest(String email, String senha) {}
-
-    /** Campos extras (tipo/perfil) enviados pelo cliente são ignorados. */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record CadastroRequest(String nome, String email, String senha) {}
 
     public record UsuarioSessao(Long id, String nome, String email, String perfil,
                                 Long bibliotecaId, String bibliotecaNome) {

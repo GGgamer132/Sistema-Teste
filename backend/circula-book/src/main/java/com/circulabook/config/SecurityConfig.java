@@ -35,15 +35,14 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Spring Security stateless + JWT HS256.
- * As regras abaixo aplicam a matriz de autorização (seção 2.3 do CONTEXTO)
- * aos endpoints existentes. Recortes por dono/biblioteca ficam nos controllers.
+ * As regras abaixo aplicam a matriz de autorização dos dois perfis (COMUM e
+ * BIBLIOTECARIO) aos endpoints existentes. Recortes por biblioteca ficam nos controllers.
  */
 @Configuration
 public class SecurityConfig {
 
     private static final String COMUM = "COMUM";
     private static final String BIBLIOTECARIO = "BIBLIOTECARIO";
-    private static final String ADMIN = "ADMIN";
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -53,61 +52,24 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/cadastro").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
 
-                // Catálogo: leitura para todos os perfis; criar/editar/desativar só o Admin (RN18)
-                .requestMatchers(HttpMethod.GET, "/api/bibliotecas/todas").hasRole(ADMIN)
-                .requestMatchers(HttpMethod.GET, "/api/livros/**", "/api/bibliotecas/**",
-                                 "/api/categorias/**", "/api/exemplares/**").authenticated()
-                .requestMatchers("/api/livros/**", "/api/categorias/**", "/api/bibliotecas/**").hasRole(ADMIN)
-                .requestMatchers(HttpMethod.POST, "/api/exemplares/**").hasRole(BIBLIOTECARIO)
-                .requestMatchers(HttpMethod.PATCH, "/api/exemplares/*/indisponivel",
-                                 "/api/exemplares/*/reativar").hasRole(BIBLIOTECARIO)
-
-                // Reservas: criar/cancelar/ver as próprias é do usuário comum
-                .requestMatchers(HttpMethod.GET, "/api/reservas/posicao/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/reservas/usuario/**", "/api/reservas/destinos").hasRole(COMUM)
+                // Busca, detalhes e reserva: usuário comum
+                .requestMatchers(HttpMethod.GET, "/api/livros/busca", "/api/livros/*",
+                                 "/api/categorias").hasRole(COMUM)
+                .requestMatchers(HttpMethod.GET, "/api/reservas/posicao/*").hasRole(COMUM)
                 .requestMatchers(HttpMethod.POST, "/api/reservas").hasRole(COMUM)
-                .requestMatchers(HttpMethod.PATCH, "/api/reservas/*/cancelar").hasRole(COMUM)
-                .requestMatchers(HttpMethod.GET, "/api/reservas/biblioteca").hasRole(BIBLIOTECARIO)
-                .requestMatchers("/api/reservas/**").hasRole(ADMIN) // inclui POST /expirar-vencidas
 
-                // Dados do próprio usuário (reservas, empréstimos, histórico): sempre do token
-                .requestMatchers(HttpMethod.GET, "/api/conta/**").hasRole(COMUM)
-                .requestMatchers("/api/conta/**").denyAll()
-
-                // Empréstimos: registrar/devolver só no balcão; listagens recortadas no controller
+                // Empréstimo e devolução: bibliotecário (recorte pela biblioteca no controller)
+                .requestMatchers(HttpMethod.GET, "/api/exemplares/biblioteca/*",
+                                 "/api/usuarios/comuns", "/api/emprestimos/ativos",
+                                 "/api/emprestimos/situacao/*").hasRole(BIBLIOTECARIO)
                 .requestMatchers(HttpMethod.POST, "/api/emprestimos/registrar",
                                  "/api/emprestimos/devolver").hasRole(BIBLIOTECARIO)
-                .requestMatchers(HttpMethod.GET, "/api/emprestimos/ativos").hasAnyRole(BIBLIOTECARIO, ADMIN)
-                .requestMatchers(HttpMethod.GET, "/api/emprestimos/situacao/**").hasAnyRole(COMUM, BIBLIOTECARIO)
-                .requestMatchers(HttpMethod.GET, "/api/emprestimos", "/api/emprestimos/usuario/**").authenticated()
-                .requestMatchers("/api/emprestimos/**").denyAll()
 
-                // Usuários: busca do balcão (bibliotecário vê só COMUM); o resto é do Admin
-                .requestMatchers(HttpMethod.GET, "/api/usuarios/busca", "/api/usuarios/tipo/**")
-                    .hasAnyRole(BIBLIOTECARIO, ADMIN)
-                .requestMatchers("/api/usuarios/**").hasRole(ADMIN)
-
-                // Transferências: chegada é do bibliotecário do destino; decisão e avulsa do Admin
-                .requestMatchers(HttpMethod.PATCH, "/api/transferencias/*/confirmar-chegada").hasRole(BIBLIOTECARIO)
-                .requestMatchers(HttpMethod.GET, "/api/transferencias/biblioteca/**").hasRole(BIBLIOTECARIO)
-                .requestMatchers(HttpMethod.GET, "/api/transferencias").hasAnyRole(COMUM, ADMIN)
-                .requestMatchers("/api/transferencias/**").hasRole(ADMIN)
-
-                .requestMatchers("/api/historico/**").hasRole(ADMIN)
-                .requestMatchers("/api/admin/**").hasRole(ADMIN)
-
-                // Demandas: o usuário comum registra interesse e vê os seus; o resto é do Admin (RN07)
-                .requestMatchers(HttpMethod.POST, "/api/demandas").hasRole(COMUM)
-                .requestMatchers(HttpMethod.GET, "/api/demandas/minhas").hasRole(COMUM)
-                .requestMatchers("/api/demandas/**").hasRole(ADMIN)
-
-                // Notificações: cada perfil só as suas (recorte no service); a rotina manual é do Admin
-                .requestMatchers(HttpMethod.POST, "/api/notificacoes/verificar-vencimentos").hasRole(ADMIN)
-                .requestMatchers("/api/notificacoes/**").authenticated()
-                .anyRequest().authenticated())
+                // Qualquer outra rota não existe nesta versão
+                .anyRequest().denyAll())
             .oauth2ResourceServer(o -> o
                 .jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 .authenticationEntryPoint(naoAutenticado())
@@ -118,7 +80,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /** Claim "perfil" vira a role (ROLE_COMUM, ROLE_BIBLIOTECARIO, ROLE_ADMIN). */
+    /** Claim "perfil" vira a role (ROLE_COMUM, ROLE_BIBLIOTECARIO). */
     private JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter perfis = new JwtGrantedAuthoritiesConverter();
         perfis.setAuthoritiesClaimName("perfil");
@@ -154,28 +116,26 @@ public class SecurityConfig {
     }
 
     /**
-     * Além da assinatura e da validade, o token só vale se o usuário ainda existe e
-     * está ativo: desativar alguém derruba a sessão na hora, sem esperar as 8 h do token.
+     * Além da assinatura e da validade, o token só vale se o usuário ainda existe na base
+     * (o banco é recriado a cada boot, então tokens antigos deixam de valer).
      */
     @Bean
     public JwtDecoder jwtDecoder(SecretKey jwtSecretKey, UsuarioRepository usuarioRepository) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey)
             .macAlgorithm(MacAlgorithm.HS256).build();
-        OAuth2TokenValidator<Jwt> usuarioAtivo = jwt -> {
-            boolean ativo;
+        OAuth2TokenValidator<Jwt> usuarioExiste = jwt -> {
+            boolean existe;
             try {
-                ativo = usuarioRepository.findById(Long.valueOf(jwt.getSubject()))
-                    .map(u -> Boolean.TRUE.equals(u.getAtivo()))
-                    .orElse(false);
+                existe = usuarioRepository.existsById(Long.valueOf(jwt.getSubject()));
             } catch (NumberFormatException e) {
-                ativo = false;
+                existe = false;
             }
-            return ativo
+            return existe
                 ? OAuth2TokenValidatorResult.success()
                 : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token",
-                    "Usuário inativo ou inexistente.", null));
+                    "Usuário inexistente.", null));
         };
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefault(), usuarioAtivo));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefault(), usuarioExiste));
         return decoder;
     }
 
