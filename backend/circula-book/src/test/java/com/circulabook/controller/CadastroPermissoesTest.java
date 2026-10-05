@@ -54,14 +54,14 @@ class CadastroPermissoesTest {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
         usuario("Admin", "ADMIN", null);
-        usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
-        usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central);
-        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
-        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        usuario("Bibliotecário Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
+        usuario("Bibliotecário Central", "BIBLIOTECARIO", central);
+        u1 = usuario("Usuário 1", "COMUM", null);
+        u2 = usuario("Usuário 2", "COMUM", null);
         tokenAdmin = login("admin@teste.com");
-        tokenBibVI = login("bibliotecÃ¡rio.vila.isabel@teste.com");
-        tokenBibC = login("bibliotecÃ¡rio.central@teste.com");
-        tokenU1 = login("usuÃ¡rio.1@teste.com");
+        tokenBibVI = login("bibliotecário.vila.isabel@teste.com");
+        tokenBibC = login("bibliotecário.central@teste.com");
+        tokenU1 = login("usuário.1@teste.com");
     }
 
     // ───────────────────────── Livros ─────────────────────────
@@ -174,7 +174,7 @@ class CadastroPermissoesTest {
             .andExpect(jsonPath("$[*].tipo", everyItem(is("BIBLIOTECARIO"))))
             .andExpect(content().string(not(containsString("senhaHash"))));
 
-        String corpo = "{\"nome\":\"BibliotecÃ¡rio Tijuca\",\"email\":\"bibliotecariotijuca@teste.com\",\"senha\":\"abc123\",\"bibliotecaId\":"
+        String corpo = "{\"nome\":\"Bibliotecário Tijuca\",\"email\":\"bibliotecariotijuca@teste.com\",\"senha\":\"abc123\",\"bibliotecaId\":"
             + central.getId() + "}";
         chamar(HttpMethod.POST, "/api/usuarios/bibliotecarios", tokenBibVI, corpo).andExpect(status().isForbidden());
         chamar(HttpMethod.POST, "/api/usuarios/bibliotecarios", tokenU1, corpo).andExpect(status().isForbidden());
@@ -261,7 +261,7 @@ class CadastroPermissoesTest {
         Exemplar emprestado = exemplar(livro, vilaIsabel, StatusExemplar.EMPRESTADO_RESERVADO);
         emprestimoAtivo(emprestado, u2);
         Reserva primeira = reserva(livro, u1, vilaIsabel, LocalDateTime.now().minusDays(3));
-        Reserva segunda = reserva(livro, usuario("UsuÃ¡rio 3", "COMUM", null), vilaIsabel,
+        Reserva segunda = reserva(livro, usuario("Usuário 3", "COMUM", null), vilaIsabel,
                                   LocalDateTime.now().minusDays(1));
         assertThat(verificador.violacoes()).isEmpty();
 

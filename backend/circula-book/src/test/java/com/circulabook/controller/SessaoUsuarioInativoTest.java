@@ -13,7 +13,7 @@ class SessaoUsuarioInativoTest extends ApoioApiTest {
     @Test
     @DisplayName("Usuário desativado depois do login: o token passa a dar 401")
     void tokenDeUsuarioDesativado() throws Exception {
-        Usuario u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
+        Usuario u1 = usuario("Usuário 1", "COMUM", null);
         String token = login(u1);
         chamar(HttpMethod.GET, "/api/auth/me", token, null).andExpect(status().isOk());
 
@@ -30,7 +30,7 @@ class SessaoUsuarioInativoTest extends ApoioApiTest {
     @Test
     @DisplayName("Usuário removido do banco: o token dá 401")
     void tokenDeUsuarioInexistente() throws Exception {
-        Usuario u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        Usuario u2 = usuario("Usuário 2", "COMUM", null);
         String token = login(u2);
         usuarioRepository.delete(u2);
         usuarioRepository.flush();

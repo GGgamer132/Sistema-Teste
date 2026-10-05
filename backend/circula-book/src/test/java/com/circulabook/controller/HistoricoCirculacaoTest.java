@@ -36,11 +36,11 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
         tokenAdmin = login(usuario("Admin", "ADMIN", null));
-        tokenBibC = login(usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central));
-        tokenBibVI = login(usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel));
-        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
-        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
-        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        tokenBibC = login(usuario("Bibliotecário Central", "BIBLIOTECARIO", central));
+        tokenBibVI = login(usuario("Bibliotecário Vila Isabel", "BIBLIOTECARIO", vilaIsabel));
+        u1 = usuario("Usuário 1", "COMUM", null);
+        u2 = usuario("Usuário 2", "COMUM", null);
+        u3 = usuario("Usuário 3", "COMUM", null);
         tokenU1 = login(u1);
         tokenU3 = login(u3);
     }
@@ -73,20 +73,20 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
             exemplarRepository.findById(ex1).orElseThrow());
         assertThat(linhas).extracting(HistoricoCirculacao::getEvento, HistoricoCirculacao::getResponsavel)
             .containsExactly(
-                tuple("CADASTRO", "BibliotecÃ¡rio Central"),
-                tuple("EMPRESTIMO", "BibliotecÃ¡rio Central"),
-                tuple("FILA", "UsuÃ¡rio 3"),
-                tuple("DEVOLUCAO", "BibliotecÃ¡rio Central"),
-                tuple("RESERVA", "BibliotecÃ¡rio Central"),
-                tuple("BAIXA", "BibliotecÃ¡rio Central"),
-                tuple("REATIVACAO", "BibliotecÃ¡rio Central"),
-                tuple("RESERVA", "BibliotecÃ¡rio Central"),
+                tuple("CADASTRO", "Bibliotecário Central"),
+                tuple("EMPRESTIMO", "Bibliotecário Central"),
+                tuple("FILA", "Usuário 3"),
+                tuple("DEVOLUCAO", "Bibliotecário Central"),
+                tuple("RESERVA", "Bibliotecário Central"),
+                tuple("BAIXA", "Bibliotecário Central"),
+                tuple("REATIVACAO", "Bibliotecário Central"),
+                tuple("RESERVA", "Bibliotecário Central"),
                 tuple("RESERVA", "Admin"),
                 tuple("TRANSFERENCIA_SAIDA", "Admin"),
-                tuple("TRANSFERENCIA_CHEGADA", "BibliotecÃ¡rio Vila Isabel"));
-        assertThat(linhas.get(1).getObservacoes()).contains("Emprestado a UsuÃ¡rio 1 por 14 dias");
-        assertThat(linhas.get(3).getObservacoes()).contains("Devolvido por UsuÃ¡rio 1 dentro do prazo");
-        assertThat(linhas.get(4).getObservacoes()).contains("Separado para UsuÃ¡rio 3");
+                tuple("TRANSFERENCIA_CHEGADA", "Bibliotecário Vila Isabel"));
+        assertThat(linhas.get(1).getObservacoes()).contains("Emprestado a Usuário 1 por 14 dias");
+        assertThat(linhas.get(3).getObservacoes()).contains("Devolvido por Usuário 1 dentro do prazo");
+        assertThat(linhas.get(4).getObservacoes()).contains("Separado para Usuário 3");
         assertThat(linhas.get(5).getObservacoes()).contains("capa rasgada", "voltou para a fila");
         assertThat(linhas.get(8).getObservacoes()).contains("expirou");
         assertThat(linhas.get(9).getObservacoes()).contains("transferência avulsa");
@@ -108,7 +108,7 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
             .andExpect(jsonPath("$.eventos.length()").value(11))
             .andExpect(jsonPath("$.eventos[0].eventoRotulo").value("Cadastro no acervo"))
             .andExpect(jsonPath("$.eventos[10].eventoRotulo").value("Chegada de transferência"))
-            .andExpect(jsonPath("$.eventos[10].responsavel").value("BibliotecÃ¡rio Vila Isabel"))
+            .andExpect(jsonPath("$.eventos[10].responsavel").value("Bibliotecário Vila Isabel"))
             .andExpect(jsonPath("$.eventos[10].biblioteca").value("Biblioteca Vila Isabel"));
     }
 
@@ -132,13 +132,13 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
                 exemplarRepository.findById(ex.get(0)).orElseThrow()))
             .extracting(HistoricoCirculacao::getEvento, HistoricoCirculacao::getResponsavel)
             .containsExactly(
-                tuple("CADASTRO", "BibliotecÃ¡rio Central"),
-                tuple("EMPRESTIMO", "BibliotecÃ¡rio Central"),
-                tuple("FILA", "UsuÃ¡rio 3"),
-                tuple("DEVOLUCAO", "BibliotecÃ¡rio Central"),
-                tuple("TRANSFERENCIA_SAIDA", "BibliotecÃ¡rio Central"),
-                tuple("TRANSFERENCIA_CHEGADA", "BibliotecÃ¡rio Vila Isabel"),
-                tuple("RESERVA", "BibliotecÃ¡rio Vila Isabel"));
+                tuple("CADASTRO", "Bibliotecário Central"),
+                tuple("EMPRESTIMO", "Bibliotecário Central"),
+                tuple("FILA", "Usuário 3"),
+                tuple("DEVOLUCAO", "Bibliotecário Central"),
+                tuple("TRANSFERENCIA_SAIDA", "Bibliotecário Central"),
+                tuple("TRANSFERENCIA_CHEGADA", "Bibliotecário Vila Isabel"),
+                tuple("RESERVA", "Bibliotecário Vila Isabel"));
     }
 
     @Test
@@ -209,6 +209,23 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
             chamar(HttpMethod.GET, "/api/historico/eventos", token, null).andExpect(status().isForbidden());
         }
         chamar(HttpMethod.GET, "/api/historico", null, null).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("ocultarFila deixa de fora as marcas de fila, salvo se o filtro pedir FILA")
+    void ocultarMarcasDeFila() throws Exception {
+        Livro livro = livro("Duna");
+        List<Long> ex = cadastrar(livro, 1);                                  // CADASTRO
+        emprestar(ex.get(0), u1);                                             // EMPRESTIMO
+        reservar(tokenU3, livro, central, central);                           // FILA
+
+        chamar(HttpMethod.GET, "/api/historico", tokenAdmin, null)
+            .andExpect(jsonPath("$.totalItens").value(3));
+        chamar(HttpMethod.GET, "/api/historico?ocultarFila=true", tokenAdmin, null)
+            .andExpect(jsonPath("$.totalItens").value(2))
+            .andExpect(jsonPath("$.itens[*].evento", everyItem(not(is("FILA")))));
+        chamar(HttpMethod.GET, "/api/historico?ocultarFila=true&evento=FILA", tokenAdmin, null)
+            .andExpect(jsonPath("$.totalItens").value(1));
     }
 
     // ───────────────────────── Apoio ─────────────────────────

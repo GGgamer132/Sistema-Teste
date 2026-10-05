@@ -32,10 +32,10 @@ class DemandasTest extends ApoioApiTest {
     void montar() throws Exception {
         admin = usuario("Admin", "ADMIN", null);
         rita = usuario("Rita Admin", "ADMIN", null);
-        Usuario bibVI = usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", biblioteca("Biblioteca Vila Isabel"));
-        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
-        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
-        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        Usuario bibVI = usuario("Bibliotecário Vila Isabel", "BIBLIOTECARIO", biblioteca("Biblioteca Vila Isabel"));
+        u1 = usuario("Usuário 1", "COMUM", null);
+        u2 = usuario("Usuário 2", "COMUM", null);
+        u3 = usuario("Usuário 3", "COMUM", null);
         tokenAdmin = login(admin);
         tokenBibVI = login(bibVI);
         tokenU1 = login(u1);
@@ -158,7 +158,7 @@ class DemandasTest extends ApoioApiTest {
 
         List<Notificacao> doAdmin = notificacaoRepository.findByUsuarioIdOrderByIdAsc(admin.getId());
         assertThat(doAdmin).extracting(Notificacao::getTipo).containsExactly(TIPO_NOVA_DEMANDA);
-        assertThat(doAdmin.get(0).getMensagem()).contains("UsuÃ¡rio 1", "Torto Arado", "Itamar Vieira Junior");
+        assertThat(doAdmin.get(0).getMensagem()).contains("Usuário 1", "Torto Arado", "Itamar Vieira Junior");
         assertThat(doAdmin.get(0).getLink()).isEqualTo("/admin/demandas");
         assertThat(notificacaoRepository.findByUsuarioIdOrderByIdAsc(rita.getId())).isEmpty();
         assertThat(notificacaoRepository.findByUsuarioIdOrderByIdAsc(u1.getId())).isEmpty();

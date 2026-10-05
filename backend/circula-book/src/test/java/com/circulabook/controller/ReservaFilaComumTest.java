@@ -36,12 +36,12 @@ class ReservaFilaComumTest extends ApoioApiTest {
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
         tijuca = biblioteca("Biblioteca Tijuca"); // sem bibliotecário (RN22)
         Usuario admin = usuario("Admin", "ADMIN", null);
-        Usuario bibC = usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central);
-        Usuario bibVI = usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
-        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
-        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
-        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
-        u4 = usuario("UsuÃ¡rio 4", "COMUM", null);
+        Usuario bibC = usuario("Bibliotecário Central", "BIBLIOTECARIO", central);
+        Usuario bibVI = usuario("Bibliotecário Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
+        u1 = usuario("Usuário 1", "COMUM", null);
+        u2 = usuario("Usuário 2", "COMUM", null);
+        u3 = usuario("Usuário 3", "COMUM", null);
+        u4 = usuario("Usuário 4", "COMUM", null);
 
         // Duna: 2 emprestados na Central (U3 atrasada há 6 dias, U2)
         duna = livro("Duna");

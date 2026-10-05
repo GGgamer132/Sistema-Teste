@@ -38,12 +38,12 @@ class TransferenciasTest extends ApoioApiTest {
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
         tijuca = biblioteca("Biblioteca Tijuca"); // sem bibliotecário (RN22)
         Usuario admin = usuario("Admin", "ADMIN", null);
-        Usuario bibC = usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central);
-        Usuario bibVI = usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
-        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
-        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
-        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
-        u4 = usuario("UsuÃ¡rio 4", "COMUM", null);
+        Usuario bibC = usuario("Bibliotecário Central", "BIBLIOTECARIO", central);
+        Usuario bibVI = usuario("Bibliotecário Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
+        u1 = usuario("Usuário 1", "COMUM", null);
+        u2 = usuario("Usuário 2", "COMUM", null);
+        u3 = usuario("Usuário 3", "COMUM", null);
+        u4 = usuario("Usuário 4", "COMUM", null);
         tokenAdmin = login(admin);
         tokenBibC = login(bibC);
         tokenBibVI = login(bibVI);
@@ -93,7 +93,7 @@ class TransferenciasTest extends ApoioApiTest {
             .andExpect(jsonPath("$[0].titulo").value("O Hobbit"))
             .andExpect(jsonPath("$[0].exemplarId").value(nullValue()))
             .andExpect(jsonPath("$[0].exemplar").value("VINCULADO_NA_DEVOLUCAO"))
-            .andExpect(jsonPath("$[0].solicitante.nome").value("UsuÃ¡rio 3"))
+            .andExpect(jsonPath("$[0].solicitante.nome").value("Usuário 3"))
             .andExpect(jsonPath("$[0].origem.nome").value("Biblioteca Central"))
             .andExpect(jsonPath("$[0].destino.nome").value("Biblioteca Vila Isabel"))
             .andExpect(jsonPath("$[0].rn15.permitido").value(true))
@@ -106,7 +106,7 @@ class TransferenciasTest extends ApoioApiTest {
         chamar(HttpMethod.GET, "/api/transferencias/acompanhamento?status=APROVADA_AGUARDANDO_EXEMPLAR", tokenAdmin, null)
             .andExpect(jsonPath("$.totalItens").value(1))
             .andExpect(jsonPath("$.itens[0].etapa").value("APROVADA_AGUARDANDO_EXEMPLAR"))
-            .andExpect(jsonPath("$.itens[0].reservadoPara").value("UsuÃ¡rio 3"));
+            .andExpect(jsonPath("$.itens[0].reservadoPara").value("Usuário 3"));
         consistente();
     }
 
@@ -217,7 +217,7 @@ class TransferenciasTest extends ApoioApiTest {
     @Test
     @DisplayName("RN22 na aprovação: destino sem bibliotecário ativo é recusado")
     void rn22NaAprovacao() throws Exception {
-        Usuario bibVI = usuarioRepository.findByEmailIgnoreCase("bibliotecÃ¡rio.vila.isabel@teste.com").orElseThrow();
+        Usuario bibVI = usuarioRepository.findByEmailIgnoreCase("bibliotecário.vila.isabel@teste.com").orElseThrow();
         bibVI.setAtivo(false);
         usuarioRepository.save(bibVI);
         aprovar(t1, tokenAdmin)
@@ -262,7 +262,7 @@ class TransferenciasTest extends ApoioApiTest {
             .andExpect(jsonPath("$[0].titulo").value("O Hobbit"))
             .andExpect(jsonPath("$[0].exemplarId").value(hobbitU1.getId()))
             .andExpect(jsonPath("$[0].origem.nome").value("Biblioteca Central"))
-            .andExpect(jsonPath("$[0].reservadoPara").value("UsuÃ¡rio 3"));
+            .andExpect(jsonPath("$[0].reservadoPara").value("Usuário 3"));
         chamar(HttpMethod.GET, "/api/transferencias/biblioteca/a-receber", tokenBibC, null)
             .andExpect(jsonPath("$.length()").value(0));
 
@@ -281,7 +281,7 @@ class TransferenciasTest extends ApoioApiTest {
 
         // B6: a reserva aparece no painel da VI
         chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenBibVI, null)
-            .andExpect(jsonPath("$.aguardandoRetirada[0].usuario").value("UsuÃ¡rio 3"))
+            .andExpect(jsonPath("$.aguardandoRetirada[0].usuario").value("Usuário 3"))
             .andExpect(jsonPath("$.aguardandoRetirada[0].titulo").value("O Hobbit"))
             .andExpect(jsonPath("$.aguardandoRetirada[0].exemplarId").value(hobbitU1.getId()))
             .andExpect(jsonPath("$.aguardandoRetirada[0].retireAte").isNotEmpty());
@@ -451,7 +451,7 @@ class TransferenciasTest extends ApoioApiTest {
         chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenBibVI, null)
             .andExpect(jsonPath("$.aguardandoRetirada.length()").value(0))
             .andExpect(jsonPath("$.filas[0].titulo").value("Harry Potter e a Pedra Filosofal"))
-            .andExpect(jsonPath("$.filas[0].fila[0].usuario").value("UsuÃ¡rio 2"))
+            .andExpect(jsonPath("$.filas[0].fila[0].usuario").value("Usuário 2"))
             .andExpect(jsonPath("$.filas[0].fila[0].posicao").value(1));
         chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenBibC, null)
             .andExpect(jsonPath("$.filas[*].titulo", not(hasItem("Harry Potter e a Pedra Filosofal"))));
@@ -462,7 +462,7 @@ class TransferenciasTest extends ApoioApiTest {
         assertThat(rU2.getStatus()).isEqualTo("DISPONIVEL");
         assertThat(Duration.between(LocalDateTime.now(), rU2.getDataExpiracao()).toHours()).isBetween(71L, 72L);
         chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenBibVI, null)
-            .andExpect(jsonPath("$.aguardandoRetirada[0].usuario").value("UsuÃ¡rio 2"))
+            .andExpect(jsonPath("$.aguardandoRetirada[0].usuario").value("Usuário 2"))
             .andExpect(jsonPath("$.aguardandoRetirada[0].exemplarId").value(harryU3.getId()))
             .andExpect(jsonPath("$.filas.length()").value(0));
         consistente();

@@ -51,11 +51,11 @@ class MaquinaEstadosExemplarTest {
     void montarRede() {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
-        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
-        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
-        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
-        u4 = usuario("UsuÃ¡rio 4", "COMUM", null);
-        bibVI = usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
+        u1 = usuario("Usuário 1", "COMUM", null);
+        u2 = usuario("Usuário 2", "COMUM", null);
+        u3 = usuario("Usuário 3", "COMUM", null);
+        u4 = usuario("Usuário 4", "COMUM", null);
+        bibVI = usuario("Bibliotecário Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
     }
 
     // ───────────────────────── Tabela de transições (§4.3) ─────────────────────────

@@ -30,11 +30,11 @@ class PainelAdminTest extends ApoioApiTest {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
         tokenAdmin = login(usuario("Admin", "ADMIN", null));
-        tokenBibC = login(usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central));
-        tokenBibVI = login(usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel));
-        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
-        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
-        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        tokenBibC = login(usuario("Bibliotecário Central", "BIBLIOTECARIO", central));
+        tokenBibVI = login(usuario("Bibliotecário Vila Isabel", "BIBLIOTECARIO", vilaIsabel));
+        u1 = usuario("Usuário 1", "COMUM", null);
+        u2 = usuario("Usuário 2", "COMUM", null);
+        u3 = usuario("Usuário 3", "COMUM", null);
         tokenU1 = login(u1);
         tokenU3 = login(u3);
         // "Seed" qualquer: o teste só olha diferenças

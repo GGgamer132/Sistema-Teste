@@ -46,12 +46,12 @@ class NotificacoesTest extends ApoioApiTest {
         admin = usuario("Admin", "ADMIN", null);
         rita = usuario("Rita Admin", "ADMIN", null);
         adminInativo = inativo(usuario("Ze Inativo", "ADMIN", null));
-        bibC = usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central);
+        bibC = usuario("Bibliotecário Central", "BIBLIOTECARIO", central);
         bibCInativo = inativo(usuario("Flavia Inativa", "BIBLIOTECARIO", central));
-        bibVI = usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
-        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
-        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
-        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        bibVI = usuario("Bibliotecário Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
+        u1 = usuario("Usuário 1", "COMUM", null);
+        u2 = usuario("Usuário 2", "COMUM", null);
+        u3 = usuario("Usuário 3", "COMUM", null);
         tokenAdmin = login(admin);
         tokenBibC = login(bibC);
         tokenBibVI = login(bibVI);
@@ -80,7 +80,7 @@ class NotificacoesTest extends ApoioApiTest {
         assertThat(tipos(admin)).containsExactly(TIPO_NOVO_PEDIDO);
         assertThat(tipos(rita)).containsExactly(TIPO_NOVO_PEDIDO);
         assertThat(ultima(admin).getLink()).isEqualTo("/admin/transferencias");
-        assertThat(ultima(admin).getMensagem()).contains("UsuÃ¡rio 3", "O Hobbit", "Biblioteca Vila Isabel");
+        assertThat(ultima(admin).getMensagem()).contains("Usuário 3", "O Hobbit", "Biblioteca Vila Isabel");
         semNotificacao(adminInativo, bibC, bibCInativo, bibVI, u1, u2, u3);
     }
 
@@ -104,7 +104,7 @@ class NotificacoesTest extends ApoioApiTest {
         devolver(empHobbitU1, tokenBibC);
         assertThat(tipos(u3)).containsExactly(TIPO_PEDIDO_APROVADO, TIPO_EXEMPLAR_A_CAMINHO);
         assertThat(tipos(bibVI)).containsExactly(TIPO_TRANSFERENCIA_A_CAMINHO);
-        assertThat(ultima(bibVI).getMensagem()).contains("Confirme a chegada", "reservado para UsuÃ¡rio 3");
+        assertThat(ultima(bibVI).getMensagem()).contains("Confirme a chegada", "reservado para Usuário 3");
         assertThat(ultima(bibVI).getLink()).isEqualTo("/biblioteca/transferencias");
         assertThat(tipos(bibC)).containsExactly(TIPO_SEPARADO_PARA_ENVIO);
         assertThat(tipos(admin)).containsExactly(TIPO_NOVO_PEDIDO);
@@ -116,7 +116,7 @@ class NotificacoesTest extends ApoioApiTest {
         String prazo = r(r1U3).getDataExpiracao().format(DIA_MES);
         assertThat(ultima(u3).getMensagem()).contains("Biblioteca Vila Isabel", "Retire até " + prazo);
         assertThat(tipos(bibVI)).containsExactly(TIPO_TRANSFERENCIA_A_CAMINHO, TIPO_RETIRADA_NA_BIBLIOTECA);
-        assertThat(ultima(bibVI).getMensagem()).contains("UsuÃ¡rio 3 virá buscar");
+        assertThat(ultima(bibVI).getMensagem()).contains("Usuário 3 virá buscar");
         assertThat(ultima(bibVI).getLink()).isEqualTo("/biblioteca/reservas");
         assertThat(tipos(bibC)).containsExactly(TIPO_SEPARADO_PARA_ENVIO);
     }
@@ -190,7 +190,7 @@ class NotificacoesTest extends ApoioApiTest {
         devolver(emp, tokenBibVI);                                      // B-10: separado para U1
         assertThat(tipos(u1)).containsExactly(TIPO_RESERVA_PRONTA);
         assertThat(tipos(bibVI)).containsExactly(TIPO_RETIRADA_NA_BIBLIOTECA);   // B-20
-        assertThat(ultima(bibVI).getMensagem()).contains("UsuÃ¡rio 1 virá buscar \"Harry Potter\"");
+        assertThat(ultima(bibVI).getMensagem()).contains("Usuário 1 virá buscar \"Harry Potter\"");
         semNotificacao(bibC);
 
         // ES-13: BibVI marca o exemplar separado como indisponível
