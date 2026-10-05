@@ -3,7 +3,7 @@
  * Mostra o cálculo de atraso e o bloqueio resultante (RN12) antes de confirmar.
  */
 import { useEffect, useState } from "react";
-import { api, nomeExemplar, diasDeAtraso, formatarData } from "../api/client";
+import { api, nomeExemplar, diasDeAtraso, formatarData, destinoAposDevolucao } from "../api/client";
 import type { Emprestimo } from "../types";
 import { useUsuarioLogado } from "../auth/contexto";
 import {
@@ -78,17 +78,21 @@ export default function RegistrarDevolucao() {
     setErro("");
     setSucesso("");
     try {
-      await api.post("/emprestimos/devolver", {
+      const devolvido = await api.post<Emprestimo>("/emprestimos/devolver", {
         emprestimoId: selecionado.id,
         condicaoExemplar: condicao,
       });
+      const destino = condicao === "DANIFICADO" ? "" : destinoAposDevolucao(devolvido?.exemplar?.status);
       setSucesso(
-        atraso > 0
+        (atraso > 0
           ? `Devolução registrada com ${atraso} dia(s) de atraso. ${selecionado.usuario.nome} ` +
               `ficou bloqueado por ${atraso * DIAS_BLOQUEIO_POR_ATRASO} dias.`
           : condicao === "DANIFICADO"
             ? "Devolução registrada. O exemplar danificado saiu de circulação (indisponível)."
-            : "Devolução registrada dentro do prazo. O exemplar voltou para o acervo.",
+            : destino
+              ? "Devolução registrada dentro do prazo."
+              : "Devolução registrada dentro do prazo. O exemplar voltou para o acervo.") +
+          (destino ? ` ${destino}` : ""),
       );
       setSelecionado(null);
       setCondicao("BOM");

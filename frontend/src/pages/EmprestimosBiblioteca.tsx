@@ -3,7 +3,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, nomeExemplar, diasDeAtraso, formatarData } from "../api/client";
+import { api, nomeExemplar, diasDeAtraso, formatarData, destinoAposDevolucao } from "../api/client";
 import type { Emprestimo } from "../types";
 import {
   Badge,
@@ -137,15 +137,17 @@ export default function EmprestimosBiblioteca() {
     setErro("");
     setSucesso("");
     try {
-      await api.post("/emprestimos/devolver", {
+      const devolvido = await api.post<Emprestimo>("/emprestimos/devolver", {
         emprestimoId: alvo.id,
         condicaoExemplar: condicao,
       });
       const atraso = diasDeAtraso(alvo.dataPrevDevolucao);
+      const destino = condicao === "DANIFICADO" ? "" : destinoAposDevolucao(devolvido?.exemplar?.status);
       setSucesso(
-        atraso > 0
+        (atraso > 0
           ? `Devolução registrada com ${atraso} dia(s) de atraso. ${alvo.usuario.nome} ficou bloqueado por ${atraso * DIAS_BLOQUEIO_POR_ATRASO} dias.`
-          : `Devolução de “${alvo.exemplar.livro.titulo}” registrada dentro do prazo.`,
+          : `Devolução de “${alvo.exemplar.livro.titulo}” registrada dentro do prazo.`) +
+          (destino ? ` ${destino}` : ""),
       );
       setCondicao("BOM");
       carregar();

@@ -94,6 +94,15 @@ export function nomeExemplar(id: number): string {
   return `Exemplar nº ${id}`;
 }
 
+/** Frase sobre para onde o exemplar foi após uma devolução em bom estado (fila/transferência). */
+export function destinoAposDevolucao(statusExemplar?: string): string {
+  if (statusExemplar === "EM_TRANSFERENCIA") {
+    return "O exemplar seguiu direto para transferência: o pedido já estava aprovado.";
+  }
+  if (statusExemplar === "RESERVADO") return "O exemplar ficou reservado para o 1º da fila de espera.";
+  return "";
+}
+
 /** Formata ISO date-time do Java para dd/mm/aaaa. */
 export function formatarData(iso?: string | null): string {
   if (!iso) return "—";
