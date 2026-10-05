@@ -11,9 +11,5 @@ import java.util.List;
 public interface HistoricoCirculacaoRepository extends JpaRepository<HistoricoCirculacao, Long>,
         JpaSpecificationExecutor<HistoricoCirculacao> {
 
-    List<HistoricoCirculacao> findByExemplarOrderByDataEventoDesc(Exemplar exemplar);
-
-    List<HistoricoCirculacao> findTop50ByOrderByDataEventoDesc();
-
     List<HistoricoCirculacao> findByExemplarOrderByDataEventoAscIdAsc(Exemplar exemplar);
 }

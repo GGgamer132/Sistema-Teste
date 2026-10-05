@@ -141,10 +141,6 @@ public class HistoricoService {
             e.getBiblioteca().getNome(), e.getStatus(), StatusExemplar.rotulo(e.getStatus()), eventos);
     }
 
-    public List<HistoricoCirculacao> obterPorExemplar(Exemplar exemplar) {
-        return historicoRepository.findByExemplarOrderByDataEventoDesc(exemplar);
-    }
-
     private static EventoDTO paraDTO(HistoricoCirculacao h) {
         String responsavel = h.getResponsavel() != null ? h.getResponsavel()
             : h.getUsuario() != null ? h.getUsuario().getNome() : SISTEMA;

@@ -34,18 +34,6 @@ public class TransferenciaController {
             .toList();
     }
 
-    /** Pedidos aguardando decisão do Admin. */
-    @GetMapping("/pendentes")
-    public List<SolicitacaoTransferencia> obterPendentes() {
-        return transferenciaService.obterPendentes();
-    }
-
-    /** Histórico (aprovadas aguardando exemplar, em trânsito, concluídas, rejeitadas, canceladas). */
-    @GetMapping("/historico")
-    public List<SolicitacaoTransferencia> obterHistorico() {
-        return transferenciaService.obterHistorico();
-    }
-
     /** A2 — pedidos PENDENTE com exemplar retido ou não e a situação da RN15 (Admin). */
     @GetMapping("/pedidos-pendentes")
     public ResponseEntity<?> pedidosPendentes() {
