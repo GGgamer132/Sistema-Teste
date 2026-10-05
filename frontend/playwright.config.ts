@@ -1,14 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Testes ponta a ponta contra o backend REAL (suba antes com
- * `mvn spring-boot:run` em backend/circula-book). O Vite sobe sozinho.
+ * Testes ponta a ponta contra o backend REAL. O globalSetup reinicia o backend
+ * (seed limpo da §8) a cada execução; `npm run test:e2e` roda cada arquivo num
+ * backend recém-iniciado. O Vite sobe sozinho.
  */
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   workers: 1,
   reporter: "list",
+  globalSetup: "./e2e/global-setup.mjs",
   use: {
     baseURL: "http://localhost:5173",
     trace: "retain-on-failure",
