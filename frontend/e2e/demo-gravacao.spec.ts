@@ -391,15 +391,10 @@ test("Roteiro de gravação 9.0: cenas 1 a 7 na ordem, sem erro", async ({ page,
     await menu(page).getByRole("link", { name: "Histórico" }).click();
     await page.getByLabel("Exemplar nº").fill(String(viajante!.id));
     await page.getByRole("button", { name: "Ver linha do tempo" }).click();
-    const eventos = page.getByTestId("linha-do-tempo").getByTestId("evento-linha");
-    const rotulos = (await eventos.allTextContents()).join(" | ");
-    const ordem = ["Devolução", "Saída para transferência", "Chegada de transferência", "Empréstimo"];
-    let ultimo = -1;
-    for (const r of ordem) {
-      const pos = rotulos.indexOf(r, ultimo + 1);
-      expect(pos, `"${r}" depois do evento anterior na linha do tempo`).toBeGreaterThan(ultimo);
-      ultimo = pos;
-    }
+    // Ordem dos eventos: devolução -> saída -> chegada -> empréstimo (a asserção espera a tela carregar)
+    await expect(page.getByTestId("linha-do-tempo")).toContainText(
+      /Devolução[\s\S]*Saída para transferência[\s\S]*Chegada de transferência[\s\S]*Empréstimo/,
+    );
     await expect(page.getByTestId("linha-do-tempo")).not.toContainText("Fila de espera"); // marcas ocultas
     await pausa(page, 2000);
 
