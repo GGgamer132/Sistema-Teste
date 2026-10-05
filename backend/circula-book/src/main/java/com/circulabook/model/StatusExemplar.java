@@ -32,8 +32,8 @@ public final class StatusExemplar {
         RESERVADO, Set.of(
             EMPRESTADO_RESERVADO,   // retirada e ainda há fila
             EMPRESTADO,             // retirada e não há mais fila
-            DISPONIVEL,             // expiração com fila vazia
-            RESERVADO)              // expiração com fila: passa ao próximo
+            DISPONIVEL,             // expiração/cancelamento com fila vazia
+            RESERVADO)              // expiração/cancelamento com fila: passa ao próximo
     );
 
     public static boolean transicaoValida(String de, String para) {

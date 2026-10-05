@@ -2,6 +2,7 @@ package com.circulabook.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.circulabook.dto.MinhaReservaDTO;
 import com.circulabook.model.*;
 import com.circulabook.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,10 +10,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
- * Especialista de Reserva (UC03 / RN03).
+ * Especialista de Reserva (UC03 / UC07 / RN03).
  *
  * Reserva = fila de espera de UMA biblioteca. A retirada é sempre feita
  * na mesma biblioteca da fila.
@@ -31,6 +33,7 @@ public class ReservaService {
     @Autowired private ExemplarRepository exemplarRepository;
     @Autowired private EstadoExemplarService estadoExemplar;
     @Autowired private EmprestimoRepository emprestimoRepository;
+    @Autowired private FilaEsperaService filaEsperaService;
 
     /** Posição que o usuário ocupará na fila daquela biblioteca (resumo da tela de reserva). */
     public long posicaoNaFila(Long livroId, Long bibliotecaId) {
@@ -102,6 +105,58 @@ public class ReservaService {
             + " para " + usuario.getNome() + " | Biblioteca: " + biblioteca.getNome()
             + " (posição " + reserva.getPosicaoFila() + ")");
 
+        return reserva;
+    }
+
+    /** Minhas reservas — reservas ativas do usuário, a mais recente primeiro, com a posição na fila. */
+    public List<MinhaReservaDTO> minhasReservas(Long usuarioId) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+            .orElseThrow(() -> new RuntimeException("Usuário não encontrado: ID " + usuarioId));
+        return reservaRepository.findByUsuarioAndStatusIn(usuario, STATUS_ATIVOS).stream()
+            .sorted(Comparator.comparing(Reserva::getDataReserva).reversed())
+            .map(r -> new MinhaReservaDTO(r.getId(), r.getLivro().getId(), r.getLivro().getTitulo(),
+                r.getLivro().getAutor(), r.getBibliotecaFila().getId(), r.getBibliotecaFila().getNome(),
+                "PENDENTE".equals(r.getStatus()) ? posicaoAtual(r) : null,
+                r.getStatus(), r.getDataReserva(),
+                "DISPONIVEL".equals(r.getStatus()) ? r.getDataExpiracao() : null))
+            .toList();
+    }
+
+    private Integer posicaoAtual(Reserva reserva) {
+        List<Reserva> fila = reservaRepository.findByLivroAndBibliotecaFilaAndStatusOrderByDataReservaAsc(
+            reserva.getLivro(), reserva.getBibliotecaFila(), "PENDENTE");
+        for (int i = 0; i < fila.size(); i++) {
+            if (fila.get(i).getId().equals(reserva.getId())) return i + 1;
+        }
+        return null;
+    }
+
+    /**
+     * UC07 — Cancelar reserva (PENDENTE ou DISPONIVEL).
+     * Se já havia exemplar separado (RESERVADO), ele atende o próximo da fila ou volta a
+     * ficar DISPONIVEL; se a fila esvaziou, os emprestados voltam a EMPRESTADO.
+     */
+    @Transactional
+    public Reserva cancelar(Long reservaId) {
+        Reserva reserva = reservaRepository.findById(reservaId)
+            .orElseThrow(() -> new RuntimeException("Reserva não encontrada: ID " + reservaId));
+
+        if (!STATUS_ATIVOS.contains(reserva.getStatus())) {
+            throw new RuntimeException("Esta reserva não pode mais ser cancelada.");
+        }
+
+        // Marca CANCELADA antes de liberar o exemplar, para ela não ser atendida de novo
+        reserva.setStatus("CANCELADA");
+        reservaRepository.save(reserva);
+
+        Exemplar exemplar = reserva.getExemplar();
+        if (exemplar != null && StatusExemplar.RESERVADO.equals(exemplar.getStatus())) {
+            filaEsperaService.liberar(exemplar);
+        }
+        estadoExemplar.sincronizarMarcaDeFila(reserva.getLivro(), reserva.getBibliotecaFila());
+
+        log.info("[CIRCULA BOOK] Reserva #" + reserva.getId() + " cancelada por "
+            + reserva.getUsuario().getNome() + ".");
         return reserva;
     }
 

@@ -19,6 +19,9 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
     List<Reserva> findByLivroAndUsuarioAndStatusIn(Livro livro, Usuario usuario, List<String> status);
 
+    // Minhas reservas: as reservas ativas do usuário
+    List<Reserva> findByUsuarioAndStatusIn(Usuario usuario, List<String> status);
+
     // Fila de espera de um título EM UMA BIBLIOTECA, em ordem de chegada
     List<Reserva> findByLivroAndBibliotecaFilaAndStatusOrderByDataReservaAsc(
         Livro livro, Biblioteca bibliotecaFila, String status);

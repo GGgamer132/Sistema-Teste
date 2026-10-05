@@ -44,7 +44,7 @@ public class Reserva {
     @Column(nullable = false)
     private LocalDateTime dataExpiracao;
 
-    // PENDENTE | DISPONIVEL | RETIRADA | EXPIRADA
+    // PENDENTE | DISPONIVEL | RETIRADA | EXPIRADA | CANCELADA
     @Column(nullable = false, length = 30)
     private String status;
 

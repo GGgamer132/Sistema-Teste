@@ -55,11 +55,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
 
-                // Busca, detalhes e reserva: usuário comum
+                // Busca, detalhes, reserva e minhas reservas: usuário comum
                 .requestMatchers(HttpMethod.GET, "/api/livros/busca", "/api/livros/*",
                                  "/api/categorias").hasRole(COMUM)
-                .requestMatchers(HttpMethod.GET, "/api/reservas/posicao/*").hasRole(COMUM)
+                .requestMatchers(HttpMethod.GET, "/api/reservas/posicao/*",
+                                 "/api/reservas/minhas").hasRole(COMUM)
                 .requestMatchers(HttpMethod.POST, "/api/reservas").hasRole(COMUM)
+                .requestMatchers(HttpMethod.PATCH, "/api/reservas/*/cancelar").hasRole(COMUM)
 
                 // Empréstimo e devolução: bibliotecário (recorte pela biblioteca no controller)
                 .requestMatchers(HttpMethod.GET, "/api/exemplares/biblioteca/*",
