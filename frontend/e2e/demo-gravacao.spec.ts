@@ -300,7 +300,7 @@ test("Roteiro de gravação 9.0: cenas 1 a 7 na ordem, sem erro", async ({ page,
     await expect(aReceber.getByRole("row").filter({ hasText: "Fahrenheit 451" })).toBeVisible();
     await pausa(page);
     await confirmarChegada(page, "Fahrenheit 451");
-    await expect(page.getByText(new RegExp(`confirmada\. Ele entrou no acervo da ${VI_NOME}`))).toBeVisible();
+    await expect(page.getByText(`confirmada. Ele entrou no acervo da ${VI_NOME}.`)).toBeVisible();
     await confirmarChegada(page, "O Hobbit");
     await expect(page.getByText("Ele está separado para Usuário 3, que tem 3 dias para retirar.")).toBeVisible();
     await pausa(page);
