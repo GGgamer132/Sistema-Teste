@@ -35,8 +35,8 @@ export function definirAoNaoAutorizado(fn: () => void) {
   aoNaoAutorizado = fn;
 }
 
-/** Login e cadastro são públicos: não levam token e o 401 é só mensagem de erro. */
-const ROTAS_PUBLICAS = ["/auth/login", "/auth/cadastro"];
+/** O login é público: não leva token e o 401 é só mensagem de erro. */
+const ROTAS_PUBLICAS = ["/auth/login"];
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const publica = ROTAS_PUBLICAS.includes(path);
