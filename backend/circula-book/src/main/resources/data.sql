@@ -67,7 +67,7 @@ INSERT INTO livro (id, titulo, autor, isbn, editora, ano_publicacao, sinopse, ca
 (15, 'Quarto de Despejo', 'Carolina Maria de Jesus', '978-65-90000-15-0', 'Editora Memória', 1960,
      'O diário de uma catadora de papel na favela do Canindé, em São Paulo.', 5),
 (16, 'O Pequeno Príncipe', 'Antoine de Saint-Exupéry', '978-65-90000-16-0', 'Editora Ciranda', 1943,
-     'Um aviador perdido no deserto conhece um pequeno príncipe vindo de outro planeta.', 6),
+     'Um aviador que cai no deserto conhece um pequeno príncipe vindo de outro planeta.', 6),
 (17, 'Sapiens', 'Yuval Noah Harari', '978-65-90000-17-0', 'Editora Ágora', 2011,
      'Uma breve história da humanidade, da pré-história aos dias de hoje.', 7),
 (18, 'Casa-Grande & Senzala', 'Gilberto Freyre', '978-65-90000-18-0', 'Editora Ágora', 1933,

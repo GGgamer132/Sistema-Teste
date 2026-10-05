@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Etapa de limpeza: sem código de barras, sem RN11/PERDIDO, prazo fixo de 14 dias.
+// Etapa de limpeza: exemplar identificado pelo número, condições só Bom/Danificado, prazo fixo de 14 dias.
 // Toda tela percorrida não pode gerar erro 500 nem erro no console.
 
 const SENHA = "senha123";
@@ -71,7 +71,7 @@ test("BIBLIOTECARIO: empréstimo sem seletor de prazo, devolução em 14 dias", 
   const esperado = new Date(Date.now() + 14 * 86_400_000).toLocaleDateString("pt-BR");
   await expect(page.getByText(`devolução prevista em ${esperado}`)).toBeVisible();
 
-  // Devolução: sem opção "Perdido", exemplares por número
+  // Devolução: só Bom/Danificado, exemplares por número
   await page.getByRole("link", { name: "Registrar Devolução" }).click();
   await expect(page.getByText(/Exemplar nº \d+/).first()).toBeVisible();
   await expect(page.locator("body")).not.toContainText(SEM_JARGAO);

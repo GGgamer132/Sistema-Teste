@@ -99,7 +99,7 @@ test("B-15: BibT cadastra o 1º exemplar de Memórias Póstumas; fica DISPONIVEL
   await expect(msg).toBeVisible();
   const numero = Number((await msg.textContent())!.match(/Exemplar nº (\d+)/)![1]);
 
-  // Aparece na lista de empréstimo e pode ser emprestado (sem RN11)
+  // Aparece na lista de empréstimo e pode ser emprestado (exemplar único também empresta)
   await page.getByRole("link", { name: "Registrar Empréstimo" }).click();
   await expect(page.getByText(`Exemplar nº ${numero}`)).toBeVisible();
   const auth = await token(request, BIB_T);
