@@ -40,6 +40,26 @@ test.describe("Login", () => {
     await expect(page.locator("header select")).toHaveCount(0);
   });
 
+  test("AU-01: cada usuário da 8.1 entra e cai na tela inicial do seu perfil", async ({ page }) => {
+    const usuarios: [string, string, RegExp][] = [
+      ["admin@circulabook.com", "Admin · Administrador da Rede", /\/admin$/],
+      ["bibliotecariocentral@circulabook.com", "Bibliotecário Central · Bibliotecário — Biblioteca Central", /\/biblioteca$/],
+      ["bibliotecariovilaisabel@circulabook.com", "Bibliotecário Vila Isabel · Bibliotecário — Biblioteca Comunitária de Vila Isabel", /\/biblioteca$/],
+      ["bibliotecariotijuca@circulabook.com", "Bibliotecário Tijuca · Bibliotecário — Biblioteca Popular da Tijuca", /\/biblioteca$/],
+      ["usuario1@circulabook.com", "Usuário 1 · Usuário da Comunidade", /5173\/$/],
+      ["usuario2@circulabook.com", "Usuário 2 · Usuário da Comunidade", /5173\/$/],
+      ["usuario3@circulabook.com", "Usuário 3 · Usuário da Comunidade", /5173\/$/],
+    ];
+    for (const [email, identificacao, inicio] of usuarios) {
+      await entrar(page, email);
+      await expect(page).toHaveURL(inicio);
+      await expect(page.getByTestId("identificacao")).toContainText(identificacao);
+      await expect(page.locator("header select")).toHaveCount(0);
+      await page.getByRole("button", { name: "Sair" }).click();
+      await expect(page).toHaveURL(/\/login$/);
+    }
+  });
+
   test("ADMIN entra e cai no painel (/admin); tela de transferências carrega com o token", async ({ page }) => {
     await entrar(page, ADMIN);
     await expect(page).toHaveURL(/\/admin$/);
