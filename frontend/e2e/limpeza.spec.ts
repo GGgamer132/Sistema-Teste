@@ -28,7 +28,7 @@ const SEM_JARGAO = /c[oó]digo de barras|tombo|RN\d{2}|Perdido/i;
 
 test("COMUM: busca de livros e telas do usuário", async ({ page }) => {
   const problemas = vigiar(page);
-  await entrar(page, "ana.souza@email.com");
+  await entrar(page, "usuario2@circulabook.com"); // seed: Usuário 2 tem empréstimos ativos
   await expect(page).toHaveURL(/5173\/$/);
   await page.getByLabel("Buscar por título, autor ou ISBN").fill("Dom Casmurro");
   await page.getByRole("button", { name: "Buscar" }).click();
@@ -44,7 +44,7 @@ test("COMUM: busca de livros e telas do usuário", async ({ page }) => {
 
 test("BIBLIOTECARIO: empréstimo sem seletor de prazo, devolução em 14 dias", async ({ page }) => {
   const problemas = vigiar(page);
-  await entrar(page, "carlos.lima@circulabook.org.br");
+  await entrar(page, "bibliotecariovilaisabel@circulabook.com");
   await expect(page).toHaveURL(/\/biblioteca$/);
   await page.getByRole("link", { name: "Registrar Empréstimo" }).click();
 
@@ -56,7 +56,7 @@ test("BIBLIOTECARIO: empréstimo sem seletor de prazo, devolução em 14 dias", 
   // Tomador novo a cada execução, para não depender de empréstimos anteriores
   const nome = `Leitor E2E ${Date.now()}`;
   const cadastro = await page.request.post("http://localhost:8080/api/auth/cadastro", {
-    data: { nome, email: `leitor.${Date.now()}@email.com`, senha: "abc123" },
+    data: { nome, email: `leitor.${Date.now()}@teste.com`, senha: "abc123" },
   });
   expect(cadastro.ok()).toBeTruthy();
   await page.reload();
@@ -86,7 +86,7 @@ test("BIBLIOTECARIO: empréstimo sem seletor de prazo, devolução em 14 dias", 
 
 test("ADMIN: transferência avulsa lista exemplares por número", async ({ page }) => {
   const problemas = vigiar(page);
-  await entrar(page, "roberto.dias@circulabook.org.br");
+  await entrar(page, "admin@circulabook.com");
   await expect(page).toHaveURL(/\/admin$/);
   await page.getByRole("link", { name: "Transferências", exact: true }).click();
   await page.getByRole("button", { name: /Nova transferência avulsa/ }).click();

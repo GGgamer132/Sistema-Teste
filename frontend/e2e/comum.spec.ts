@@ -1,19 +1,27 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { CENTRAL_NOME, idBiblioteca, VI_NOME } from "./apoio";
 
 // Etapa 4b — telas do usuário COMUM (U-01 a U-13, U-16) contra backend + frontend reais.
 // O seed atual não tem os cenários da §8, então cada teste monta os próprios dados pela API:
 // o Admin cria categoria, livros, uma biblioteca de destino com bibliotecário ativo e outra
-// sem bibliotecário; Fernanda (Central) e Carlos (Vila Isabel) cadastram exemplares e
+// sem bibliotecário; BibC (Central) e BibVI (Vila Isabel) cadastram exemplares e
 // registram empréstimos para leitores criados na hora.
 
 const API = "http://localhost:8080/api";
 const SENHA = "senha123";
-const ROBERTO = "roberto.dias@circulabook.org.br";
-const FERNANDA = "fernanda.reis@circulabook.org.br"; // Biblioteca Central (id 4)
-const CARLOS = "carlos.lima@circulabook.org.br"; // Biblioteca Vila Isabel (id 1)
-const ANA = "ana.souza@email.com";
-const CENTRAL = 4;
-const VILA_ISABEL = 1;
+const ADMIN = "admin@circulabook.com";
+const BIB_C = "bibliotecariocentral@circulabook.com"; // Biblioteca Central
+const BIB_VI = "bibliotecariovilaisabel@circulabook.com"; // Vila Isabel
+const U1 = "usuario1@circulabook.com";
+const U2 = "usuario2@circulabook.com";
+let CENTRAL = 0;
+let VILA_ISABEL = 0;
+
+// Ids das bibliotecas do seed, achados pelo nome
+test.beforeAll(async ({ request }) => {
+  CENTRAL = await idBiblioteca(request, CENTRAL_NOME);
+  VILA_ISABEL = await idBiblioteca(request, VI_NOME);
+});
 
 type Cabecalho = { Authorization: string };
 
@@ -61,8 +69,8 @@ interface Leitor {
 interface Cenario {
   u: string;
   admin: Cabecalho;
-  fernanda: Cabecalho;
-  carlos: Cabecalho;
+  bibC: Cabecalho;
+  bibVI: Cabecalho;
   leitor: Leitor;
   b1: Leitor;
   livros: Record<"duna" | "sertao" | "orwell" | "capitaes" | "sapiens", { id: number; titulo: string }>;
@@ -90,9 +98,9 @@ async function novoLeitor(request: APIRequestContext, nome: string, u: string): 
  */
 async function montar(request: APIRequestContext): Promise<Cenario> {
   const u = unico();
-  const admin = await token(request, ROBERTO);
-  const fernanda = await token(request, FERNANDA);
-  const carlos = await token(request, CARLOS);
+  const admin = await token(request, ADMIN);
+  const bibC = await token(request, BIB_C);
+  const bibVI = await token(request, BIB_VI);
 
   const cat = await ok<{ id: number }>(
     request.post(`${API}/categorias`, { headers: admin, data: { nome: `Categoria ${u}` } }),
@@ -114,11 +122,11 @@ async function montar(request: APIRequestContext): Promise<Cenario> {
   const bib = await ok<{ id: number; nome: string }>(
     request.post(`${API}/bibliotecas`, { headers: admin, data: { nome: `Biblioteca Destino ${u}` } }),
   );
-  const bibliotecario = `dest.${u}@circulabook.org.br`;
+  const bibliotecario = `bibliotecariodestino${u}@circulabook.com`;
   await ok(
     request.post(`${API}/usuarios/bibliotecarios`, {
       headers: admin,
-      data: { nome: `Bibliotecária ${u}`, email: bibliotecario, senha: SENHA, bibliotecaId: bib.id },
+      data: { nome: `Bibliotecário Destino ${u}`, email: bibliotecario, senha: SENHA, bibliotecaId: bib.id },
     }),
   );
   const vazia = await ok<{ id: number; nome: string }>(
@@ -129,19 +137,19 @@ async function montar(request: APIRequestContext): Promise<Cenario> {
     (await ok<{ id: number }[]>(
       request.post(`${API}/exemplares`, { headers: h, data: { livroId, conservacao: "BOM", quantidade } }),
     )).map((e) => e.id);
-  const duna = await exemplares(fernanda, livros.duna.id, 2);
-  const sertao = await exemplares(fernanda, livros.sertao.id, 1);
-  await exemplares(fernanda, livros.orwell.id, 1);
-  await exemplares(carlos, livros.capitaes.id, 1);
-  const sapiens = await exemplares(fernanda, livros.sapiens.id, 2);
-  await exemplares(carlos, livros.sapiens.id, 1);
+  const duna = await exemplares(bibC, livros.duna.id, 2);
+  const sertao = await exemplares(bibC, livros.sertao.id, 1);
+  await exemplares(bibC, livros.orwell.id, 1);
+  await exemplares(bibVI, livros.capitaes.id, 1);
+  const sapiens = await exemplares(bibC, livros.sapiens.id, 2);
+  await exemplares(bibVI, livros.sapiens.id, 1);
 
   const leitor = await novoLeitor(request, "Leitor", u);
   const b1 = await novoLeitor(request, "Beatriz", u);
   const b2 = await novoLeitor(request, "Breno", u);
   const emprestar = async (exemplarId: number, usuarioId: number) =>
     (await ok<{ id: number }>(
-      request.post(`${API}/emprestimos/registrar`, { headers: fernanda, data: { exemplarId, usuarioId } }),
+      request.post(`${API}/emprestimos/registrar`, { headers: bibC, data: { exemplarId, usuarioId } }),
     )).id;
   const empDuna = [await emprestar(duna[0], b1.id), await emprestar(duna[1], b2.id)];
   await emprestar(sertao[0], b1.id);
@@ -149,7 +157,7 @@ async function montar(request: APIRequestContext): Promise<Cenario> {
   await emprestar(sapiens[1], b2.id);
 
   return {
-    u, admin, fernanda, carlos, leitor, b1, livros, empDuna,
+    u, admin, bibC, bibVI, leitor, b1, livros, empDuna,
     destino: { id: bib.id, nome: bib.nome, bibliotecario },
     semBibliotecario: vazia,
   };
@@ -249,9 +257,9 @@ test("U-05 / U-10: fila na própria biblioteca, 1º lugar, sem transferência; '
   await expect(card).not.toContainText("Transferência");
   expect(await transferenciaDo(request, c.admin, c.livros.duna.id)).toBeUndefined();
 
-  // Fernanda recebe um Duna de volta: a reserva fica pronta e aparece o prazo
+  // BibC recebe um Duna de volta: a reserva fica pronta e aparece o prazo
   await ok(request.post(`${API}/emprestimos/devolver`, {
-    headers: c.fernanda, data: { emprestimoId: c.empDuna[0], condicaoExemplar: "BOM" },
+    headers: c.bibC, data: { emprestimoId: c.empDuna[0], condicaoExemplar: "BOM" },
   }));
   await page.reload();
   await expect(card).toContainText("PRONTA PARA RETIRADA");
@@ -270,7 +278,7 @@ test("U-06: retirada em outra biblioteca — destinos liberados e bloqueados com
   const destinos = page.getByRole("group", { name: "Biblioteca de retirada" });
   await expect(destinos.getByRole("radio", { name: /Biblioteca Central/ })).toHaveCount(0);
   await expect(destinos.getByRole("radio", { name: c.destino.nome })).toBeEnabled();
-  await expect(destinos.getByRole("radio", { name: "Biblioteca Vila Isabel" })).toBeEnabled();
+  await expect(destinos.getByRole("radio", { name: "Biblioteca Comunitária de Vila Isabel" })).toBeEnabled();
   await expect(destinos.getByRole("radio", { name: new RegExp(c.semBibliotecario.nome) })).toBeDisabled();
   await expect(destinos.getByText(c.semBibliotecario.nome).locator("..")).toContainText("bibliotecário ativo");
   await expect(page.locator("body")).not.toContainText(/RN\d/);
@@ -313,8 +321,8 @@ test("U-08: destino que já tem o título fica bloqueado; API recusa", async ({ 
   await page.goto(`/livro/${c.livros.sapiens.id}/reservar?biblioteca=${CENTRAL}`);
   await page.getByRole("button", { name: /Em outra biblioteca/ }).click();
   const destinos = page.getByRole("group", { name: "Biblioteca de retirada" });
-  await expect(destinos.getByRole("radio", { name: "Biblioteca Vila Isabel" })).toBeDisabled();
-  await expect(destinos.getByText("Biblioteca Vila Isabel", { exact: true }).locator(".."))
+  await expect(destinos.getByRole("radio", { name: "Biblioteca Comunitária de Vila Isabel" })).toBeDisabled();
+  await expect(destinos.getByText("Biblioteca Comunitária de Vila Isabel", { exact: true }).locator(".."))
     .toContainText("já possui exemplares deste título");
 
   const r = await reservarApi(request, c.leitor.h, c.livros.sapiens.id, CENTRAL, VILA_ISABEL);
@@ -381,7 +389,7 @@ test("U-12: cancelar com transferência em trânsito avisa que a viagem continua
   const t = await transferenciaDo(request, c.admin, c.livros.duna.id);
   await ok(request.patch(`${API}/transferencias/${t.id}/aprovar`, { headers: c.admin }));
   await ok(request.post(`${API}/emprestimos/devolver`, {
-    headers: c.fernanda, data: { emprestimoId: c.empDuna[0], condicaoExemplar: "BOM" },
+    headers: c.bibC, data: { emprestimoId: c.empDuna[0], condicaoExemplar: "BOM" },
   }));
   expect((await transferenciaDo(request, c.admin, c.livros.duna.id)).status).toBe("EM_TRANSITO");
 
@@ -407,47 +415,50 @@ test("U-12: cancelar com transferência em trânsito avisa que a viagem continua
 
 // ───────────────────────── U-13 ─────────────────────────
 
-test("U-13: Meus Empréstimos e Histórico só da Ana; x/3; atraso; bloqueio com data", async ({ page, request }) => {
+test("U-13: Meus Empréstimos e Histórico só do Usuário 2; 3/3; Duna atrasado; bloqueio com data", async ({ page, request }) => {
+  // Seed (§8.4): Usuário 2 tem 3/3 — O Hobbit (há 3 dias), Grande Sertão (há 6) e Duna (atrasado há 6)
   const problemas = vigiar(page);
-  await entrar(page, ANA);
+  await entrar(page, U2);
   await page.getByRole("navigation").getByRole("link", { name: "Meus Empréstimos" }).click();
   await expect(page).toHaveURL(/\/meus-emprestimos$/);
   const cards = page.getByTestId("emprestimo");
-  await expect(cards).toHaveCount(2); // seed: Dom Casmurro (Méier) + Memórias Póstumas (Central, atrasado)
-  await expect(page.getByText("2 de 3")).toBeVisible();
-  const atrasado = cards.filter({ hasText: "Memorias Postumas" });
-  await expect(atrasado).toContainText(/Atrasado há 3 dias/);
-  const prev = new Date(Date.now() - 3 * 86_400_000).toLocaleDateString("pt-BR");
-  await expect(atrasado).toContainText(`devolver até ${prev}`);
+  await expect(cards).toHaveCount(3);
+  await expect(page.getByText("3 de 3")).toBeVisible();
+  const atrasado = cards.filter({ hasText: "Duna" });
+  await expect(atrasado).toContainText(/Atrasado há 6 dias/);
+  await expect(atrasado).toContainText(`devolver até ${new Date(Date.now() - 6 * 86_400_000).toLocaleDateString("pt-BR")}`);
   await expect(page.getByText("Empréstimos bloqueados")).toHaveCount(0);
-  // Prazo de 14 dias no empréstimo em dia (seed: emprestado há 5 dias, vence em 9)
-  const emDia = cards.filter({ hasText: "Dom Casmurro" });
-  await expect(emDia).toContainText(`devolver até ${new Date(Date.now() + 9 * 86_400_000).toLocaleDateString("pt-BR")}`);
+  // Prazo de 14 dias no empréstimo em dia (emprestado há 3 dias, vence em 11)
+  const emDia = cards.filter({ hasText: "O Hobbit" });
+  await expect(emDia).toContainText(`devolver até ${new Date(Date.now() + 11 * 86_400_000).toLocaleDateString("pt-BR")}`);
 
-  // Fernanda recebe o Memórias atrasado: 3 dias de atraso = 6 dias de bloqueio
-  const fernanda = await token(request, FERNANDA);
+  // BibC recebe o Duna atrasado: 6 dias de atraso = 12 dias de bloqueio
+  const bibC = await token(request, BIB_C);
   const ativos = await ok<{ id: number; usuario: { email: string }; exemplar: { livro: { titulo: string } } }[]>(
-    request.get(`${API}/emprestimos/ativos`, { headers: fernanda }),
+    request.get(`${API}/emprestimos/ativos`, { headers: bibC }),
   );
-  const emp = ativos.find((e) => e.usuario.email === ANA && e.exemplar.livro.titulo.startsWith("Memorias"));
+  const emp = ativos.find((e) => e.usuario.email === U2 && e.exemplar.livro.titulo === "Duna");
   expect(emp).toBeDefined();
   await ok(request.post(`${API}/emprestimos/devolver`, {
-    headers: fernanda, data: { emprestimoId: emp!.id, condicaoExemplar: "BOM" },
+    headers: bibC, data: { emprestimoId: emp!.id, condicaoExemplar: "BOM" },
   }));
 
   await page.reload();
-  await expect(cards).toHaveCount(1);
-  await expect(page.getByText("1 de 3")).toBeVisible();
-  const fim = new Date(Date.now() + 6 * 86_400_000).toLocaleDateString("pt-BR");
+  await expect(cards).toHaveCount(2);
+  await expect(page.getByText("2 de 3")).toBeVisible();
+  const fim = new Date(Date.now() + 12 * 86_400_000).toLocaleDateString("pt-BR");
   await expect(page.getByText("Empréstimos bloqueados")).toBeVisible();
-  await expect(page.getByText(new RegExp(`novos empréstimos até ${fim.replace(/\//g, "\\/")}`))).toBeVisible();
+  await expect(page.getByText(`novos empréstimos até ${fim}`)).toBeVisible();
 
-  // Histórico: só registros da Ana, com filtro de tipo e período
+  // Histórico: só registros do Usuário 2 (Sapiens, O Pequeno Príncipe, reserva cancelada e o Duna de agora)
   await page.getByRole("navigation").getByRole("link", { name: "Meu Histórico" }).click();
   await expect(page).toHaveURL(/\/historico$/);
   const linhas = page.getByRole("row").filter({ hasText: /Empréstimo|Reserva/ });
-  await expect(linhas.filter({ hasText: "Memorias Postumas" })).toContainText("Devolvido com 3 dia(s) de atraso.");
-  await expect(page.getByText("Bruno Alves")).toHaveCount(0);
+  await expect(linhas.filter({ hasText: "Duna" })).toContainText("Devolvido com 6 dia(s) de atraso.");
+  await expect(linhas.filter({ hasText: "Sapiens" })).toHaveCount(1);
+  await expect(linhas.filter({ hasText: "O Pequeno Príncipe" })).toHaveCount(1);
+  await expect(linhas.filter({ hasText: "Dom Casmurro" })).toContainText("Cancelada");
+  await expect(page.getByText(/Código Limpo|Anne Frank/)).toHaveCount(0); // são do Usuário 3
   const total = await linhas.count();
 
   await page.getByLabel("Tipo").selectOption("RESERVA");
@@ -455,8 +466,8 @@ test("U-13: Meus Empréstimos e Histórico só da Ana; x/3; atraso; bloqueio com
   await expect(linhas.filter({ hasText: "Empréstimo" })).toHaveCount(0);
 
   await page.getByLabel("Tipo").selectOption("");
-  const hoje = new Date();
-  const iso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+  const amanha = new Date(Date.now() + 86_400_000);
+  const iso = `${amanha.getFullYear()}-${String(amanha.getMonth() + 1).padStart(2, "0")}-${String(amanha.getDate()).padStart(2, "0")}`;
   await page.getByLabel("De", { exact: true }).fill(iso);
   await page.getByRole("button", { name: "Filtrar" }).click();
   await expect(page.getByText("Nenhum registro no período.")).toBeVisible();
@@ -470,7 +481,7 @@ test("U-13: Meus Empréstimos e Histórico só da Ana; x/3; atraso; bloqueio com
 
 test("U-16: COMUM em /biblioteca e /admin volta para a busca; menu sem 'Em construção' nem jargão", async ({ page }) => {
   const problemas = vigiar(page);
-  await entrar(page, ANA);
+  await entrar(page, U1);
   for (const rota of ["/biblioteca", "/biblioteca/emprestimo", "/admin", "/admin/catalogo"]) {
     await page.goto(rota);
     await expect(page).toHaveURL(/\/$/);
@@ -487,7 +498,7 @@ test("U-16: COMUM em /biblioteca e /admin volta para a busca; menu sem 'Em const
 
 test("Admin: /admin é o painel da rede (não há mais redirecionamento)", async ({ page }) => {
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: "Painel da Rede" })).toBeVisible();
   await expect(page.getByText(/em constru[cç][aã]o/i)).toHaveCount(0);

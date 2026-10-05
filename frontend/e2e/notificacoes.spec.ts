@@ -1,17 +1,24 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { CENTRAL_NOME, idBiblioteca, VI_NOME } from "./apoio";
 
 // Etapa 6 — notificações in-app (U-15, B-07, B-20, A-20) e cabeçalho responsivo,
 // contra backend + frontend reais. Cada teste monta os próprios dados pela API.
 
 const API = "http://localhost:8080/api";
 const SENHA = "senha123";
-const ROBERTO = "roberto.dias@circulabook.org.br";
-const FERNANDA = "fernanda.reis@circulabook.org.br"; // Biblioteca Central (id 4)
-const CARLOS = "carlos.lima@circulabook.org.br"; // Biblioteca Vila Isabel (id 1)
-const ANA = "ana.souza@email.com";
-const CAMILA = "camila.duarte@email.com";
-const CENTRAL = 4;
-const VILA_ISABEL = 1;
+const ADMIN = "admin@circulabook.com";
+const BIB_C = "bibliotecariocentral@circulabook.com"; // Biblioteca Central
+const BIB_VI = "bibliotecariovilaisabel@circulabook.com"; // Vila Isabel
+const U1 = "usuario1@circulabook.com";
+const U2 = "usuario2@circulabook.com";
+let CENTRAL = 0;
+let VILA_ISABEL = 0;
+
+// Ids das bibliotecas do seed, achados pelo nome
+test.beforeAll(async ({ request }) => {
+  CENTRAL = await idBiblioteca(request, CENTRAL_NOME);
+  VILA_ISABEL = await idBiblioteca(request, VI_NOME);
+});
 
 type Cabecalho = { Authorization: string };
 
@@ -94,15 +101,15 @@ const painel = (page: Page) => page.getByRole("dialog", { name: "Notificações"
 
 test("U-15: contador vermelho, marcar lida, atualização sem recarregar, marcar todas zera, clicar leva à tela", async ({ page, request }) => {
   const u = unico();
-  const admin = await token(request, ROBERTO);
-  const fernanda = await token(request, FERNANDA);
+  const admin = await token(request, ADMIN);
+  const bibC = await token(request, BIB_C);
   const leitor = await novoLeitor(request, "Leitora", u);
-  const x = await tituloEmprestado(request, admin, fernanda, `Livro X ${u}`, 1, u);
-  const y = await tituloEmprestado(request, admin, fernanda, `Livro Y ${u}`, 1, u);
-  const z = await tituloEmprestado(request, admin, fernanda, `Livro Z ${u}`, 1, u);
+  const x = await tituloEmprestado(request, admin, bibC, `Livro X ${u}`, 1, u);
+  const y = await tituloEmprestado(request, admin, bibC, `Livro Y ${u}`, 1, u);
+  const z = await tituloEmprestado(request, admin, bibC, `Livro Z ${u}`, 1, u);
   for (const t of [x, y, z]) await reservar(request, leitor.h, t.livroId, CENTRAL, CENTRAL);
-  await devolver(request, fernanda, x.emps[0]);
-  await devolver(request, fernanda, y.emps[0]); // 2 avisos de "pronta para retirada"
+  await devolver(request, bibC, x.emps[0]);
+  await devolver(request, bibC, y.emps[0]); // 2 avisos de "pronta para retirada"
 
   const problemas = vigiar(page);
   await page.clock.install();
@@ -121,7 +128,7 @@ test("U-15: contador vermelho, marcar lida, atualização sem recarregar, marcar
   await page.keyboard.press("Escape");
 
   // Chega outra notificação: o polling de 30 s atualiza o contador sem recarregar
-  await devolver(request, fernanda, z.emps[0]);
+  await devolver(request, bibC, z.emps[0]);
   await page.clock.runFor(31_000);
   await expect(contador(page)).toHaveText("2");
 
@@ -139,10 +146,10 @@ test("U-15: contador vermelho, marcar lida, atualização sem recarregar, marcar
 
 test("U-15: trocar de tela também atualiza o contador; clicar numa não lida marca e navega", async ({ page, request }) => {
   const u = unico();
-  const admin = await token(request, ROBERTO);
-  const fernanda = await token(request, FERNANDA);
+  const admin = await token(request, ADMIN);
+  const bibC = await token(request, BIB_C);
   const leitor = await novoLeitor(request, "Leitor", u);
-  const x = await tituloEmprestado(request, admin, fernanda, `Livro W ${u}`, 1, u);
+  const x = await tituloEmprestado(request, admin, bibC, `Livro W ${u}`, 1, u);
   await reservar(request, leitor.h, x.livroId, CENTRAL, CENTRAL);
 
   const problemas = vigiar(page);
@@ -152,7 +159,7 @@ test("U-15: trocar de tela também atualiza o contador; clicar numa não lida ma
   await expect(painel(page)).toContainText("Você não tem notificações.");
   await page.keyboard.press("Escape");
 
-  await devolver(request, fernanda, x.emps[0]);
+  await devolver(request, bibC, x.emps[0]);
   await page.getByRole("navigation", { name: "Menu principal" }).getByRole("link", { name: "Meu Histórico" }).click();
   await expect(contador(page)).toHaveText("1");
   await sino(page).click();
@@ -166,15 +173,15 @@ test("U-15: trocar de tela também atualiza o contador; clicar numa não lida ma
 
 test("B-20: sino do bibliotecário avisa a reserva pronta para retirada", async ({ page, request }) => {
   const u = unico();
-  const admin = await token(request, ROBERTO);
-  const carlos = await token(request, CARLOS);
+  const admin = await token(request, ADMIN);
+  const bibVI = await token(request, BIB_VI);
   const leitor = await novoLeitor(request, "Bia", u);
-  const h = await tituloEmprestado(request, admin, carlos, `Harry ${u}`, 1, u);
+  const h = await tituloEmprestado(request, admin, bibVI, `Harry ${u}`, 1, u);
   await reservar(request, leitor.h, h.livroId, VILA_ISABEL, VILA_ISABEL);
-  await devolver(request, carlos, h.emps[0]);
+  await devolver(request, bibVI, h.emps[0]);
 
   const problemas = vigiar(page);
-  await entrar(page, CARLOS);
+  await entrar(page, BIB_VI);
   await expect(contador(page)).toBeVisible();
   await sino(page).click();
   const aviso = painel(page).getByTestId("notificacao").filter({ hasText: `Harry ${u}` });
@@ -188,14 +195,14 @@ test("B-20: sino do bibliotecário avisa a reserva pronta para retirada", async 
 
 test("A-20: sino do Admin avisa novo pedido e exemplar retido (urgente)", async ({ page, request }) => {
   const u = unico();
-  const admin = await token(request, ROBERTO);
-  const fernanda = await token(request, FERNANDA);
+  const admin = await token(request, ADMIN);
+  const bibC = await token(request, BIB_C);
   const leitor = await novoLeitor(request, "Caio", u);
-  const hobbit = await tituloEmprestado(request, admin, fernanda, `Hobbit ${u}`, 2, u);
+  const hobbit = await tituloEmprestado(request, admin, bibC, `Hobbit ${u}`, 2, u);
   await reservar(request, leitor.h, hobbit.livroId, CENTRAL, VILA_ISABEL);
 
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await expect(contador(page)).toBeVisible();
   await sino(page).click();
   const novo = painel(page).getByTestId("notificacao").filter({ hasText: `Hobbit ${u}` });
@@ -203,8 +210,8 @@ test("A-20: sino do Admin avisa novo pedido e exemplar retido (urgente)", async 
   await expect(novo).toContainText(leitor.nome);
   await page.keyboard.press("Escape");
 
-  // Fernanda devolve antes da decisão: exemplar retido
-  await devolver(request, fernanda, hobbit.emps[0]);
+  // BibC devolve antes da decisão: exemplar retido
+  await devolver(request, bibC, hobbit.emps[0]);
   await page.getByRole("navigation", { name: "Menu principal" }).getByRole("link", { name: "Catálogo" }).click();
   await sino(page).click();
   const urgente = painel(page).getByTestId("notificacao").filter({ hasText: "Urgente: exemplar retido" }).first();
@@ -216,21 +223,21 @@ test("A-20: sino do Admin avisa novo pedido e exemplar retido (urgente)", async 
 });
 
 test("B-07: devolução com atraso avisa o bloqueio com a data final", async ({ page, request }) => {
-  // Seed: Camila está com Memórias Póstumas da Central atrasado há 4 dias -> 8 dias de bloqueio
-  const fernanda = await token(request, FERNANDA);
-  const ativos = await ok<{ id: number; usuario: { email: string } }[]>(
-    request.get(`${API}/emprestimos/ativos`, { headers: fernanda }),
+  // Seed: Usuário 2 está com Duna da Central atrasado há 6 dias -> 12 dias de bloqueio
+  const bibC = await token(request, BIB_C);
+  const ativos = await ok<{ id: number; usuario: { email: string }; exemplar: { livro: { titulo: string } } }[]>(
+    request.get(`${API}/emprestimos/ativos`, { headers: bibC }),
   );
-  const emp = ativos.find((e) => e.usuario.email === CAMILA);
+  const emp = ativos.find((e) => e.usuario.email === U2 && e.exemplar.livro.titulo === "Duna");
   expect(emp).toBeDefined();
-  await devolver(request, fernanda, emp!.id);
+  await devolver(request, bibC, emp!.id);
 
   const problemas = vigiar(page);
-  await entrar(page, CAMILA);
+  await entrar(page, U2);
   await sino(page).click();
   const aviso = painel(page).getByTestId("notificacao").filter({ hasText: "Empréstimos bloqueados" });
-  const fim = new Date(Date.now() + 8 * 86_400_000).toLocaleDateString("pt-BR");
-  await expect(aviso).toContainText(`4 dia(s) de atraso`);
+  const fim = new Date(Date.now() + 12 * 86_400_000).toLocaleDateString("pt-BR");
+  await expect(aviso).toContainText(`6 dia(s) de atraso`);
   await expect(aviso).toContainText(`até ${fim}`);
   await aviso.getByRole("button").first().click();
   await expect(page).toHaveURL(/\/meus-emprestimos$/);
@@ -241,7 +248,7 @@ test("B-07: devolução com atraso avisa o bloqueio com a data final", async ({ 
 // ───────────────────────── Cabeçalho ─────────────────────────
 
 test("Sino presente nos 3 perfis", async ({ page }) => {
-  for (const email of [ANA, CARLOS, ROBERTO]) {
+  for (const email of [U1, BIB_VI, ADMIN]) {
     await entrar(page, email);
     await expect(sino(page)).toBeVisible();
     await page.getByRole("button", { name: "Sair" }).click();
@@ -270,7 +277,7 @@ async function semSobreposicao(page: Page) {
 
 test("Menu sem sobreposição em telas largas e recolhível em telas estreitas", async ({ page }) => {
   const problemas = vigiar(page);
-  for (const [email, largura] of [[CARLOS, 1280], [ROBERTO, 1280], [ANA, 1024]] as const) {
+  for (const [email, largura] of [[BIB_VI, 1280], [ADMIN, 1280], [U1, 1024]] as const) {
     await page.setViewportSize({ width: largura, height: 800 });
     await entrar(page, email);
     await semSobreposicao(page);
@@ -280,7 +287,7 @@ test("Menu sem sobreposição em telas largas e recolhível em telas estreitas",
   // Bibliotecário em 1024 e 390 px: menu recolhível com os 7 itens
   for (const largura of [1024, 390]) {
     await page.setViewportSize({ width: largura, height: 800 });
-    await entrar(page, CARLOS);
+    await entrar(page, BIB_VI);
     await expect(page.getByRole("navigation", { name: "Menu principal" })).toBeHidden();
     await expect(sino(page)).toBeVisible();
     await page.getByRole("button", { name: /Menu/ }).click();

@@ -1,17 +1,23 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { CENTRAL_NOME, idBiblioteca, idLivro, VI_NOME } from "./apoio";
 
 // Etapa 5b — telas de transferências e retirada (A-02 a A-11, B-10, B-12, B-13, B-20 sem o sino)
 // contra backend + frontend reais. O seed atual não tem os cenários da §8, então cada teste
 // monta a própria rede pela API: o Admin cria livros, uma biblioteca de destino com
-// bibliotecária e outra sem equipe; Fernanda (Central) e a bibliotecária do destino cadastram
+// bibliotecária e outra sem equipe; BibC (Central) e a bibliotecária do destino cadastram
 // exemplares e registram empréstimos; leitores criados na hora reservam.
 
 const API = "http://localhost:8080/api";
 const SENHA = "senha123";
-const ROBERTO = "roberto.dias@circulabook.org.br";
-const FERNANDA = "fernanda.reis@circulabook.org.br"; // Biblioteca Central (id 4)
-const ANA = "ana.souza@email.com";
-const CENTRAL = 4;
+const ADMIN = "admin@circulabook.com";
+const BIB_C = "bibliotecariocentral@circulabook.com"; // Biblioteca Central
+const U1 = "usuario1@circulabook.com";
+let CENTRAL = 0;
+
+// Ids das bibliotecas do seed, achados pelo nome
+test.beforeAll(async ({ request }) => {
+  CENTRAL = await idBiblioteca(request, CENTRAL_NOME);
+});
 
 type Cabecalho = { Authorization: string };
 
@@ -54,7 +60,7 @@ interface Leitor { id: number; nome: string; email: string; h: Cabecalho }
 interface Cenario {
   u: string;
   admin: Cabecalho;
-  fernanda: Cabecalho;
+  bibC: Cabecalho;
   dest: Cabecalho;
   destino: { id: number; nome: string; bibliotecaria: string };
   semEquipe: { id: number; nome: string };
@@ -83,8 +89,8 @@ async function novoLeitor(request: APIRequestContext, nome: string, u: string): 
  */
 async function montar(request: APIRequestContext): Promise<Cenario> {
   const u = unico();
-  const admin = await token(request, ROBERTO);
-  const fernanda = await token(request, FERNANDA);
+  const admin = await token(request, ADMIN);
+  const bibC = await token(request, BIB_C);
 
   const cat = await ok<{ id: number }>(request.post(`${API}/categorias`, { headers: admin, data: { nome: `Cat ${u}` } }));
   const livro = async (titulo: string) => {
@@ -103,9 +109,9 @@ async function montar(request: APIRequestContext): Promise<Cenario> {
   const bib = await ok<{ id: number; nome: string }>(
     request.post(`${API}/bibliotecas`, { headers: admin, data: { nome: `Biblioteca Destino ${u}` } }),
   );
-  const bibliotecaria = `dest.${u}@circulabook.org.br`;
+  const bibliotecaria = `bibliotecariodestino${u}@circulabook.com`;
   await ok(request.post(`${API}/usuarios/bibliotecarios`, {
-    headers: admin, data: { nome: `Bibliotecária ${u}`, email: bibliotecaria, senha: SENHA, bibliotecaId: bib.id },
+    headers: admin, data: { nome: `Bibliotecário Destino ${u}`, email: bibliotecaria, senha: SENHA, bibliotecaId: bib.id },
   }));
   const semEquipe = await ok<{ id: number; nome: string }>(
     request.post(`${API}/bibliotecas`, { headers: admin, data: { nome: `Biblioteca Sem Equipe ${u}` } }),
@@ -116,9 +122,9 @@ async function montar(request: APIRequestContext): Promise<Cenario> {
     (await ok<{ id: number }[]>(request.post(`${API}/exemplares`, {
       headers: h, data: { livroId, conservacao: "BOM", quantidade },
     }))).map((e) => e.id);
-  const hobbit = await exemplares(fernanda, livros.hobbit.id, 2);
-  await exemplares(fernanda, livros.l1984.id, 2);
-  await exemplares(fernanda, livros.dom.id, 3);
+  const hobbit = await exemplares(bibC, livros.hobbit.id, 2);
+  await exemplares(bibC, livros.l1984.id, 2);
+  await exemplares(bibC, livros.dom.id, 3);
   await exemplares(dest, livros.dom.id, 1);
   const harry = await exemplares(dest, livros.harry.id, 1);
 
@@ -127,7 +133,7 @@ async function montar(request: APIRequestContext): Promise<Cenario> {
   const c = await novoLeitor(request, "Celia", u);
   const emprestar = async (h: Cabecalho, exemplarId: number, usuarioId: number) =>
     (await ok<{ id: number }>(request.post(`${API}/emprestimos/registrar`, { headers: h, data: { exemplarId, usuarioId } }))).id;
-  const empHobbit = [await emprestar(fernanda, hobbit[0], a.id), await emprestar(fernanda, hobbit[1], b.id)];
+  const empHobbit = [await emprestar(bibC, hobbit[0], a.id), await emprestar(bibC, hobbit[1], b.id)];
   const empHarry = await emprestar(dest, harry[0], a.id);
 
   await ok(request.post(`${API}/reservas`, {
@@ -142,7 +148,7 @@ async function montar(request: APIRequestContext): Promise<Cenario> {
   const pedidoId = pendentes.find((p) => p.livroId === livros.hobbit.id)!.id;
 
   return {
-    u, admin, fernanda, dest, destino: { id: bib.id, nome: bib.nome, bibliotecaria }, semEquipe,
+    u, admin, bibC, dest, destino: { id: bib.id, nome: bib.nome, bibliotecaria }, semEquipe,
     livros, empHobbit, empHarry, a, b, c, pedidoId,
   };
 }
@@ -175,7 +181,7 @@ const cardPedido = (page: Page, titulo: string) => page.getByTestId("pedido").fi
 test("A-02 / A-03: pedido sem exemplar mostra o título; aprovar fica aguardando exemplar; sem confirmar chegada", async ({ page, request }) => {
   const c = await montar(request);
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.getByRole("navigation").getByRole("link", { name: "Transferências" }).click();
   await expect(page).toHaveURL(/\/admin\/transferencias$/);
 
@@ -204,7 +210,7 @@ test("A-02 / A-03: pedido sem exemplar mostra o título; aprovar fica aguardando
 test("A-04: rejeitar devolve a retirada para a biblioteca da fila", async ({ page, request }) => {
   const c = await montar(request);
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.goto("/admin/transferencias");
   await cardPedido(page, c.livros.hobbit.titulo).getByRole("button", { name: /Rejeitar/ }).click();
   await expect(page.getByRole("dialog")).toContainText("a retirada volta para a Biblioteca Central");
@@ -222,9 +228,9 @@ test("A-04: rejeitar devolve a retirada para a biblioteca da fila", async ({ pag
 
 test("A-05: com exemplar já separado, aprovar envia direto (em trânsito)", async ({ page, request }) => {
   const c = await montar(request);
-  await devolverApi(request, c.fernanda, c.empHobbit[0]); // pedido PENDENTE: exemplar fica retido
+  await devolverApi(request, c.bibC, c.empHobbit[0]); // pedido PENDENTE: exemplar fica retido
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.goto("/admin/transferencias");
   const card = cardPedido(page, c.livros.hobbit.titulo);
   await expect(card).toContainText("Exemplar já separado");
@@ -239,7 +245,7 @@ test("A-05: com exemplar já separado, aprovar envia direto (em trânsito)", asy
 test("A-06: segunda aprovação mostra 'já foi processada'; COMUM e bibliotecário são barrados", async ({ page, request }) => {
   const c = await montar(request);
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.goto("/admin/transferencias");
   const card = cardPedido(page, c.livros.hobbit.titulo);
   await expect(card).toBeVisible();
@@ -250,51 +256,40 @@ test("A-06: segunda aprovação mostra 'já foi processada'; COMUM e bibliotecá
   await expect(page.getByText(/já foi processada/)).toBeVisible();
   await expect(card).toHaveCount(0);
 
-  for (const email of [ANA, FERNANDA]) {
+  for (const email of [U1, BIB_C]) {
     const h = await token(request, email);
     expect((await request.patch(`${API}/transferencias/${c.pedidoId}/aprovar`, { headers: h })).status()).toBe(403);
     expect((await request.get(`${API}/transferencias/pedidos-pendentes`, { headers: h })).status()).toBe(403);
   }
   await page.getByRole("button", { name: "Sair" }).click();
-  await entrar(page, ANA);
+  await entrar(page, U1);
   await page.goto("/admin/transferencias");
   await expect(page).toHaveURL(/\/$/);
   await page.getByRole("button", { name: "Sair" }).click();
-  await entrar(page, FERNANDA);
+  await entrar(page, BIB_C);
   await page.goto("/admin/transferencias");
   await expect(page).toHaveURL(/\/biblioteca$/);
   expect(problemas).toEqual([]);
 });
 
-test("A-07: origem sem capacidade desabilita Aprovar com o motivo; nova reserva também é recusada", async ({ page, request }) => {
-  const c = await montar(request);
-  // Central tem 2 Hobbit e já 1 pedido aberto: um segundo pedido não cabe
-  const d = await novoLeitor(request, "Davi", c.u);
+test("A-07: com o pedido T1 aberto, a Central não cede outro Hobbit; tela e API recusam com o motivo", async ({ page, request }) => {
+  // Seed (§8): a Central tem 2 Hobbit e o pedido T1 (Usuário 3 -> Vila Isabel) já está aberto,
+  // então mais uma transferência deixaria a Central sem o livro (abertas + 1 > total - 1).
+  const hobbit = await idLivro(request, "O Hobbit");
+  const vilaIsabel = await idBiblioteca(request, VI_NOME);
+  const problemas = vigiar(page);
+  await entrar(page, U1);
+  await page.goto(`/livro/${hobbit}/reservar?biblioteca=${CENTRAL}`);
+  await expect(page.getByRole("button", { name: /Em outra biblioteca/ })).toBeDisabled();
+  await expect(page.getByTestId("outra-indisponivel")).toContainText("deixaria sem o livro");
+  await expect(page.getByRole("button", { name: /Entrar na fila/ })).toBeEnabled(); // na própria Central pode
+
+  const u1 = await token(request, U1);
   const r = await request.post(`${API}/reservas`, {
-    headers: d.h, data: { livroId: c.livros.hobbit.id, bibliotecaFilaId: CENTRAL, bibliotecaDestinoId: c.destino.id },
+    headers: u1, data: { livroId: hobbit, bibliotecaFilaId: CENTRAL, bibliotecaDestinoId: vilaIsabel },
   });
   expect(r.status()).toBe(400);
   expect(await r.text()).toContain("deixaria sem o livro");
-
-  // Pelas regras atuais não dá para chegar, via API, a um pedido pendente com a origem sem
-  // capacidade (só com dados legados). Para a tela, o servidor "responde" isso para o nosso pedido.
-  const motivo = "A Biblioteca Central já tem 2 transferência(s) deste título em andamento; mais uma a deixaria sem o livro.";
-  await page.route("**/api/transferencias/pedidos-pendentes", async (route) => {
-    const resp = await route.fetch();
-    const lista = (await resp.json()) as { id: number; rn15: Record<string, unknown> }[];
-    for (const p of lista) {
-      if (p.id === c.pedidoId) p.rn15 = { ...p.rn15, permitido: false, motivo };
-    }
-    await route.fulfill({ response: resp, json: lista });
-  });
-  const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
-  await page.goto("/admin/transferencias");
-  const card = cardPedido(page, c.livros.hobbit.titulo);
-  await expect(card).toContainText("Não pode ser aprovado agora");
-  await expect(card).toContainText("deixaria sem o livro");
-  await expect(card.getByRole("button", { name: /Aprovar/ })).toBeDisabled();
-  await expect(card.getByRole("button", { name: /Rejeitar/ })).toBeEnabled();
   expect(problemas).toEqual([]);
 });
 
@@ -303,7 +298,7 @@ test("A-07: origem sem capacidade desabilita Aprovar com o motivo; nova reserva 
 test("A-08 / A-10 / A-09 / A-11: lote tudo ou nada mantém a seleção; depois cria para destino que já tem o título", async ({ page, request }) => {
   const c = await montar(request);
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.goto("/admin/transferencias");
   await page.getByRole("button", { name: /Nova transferência avulsa/ }).click();
 
@@ -359,16 +354,16 @@ test("B-12 / B-13 / B-20: aprovar → devolver → 'A receber' → confirmar che
   const c = await montar(request);
   const problemas = vigiar(page);
 
-  // Roberto aprova
-  await entrar(page, ROBERTO);
+  // Admin aprova
+  await entrar(page, ADMIN);
   await page.goto("/admin/transferencias");
   await cardPedido(page, c.livros.hobbit.titulo).getByRole("button", { name: /Aprovar/ }).click();
   await confirmarModal(page, "Aprovar");
   await expect(page.getByText(/aprovado\. Ele segue/)).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
 
-  // Fernanda devolve o Hobbit de Alice pela tela: o exemplar vai direto para trânsito
-  await entrar(page, FERNANDA);
+  // BibC devolve o Hobbit de Alice pela tela: o exemplar vai direto para trânsito
+  await entrar(page, BIB_C);
   await page.getByRole("link", { name: "Registrar Devolução" }).click();
   await page.getByPlaceholder("Digitar nome do usuário...").fill(c.a.nome);
   await page.getByRole("button", { name: new RegExp(c.livros.hobbit.titulo) }).click();
@@ -388,11 +383,11 @@ test("B-12 / B-13 / B-20: aprovar → devolver → 'A receber' → confirmar che
   await expect(saindo).toContainText("Em trânsito");
   await expect(saindo.getByRole("button")).toHaveCount(0);
   expect((await request.patch(`${API}/transferencias/${c.pedidoId}/confirmar-chegada`, {
-    headers: c.fernanda, data: {},
+    headers: c.bibC, data: {},
   })).status()).toBe(403);
   await page.getByRole("button", { name: "Sair" }).click();
 
-  // Bibliotecária do destino confirma a chegada
+  // Bibliotecário do destino confirma a chegada
   await entrar(page, c.destino.bibliotecaria);
   await page.getByRole("navigation").getByRole("link", { name: "Transferências" }).click();
   const linha = page.getByRole("row").filter({ hasText: c.livros.hobbit.titulo });
@@ -428,7 +423,7 @@ test("B-12 / B-13 / B-20: aprovar → devolver → 'A receber' → confirmar che
 test("Chegada com 'chegou danificado': exemplar sai de circulação e a reserva volta à fila da origem", async ({ page, request }) => {
   const c = await montar(request);
   await ok(request.patch(`${API}/transferencias/${c.pedidoId}/aprovar`, { headers: c.admin }));
-  await devolverApi(request, c.fernanda, c.empHobbit[0]);
+  await devolverApi(request, c.bibC, c.empHobbit[0]);
   const t = await situacaoPedido(request, c.admin, c.pedidoId);
 
   const problemas = vigiar(page);

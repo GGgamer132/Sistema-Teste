@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { CENTRAL_NOME, idBiblioteca, VI_NOME } from "./apoio";
 
 // Etapa 7 — demandas (U-14, A-17), histórico de circulação (A-18), dashboard (A-01) e
 // relatórios (A-19), contra backend + frontend reais. Cada teste monta os próprios dados
@@ -6,11 +7,19 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 
 const API = "http://localhost:8080/api";
 const SENHA = "senha123";
-const ROBERTO = "roberto.dias@circulabook.org.br";
-const FERNANDA = "fernanda.reis@circulabook.org.br"; // Biblioteca Central (id 4)
-const CARLOS = "carlos.lima@circulabook.org.br"; // Biblioteca Vila Isabel (id 1)
-const ANA = "ana.souza@email.com";
-const BRUNO = "bruno.alves@email.com";
+const ADMIN = "admin@circulabook.com";
+const BIB_C = "bibliotecariocentral@circulabook.com"; // Biblioteca Central
+const BIB_VI = "bibliotecariovilaisabel@circulabook.com"; // Vila Isabel
+let CENTRAL = 0;
+let VILA_ISABEL = 0;
+
+// Ids das bibliotecas do seed, achados pelo nome
+test.beforeAll(async ({ request }) => {
+  CENTRAL = await idBiblioteca(request, CENTRAL_NOME);
+  VILA_ISABEL = await idBiblioteca(request, VI_NOME);
+});
+const U1 = "usuario1@circulabook.com";
+const U2 = "usuario2@circulabook.com";
 
 type Cabecalho = { Authorization: string };
 
@@ -65,7 +74,7 @@ test("U-14: busca vazia leva ao pedido; outro usuário soma; o mesmo é barrado;
   const titulo = `Torto Arado ${u}`;
   const problemas = vigiar(page);
 
-  await entrar(page, ANA);
+  await entrar(page, U1);
   await page.getByLabel("Buscar por título, autor ou ISBN").fill(titulo);
   await page.getByRole("button", { name: "Buscar", exact: true }).click();
   await expect(page.getByText("0 livros encontrados")).toBeVisible();
@@ -88,7 +97,7 @@ test("U-14: busca vazia leva ao pedido; outro usuário soma; o mesmo é barrado;
   await sair(page);
 
   // Outra pessoa, pelo menu, soma ao pedido
-  await entrar(page, BRUNO);
+  await entrar(page, U2);
   await menu(page).getByRole("link", { name: "Pedir um Livro" }).click();
   await expect(page).toHaveURL(/\/interesse$/);
   await page.getByLabel("Título", { exact: true }).fill(`TORTO ÁRADO ${u}`);
@@ -99,7 +108,7 @@ test("U-14: busca vazia leva ao pedido; outro usuário soma; o mesmo é barrado;
   await sair(page);
 
   // Sino do Admin: "nova demanda" (uma só, da criação)
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.getByRole("button", { name: /^Notificações/ }).click();
   const avisos = page.getByRole("dialog", { name: "Notificações" }).getByTestId("notificacao").filter({ hasText: titulo });
   await expect(avisos).toHaveCount(1);
@@ -113,13 +122,13 @@ test("U-14: busca vazia leva ao pedido; outro usuário soma; o mesmo é barrado;
 test("A-17: Admin conduz a demanda (Aberta → Em análise → Aprovada) e filtra por situação", async ({ page, request }) => {
   const u = unico();
   const titulo = `Ensaio sobre a Cegueira ${u}`;
-  for (const email of [ANA, BRUNO]) {
+  for (const email of [U1, U2]) {
     await ok(request.post(`${API}/demandas`, {
       headers: await token(request, email), data: { titulo, autor: "José Saramago" },
     }));
   }
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.goto("/admin/demandas");
   const linha = page.getByRole("row").filter({ hasText: titulo });
   await expect(linha).toContainText("2 pessoas");
@@ -146,7 +155,7 @@ test("A-17: Admin conduz a demanda (Aberta → Em análise → Aprovada) e filtr
 
 test("Rotas do Admin bloqueadas para COMUM e bibliotecário", async ({ page }) => {
   const rotas = ["/admin", "/admin/demandas", "/admin/historico", "/admin/relatorios"];
-  for (const [email, inicio] of [[ANA, /\/$/], [CARLOS, /\/biblioteca$/]] as const) {
+  for (const [email, inicio] of [[U1, /\/$/], [BIB_VI, /\/biblioteca$/]] as const) {
     await entrar(page, email);
     for (const rota of rotas) {
       await page.goto(rota);
@@ -171,14 +180,14 @@ async function novoLeitor(request: APIRequestContext, nome: string, u: string) {
  * despacha para a Vila Isabel (reserva com retirada lá), chegada, empréstimo e devolução.
  */
 async function cicloCompleto(request: APIRequestContext, u: string) {
-  const admin = await token(request, ROBERTO);
-  const fernanda = await token(request, FERNANDA);
-  const carlos = await token(request, CARLOS);
+  const admin = await token(request, ADMIN);
+  const bibC = await token(request, BIB_C);
+  const bibVI = await token(request, BIB_VI);
   const livro = await ok<{ id: number }>(request.post(`${API}/livros`, {
     headers: admin, data: { titulo: `Ciclo ${u}`, autor: `Autor ${u}` },
   }));
   const [ex1, ex2] = (await ok<{ id: number }[]>(request.post(`${API}/exemplares`, {
-    headers: fernanda, data: { livroId: livro.id, conservacao: "BOM", quantidade: 2 },
+    headers: bibC, data: { livroId: livro.id, conservacao: "BOM", quantidade: 2 },
   }))).map((e) => e.id);
   const a = await novoLeitor(request, "Alfa", u);
   const b = await novoLeitor(request, "Beta", u);
@@ -188,20 +197,20 @@ async function cicloCompleto(request: APIRequestContext, u: string) {
   const devolver = (h: Cabecalho, emprestimoId: number) =>
     ok(request.post(`${API}/emprestimos/devolver`, { headers: h, data: { emprestimoId, condicaoExemplar: "BOM" } }));
 
-  const empA = await emprestar(fernanda, ex1, a.id);
-  await emprestar(fernanda, ex2, b.id);
+  const empA = await emprestar(bibC, ex1, a.id);
+  await emprestar(bibC, ex2, b.id);
   await ok(request.post(`${API}/reservas`, {
-    headers: c.h, data: { livroId: livro.id, bibliotecaFilaId: 4, bibliotecaDestinoId: 1 },
+    headers: c.h, data: { livroId: livro.id, bibliotecaFilaId: CENTRAL, bibliotecaDestinoId: VILA_ISABEL },
   }));
   const pendentes = await ok<{ id: number; livroId: number }[]>(
     request.get(`${API}/transferencias/pedidos-pendentes`, { headers: admin }),
   );
   const pedido = pendentes.find((p) => p.livroId === livro.id)!.id;
   await ok(request.patch(`${API}/transferencias/${pedido}/aprovar`, { headers: admin }));
-  await devolver(fernanda, empA);
-  await ok(request.patch(`${API}/transferencias/${pedido}/confirmar-chegada`, { headers: carlos, data: {} }));
-  const empC = await emprestar(carlos, ex1, c.id);
-  await devolver(carlos, empC);
+  await devolver(bibC, empA);
+  await ok(request.patch(`${API}/transferencias/${pedido}/confirmar-chegada`, { headers: bibVI, data: {} }));
+  const empC = await emprestar(bibVI, ex1, c.id);
+  await devolver(bibVI, empC);
   return { ex1, leitor: c, titulo: `Ciclo ${u}` };
 }
 
@@ -209,24 +218,31 @@ test("A-18: eventos recentes com filtros e linha do tempo do exemplar com ciclo 
   const u = unico();
   const { ex1, leitor, titulo } = await cicloCompleto(request, u);
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await menu(page).getByRole("link", { name: "Histórico" }).click();
   await expect(page).toHaveURL(/\/admin\/historico$/);
 
-  // Filtro pelo nº do exemplar
+  // Filtro pelo nº do exemplar: a marca de fila fica oculta por padrão (8), aparece com a opção (9)
   await page.getByLabel("Nº do exemplar").fill(String(ex1));
   await page.getByRole("button", { name: "Filtrar" }).click();
+  await expect(page.getByTestId("total-eventos")).toContainText("8 evento(s)");
+  const mostrarFila = page.getByLabel(/Mostrar marcas de fila/);
+  await expect(mostrarFila).not.toBeChecked();
+  await mostrarFila.check();
   await expect(page.getByTestId("total-eventos")).toContainText("9 evento(s)");
+  await expect(page.getByRole("row").filter({ hasText: "Fila de espera" })).toHaveCount(1);
+  await mostrarFila.uncheck();
+  await expect(page.getByTestId("total-eventos")).toContainText("8 evento(s)");
 
   // Filtro por evento + biblioteca
   await page.getByLabel("Nº do exemplar").fill("");
   await page.getByLabel("Evento").selectOption({ label: "Chegada de transferência" });
-  await page.getByLabel("Biblioteca").selectOption({ label: "Biblioteca Vila Isabel" });
+  await page.getByLabel("Biblioteca").selectOption({ label: "Biblioteca Comunitária de Vila Isabel" });
   await page.getByRole("button", { name: "Filtrar" }).click();
-  await expect(page.getByTestId("total-eventos")).not.toContainText("9 evento(s)");
+  await expect(page.getByTestId("total-eventos")).not.toContainText("8 evento(s)");
   const chegada = page.getByRole("row").filter({ hasText: `Exemplar nº ${ex1}` });
   await expect(chegada).toContainText("Chegada de transferência");
-  await expect(chegada).toContainText("Carlos Lima");
+  await expect(chegada).toContainText("Bibliotecário Vila Isabel");
   await expect(chegada).toContainText(titulo);
 
   // Clicar no exemplar abre a linha do tempo
@@ -234,19 +250,22 @@ test("A-18: eventos recentes com filtros e linha do tempo do exemplar com ciclo 
   await expect(page).toHaveURL(new RegExp(`[?]exemplar=${ex1}$`));
   const linha = page.getByTestId("linha-do-tempo");
   await expect(linha).toContainText(`${titulo}`);
-  await expect(linha).toContainText("hoje na Biblioteca Vila Isabel · Disponível");
+  await expect(linha).toContainText("hoje na Biblioteca Comunitária de Vila Isabel · Disponível");
   const eventos = linha.getByTestId("evento-linha");
+  await expect(eventos).toHaveCount(8);
+  await expect(linha).not.toContainText("Fila de espera");
+  await page.getByLabel(/Mostrar marcas de fila/).check();
   await expect(eventos).toHaveCount(9);
   const esperado = [
-    ["Cadastro no acervo", "Fernanda Reis"],
-    ["Empréstimo", "Fernanda Reis"],
+    ["Cadastro no acervo", "Bibliotecário Central"],
+    ["Empréstimo", "Bibliotecário Central"],
     ["Fila de espera", leitor.nome],
-    ["Devolução", "Fernanda Reis"],
-    ["Saída para transferência", "Fernanda Reis"],
-    ["Chegada de transferência", "Carlos Lima"],
-    ["Reserva", "Carlos Lima"],
-    ["Empréstimo", "Carlos Lima"],
-    ["Devolução", "Carlos Lima"],
+    ["Devolução", "Bibliotecário Central"],
+    ["Saída para transferência", "Bibliotecário Central"],
+    ["Chegada de transferência", "Bibliotecário Vila Isabel"],
+    ["Reserva", "Bibliotecário Vila Isabel"],
+    ["Empréstimo", "Bibliotecário Vila Isabel"],
+    ["Devolução", "Bibliotecário Vila Isabel"],
   ];
   for (let i = 0; i < esperado.length; i++) {
     await expect(eventos.nth(i)).toContainText(esperado[i][0]);
@@ -275,8 +294,8 @@ async function kpis(request: APIRequestContext, admin: Cabecalho): Promise<Kpis>
 
 test("A-01: /admin é o painel e os KPIs batem com as operações do teste (por diferença)", async ({ page, request }) => {
   const u = unico();
-  const admin = await token(request, ROBERTO);
-  const fernanda = await token(request, FERNANDA);
+  const admin = await token(request, ADMIN);
+  const bibC = await token(request, BIB_C);
   const antes = await kpis(request, admin);
 
   // 2 exemplares novos na Central, os 2 emprestados, 1 leitor na fila e 1 demanda nova
@@ -284,15 +303,15 @@ test("A-01: /admin é o painel e os KPIs batem com as operações do teste (por 
     headers: admin, data: { titulo: `Painel ${u}`, autor: `Autor ${u}` },
   }));
   const ids = (await ok<{ id: number }[]>(request.post(`${API}/exemplares`, {
-    headers: fernanda, data: { livroId: livro.id, conservacao: "BOM", quantidade: 2 },
+    headers: bibC, data: { livroId: livro.id, conservacao: "BOM", quantidade: 2 },
   }))).map((e) => e.id);
   for (const [i, exemplarId] of ids.entries()) {
     const l = await novoLeitor(request, `Kpi${i}`, u);
-    await ok(request.post(`${API}/emprestimos/registrar`, { headers: fernanda, data: { exemplarId, usuarioId: l.id } }));
+    await ok(request.post(`${API}/emprestimos/registrar`, { headers: bibC, data: { exemplarId, usuarioId: l.id } }));
   }
   const fila = await novoLeitor(request, "Fila", u);
   await ok(request.post(`${API}/reservas`, {
-    headers: fila.h, data: { livroId: livro.id, bibliotecaFilaId: 4, bibliotecaDestinoId: 4 },
+    headers: fila.h, data: { livroId: livro.id, bibliotecaFilaId: CENTRAL, bibliotecaDestinoId: CENTRAL },
   }));
   await ok(request.post(`${API}/demandas`, { headers: fila.h, data: { titulo: `Demanda ${u}`, autor: "Alguém" } }));
 
@@ -305,7 +324,7 @@ test("A-01: /admin é o painel e os KPIs batem com as operações do teste (por 
   };
 
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: "Painel da Rede" })).toBeVisible();
   for (const chave of ["exemplaresTotal", "emprestimosAtivos", "reservasEmFila", "demandasAbertas",
@@ -331,26 +350,26 @@ interface LinhaBib { bibliotecaId: number; total?: number; realizados?: number; 
 
 test("A-19: relatórios só em tabelas, batendo com as operações (por diferença) e com período", async ({ page, request }) => {
   const u = unico();
-  const admin = await token(request, ROBERTO);
-  const fernanda = await token(request, FERNANDA);
+  const admin = await token(request, ADMIN);
+  const bibC = await token(request, BIB_C);
   const antes = await ok<{ acervo: LinhaBib[]; emprestimos: LinhaBib[] }>(
     request.get(`${API}/admin/relatorios`, { headers: admin }),
   );
-  const central = (l: LinhaBib[]) => l.find((x) => x.bibliotecaId === 4)!;
+  const central = (l: LinhaBib[]) => l.find((x) => x.bibliotecaId === CENTRAL)!;
 
   // 2 exemplares novos na Central; um deles emprestado, devolvido e emprestado de novo
   const titulo = `Relatorio ${u}`;
   const livro = await ok<{ id: number }>(request.post(`${API}/livros`, { headers: admin, data: { titulo, autor: `Autor ${u}` } }));
   const [ex] = (await ok<{ id: number }[]>(request.post(`${API}/exemplares`, {
-    headers: fernanda, data: { livroId: livro.id, conservacao: "BOM", quantidade: 2 },
+    headers: bibC, data: { livroId: livro.id, conservacao: "BOM", quantidade: 2 },
   }))).map((e) => e.id);
   const a = await novoLeitor(request, "Rel", u);
-  const emp = await ok<{ id: number }>(request.post(`${API}/emprestimos/registrar`, { headers: fernanda, data: { exemplarId: ex, usuarioId: a.id } }));
-  await ok(request.post(`${API}/emprestimos/devolver`, { headers: fernanda, data: { emprestimoId: emp.id, condicaoExemplar: "BOM" } }));
-  await ok(request.post(`${API}/emprestimos/registrar`, { headers: fernanda, data: { exemplarId: ex, usuarioId: a.id } }));
+  const emp = await ok<{ id: number }>(request.post(`${API}/emprestimos/registrar`, { headers: bibC, data: { exemplarId: ex, usuarioId: a.id } }));
+  await ok(request.post(`${API}/emprestimos/devolver`, { headers: bibC, data: { emprestimoId: emp.id, condicaoExemplar: "BOM" } }));
+  await ok(request.post(`${API}/emprestimos/registrar`, { headers: bibC, data: { exemplarId: ex, usuarioId: a.id } }));
 
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await menu(page).getByRole("link", { name: "Relatórios" }).click();
   await expect(page).toHaveURL(/\/admin\/relatorios$/);
   await expect(page.getByTestId("periodo")).toContainText("todo o período");

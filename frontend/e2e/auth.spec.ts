@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // Usuários de demonstração (seção 8.1 do CONTEXTO), senha "senha123"
-const ANA = "ana.souza@email.com";
-const CARLOS = "carlos.lima@circulabook.org.br";
-const ROBERTO = "roberto.dias@circulabook.org.br";
+const U1 = "usuario1@circulabook.com";
+const BIB_VI = "bibliotecariovilaisabel@circulabook.com";
+const ADMIN = "admin@circulabook.com";
 const CHAVE = "circulabook.sessao";
 
 async function entrar(page: Page, email: string, senha = "senha123") {
@@ -25,44 +25,44 @@ test.describe("Sem sessão", () => {
 
 test.describe("Login", () => {
   test("COMUM entra e cai em /", async ({ page }) => {
-    await entrar(page, ANA);
+    await entrar(page, U1);
     await expect(page).toHaveURL(/5173\/$/);
-    await expect(page.getByTestId("identificacao")).toContainText("Ana Souza · Usuário da Comunidade");
+    await expect(page.getByTestId("identificacao")).toContainText("Usuário 1 · Usuário da Comunidade");
     await expect(page.locator("header select")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Sair" })).toBeVisible();
   });
 
   test("BIBLIOTECARIO entra e cai em /biblioteca com dados da própria biblioteca", async ({ page }) => {
-    await entrar(page, CARLOS);
+    await entrar(page, BIB_VI);
     await expect(page).toHaveURL(/\/biblioteca$/);
-    await expect(page.getByTestId("identificacao")).toContainText("Carlos Lima · Bibliotecário — Biblioteca Vila Isabel");
-    await expect(page.getByText("Biblioteca Vila Isabel · acompanhe")).toBeVisible();
+    await expect(page.getByTestId("identificacao")).toContainText("Bibliotecário Vila Isabel · Bibliotecário — Biblioteca Comunitária de Vila Isabel");
+    await expect(page.getByText("Biblioteca Comunitária de Vila Isabel · acompanhe")).toBeVisible();
     await expect(page.locator("header select")).toHaveCount(0);
   });
 
   test("ADMIN entra e cai no painel (/admin); tela de transferências carrega com o token", async ({ page }) => {
-    await entrar(page, ROBERTO);
+    await entrar(page, ADMIN);
     await expect(page).toHaveURL(/\/admin$/);
-    await expect(page.getByTestId("identificacao")).toContainText("Roberto Dias · Administrador da Rede");
+    await expect(page.getByTestId("identificacao")).toContainText("Admin · Administrador da Rede");
     await page.getByRole("link", { name: "Transferências", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/transferencias$/);
     await expect(page.getByText(/Acesso negado|Sessão inválida|Falha na requisição/)).toHaveCount(0);
   });
 
   test("senha errada mostra erro genérico e continua no /login", async ({ page }) => {
-    await entrar(page, ANA, "errada");
+    await entrar(page, U1, "errada");
     await expect(page.getByText("E-mail ou senha inválidos")).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
     expect(await page.evaluate((k) => localStorage.getItem(k), CHAVE)).toBeNull();
   });
 
   test("e-mail inexistente mostra o mesmo erro genérico", async ({ page }) => {
-    await entrar(page, "ninguem@email.com");
+    await entrar(page, "ninguem@teste.com");
     await expect(page.getByText("E-mail ou senha inválidos")).toBeVisible();
   });
 
   test("COMUM vê os próprios empréstimos (API autorizada pelo token)", async ({ page }) => {
-    await entrar(page, ANA);
+    await entrar(page, U1);
     await expect(page).toHaveURL(/5173\/$/);
     await page.getByRole("link", { name: "Meus Empréstimos" }).click();
     await expect(page).toHaveURL(/\/meus-emprestimos$/);
@@ -72,7 +72,7 @@ test.describe("Login", () => {
 
 test.describe("Autocadastro", () => {
   test("cadastro válido cria COMUM e já entra logado", async ({ page }) => {
-    const email = `e2e.${Date.now()}@email.com`;
+    const email = `e2e.${Date.now()}@teste.com`;
     await page.goto("/login");
     await page.getByRole("link", { name: "Cadastre-se" }).click();
     await expect(page).toHaveURL(/\/cadastro$/);
@@ -88,7 +88,7 @@ test.describe("Autocadastro", () => {
   test("confirmação diferente mostra erro", async ({ page }) => {
     await page.goto("/cadastro");
     await page.getByLabel("Nome").fill("Fulano");
-    await page.getByLabel("E-mail").fill("fulano@email.com");
+    await page.getByLabel("E-mail").fill("fulano@teste.com");
     await page.getByLabel("Senha (mínimo 6 caracteres)").fill("abc123");
     await page.getByLabel("Confirmar senha").fill("abc124");
     await page.getByRole("button", { name: "Cadastrar" }).click();
@@ -99,7 +99,7 @@ test.describe("Autocadastro", () => {
   test("senha curta mostra erro", async ({ page }) => {
     await page.goto("/cadastro");
     await page.getByLabel("Nome").fill("Fulano");
-    await page.getByLabel("E-mail").fill("fulano@email.com");
+    await page.getByLabel("E-mail").fill("fulano@teste.com");
     await page.getByLabel("Senha (mínimo 6 caracteres)").fill("123");
     await page.getByLabel("Confirmar senha").fill("123");
     await page.getByRole("button", { name: "Cadastrar" }).click();
@@ -108,8 +108,8 @@ test.describe("Autocadastro", () => {
 
   test("e-mail repetido mostra o erro do servidor", async ({ page }) => {
     await page.goto("/cadastro");
-    await page.getByLabel("Nome").fill("Outra Ana");
-    await page.getByLabel("E-mail").fill(ANA);
+    await page.getByLabel("Nome").fill("Outra U1");
+    await page.getByLabel("E-mail").fill(U1);
     await page.getByLabel("Senha (mínimo 6 caracteres)").fill("abc123");
     await page.getByLabel("Confirmar senha").fill("abc123");
     await page.getByRole("button", { name: "Cadastrar" }).click();
@@ -120,7 +120,7 @@ test.describe("Autocadastro", () => {
 
 test.describe("Autorização por perfil no front", () => {
   test("COMUM abrindo /admin e /biblioteca volta para /", async ({ page }) => {
-    await entrar(page, ANA);
+    await entrar(page, U1);
     await expect(page).toHaveURL(/5173\/$/);
     for (const rota of ["/admin", "/admin/transferencias", "/biblioteca", "/biblioteca/emprestimo"]) {
       await page.goto(rota);
@@ -129,14 +129,14 @@ test.describe("Autorização por perfil no front", () => {
   });
 
   test("BIBLIOTECARIO abrindo /admin volta para /biblioteca", async ({ page }) => {
-    await entrar(page, CARLOS);
+    await entrar(page, BIB_VI);
     await expect(page).toHaveURL(/\/biblioteca$/);
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/biblioteca$/);
   });
 
   test("logado, /login volta para a tela inicial do perfil", async ({ page }) => {
-    await entrar(page, ROBERTO);
+    await entrar(page, ADMIN);
     await expect(page).toHaveURL(/\/admin$/);
     await page.goto("/login");
     await expect(page).toHaveURL(/\/admin$/);
@@ -145,7 +145,7 @@ test.describe("Autorização por perfil no front", () => {
 
 test.describe("Sessão", () => {
   test("Sair limpa a sessão e bloqueia as rotas", async ({ page }) => {
-    await entrar(page, ANA);
+    await entrar(page, U1);
     await expect(page).toHaveURL(/5173\/$/);
     await page.getByRole("button", { name: "Sair" }).click();
     await expect(page).toHaveURL(/\/login$/);
@@ -155,7 +155,7 @@ test.describe("Sessão", () => {
   });
 
   test("token removido do localStorage volta ao /login", async ({ page }) => {
-    await entrar(page, ANA);
+    await entrar(page, U1);
     await expect(page).toHaveURL(/5173\/$/);
     await page.evaluate((k) => localStorage.removeItem(k), CHAVE);
     await page.goto("/minhas-reservas");
@@ -163,7 +163,7 @@ test.describe("Sessão", () => {
   });
 
   test("token adulterado volta ao /login (servidor responde 401)", async ({ page }) => {
-    await entrar(page, ANA);
+    await entrar(page, U1);
     await expect(page).toHaveURL(/5173\/$/);
     await page.evaluate((k) => {
       const s = JSON.parse(localStorage.getItem(k)!);
@@ -176,7 +176,7 @@ test.describe("Sessão", () => {
   });
 
   test("token adulterado sem recarregar: a próxima chamada à API leva ao /login", async ({ page }) => {
-    await entrar(page, CARLOS);
+    await entrar(page, BIB_VI);
     await expect(page).toHaveURL(/\/biblioteca$/);
     await page.evaluate((k) => {
       const s = JSON.parse(localStorage.getItem(k)!);
@@ -192,15 +192,15 @@ test.describe("Telas que usavam ator fixo agora usam a sessão", () => {
   const SEM_ERRO = /Acesso negado|Sessão inválida|Usuário não encontrado|Falha na requisição/;
 
   test("COMUM: Minhas Reservas carrega só as próprias", async ({ page }) => {
-    await entrar(page, "bruno.alves@email.com");
+    await entrar(page, "usuario2@circulabook.com");
     await page.getByRole("link", { name: "Minhas Reservas" }).click();
     await expect(page).toHaveURL(/\/minhas-reservas$/);
     await expect(page.getByText(SEM_ERRO)).toHaveCount(0);
-    await expect(page.getByText("Ana Souza")).toHaveCount(0);
+    await expect(page.getByText("Usuário 1")).toHaveCount(0);
   });
 
   test("BIBLIOTECARIO: telas do balcão carregam com a biblioteca da sessão", async ({ page }) => {
-    await entrar(page, "fernanda.reis@circulabook.org.br");
+    await entrar(page, "bibliotecariocentral@circulabook.com");
     await expect(page).toHaveURL(/\/biblioteca$/);
     await expect(page.getByText("Biblioteca Central · acompanhe")).toBeVisible();
     for (const [link, texto] of [
@@ -217,7 +217,7 @@ test.describe("Telas que usavam ator fixo agora usam a sessão", () => {
   });
 
   test("ADMIN: transferência em trânsito não oferece 'Confirmar chegada'", async ({ page }) => {
-    await entrar(page, ROBERTO);
+    await entrar(page, ADMIN);
     await page.goto("/admin/transferencias");
     await expect(page.getByText(SEM_ERRO)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Confirmar chegada" })).toHaveCount(0);

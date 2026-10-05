@@ -1,15 +1,22 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { CENTRAL_NOME, idBiblioteca } from "./apoio";
 
 // Etapa 3 — permissões de cadastro (B-14 a B-19, A-12 a A-16).
 // Roda contra backend + frontend reais; usuários da §8.1 (senha senha123).
 
 const API = "http://localhost:8080/api";
 const SENHA = "senha123";
-const CARLOS = "carlos.lima@circulabook.org.br"; // Vila Isabel
-const FERNANDA = "fernanda.reis@circulabook.org.br"; // Central
-const ROBERTO = "roberto.dias@circulabook.org.br";
-const ANA = "ana.souza@email.com";
-const ID_CENTRAL = 4;
+const BIB_VI = "bibliotecariovilaisabel@circulabook.com"; // Vila Isabel
+const BIB_C = "bibliotecariocentral@circulabook.com"; // Central
+const ADMIN = "admin@circulabook.com";
+const BIB_T = "bibliotecariotijuca@circulabook.com"; // Tijuca (sem acervo no seed)
+const U1 = "usuario1@circulabook.com";
+let CENTRAL = 0;
+
+// Ids das bibliotecas do seed, achados pelo nome
+test.beforeAll(async ({ request }) => {
+  CENTRAL = await idBiblioteca(request, CENTRAL_NOME);
+});
 
 function vigiar(page: Page) {
   const problemas: string[] = [];
@@ -49,7 +56,7 @@ const unico = () => Date.now().toString().slice(-7);
 
 test("B-14: cadastrar 3 exemplares de livro existente, sem opção de livro novo nem código", async ({ page }) => {
   const problemas = vigiar(page);
-  await entrar(page, CARLOS);
+  await entrar(page, BIB_VI);
   await page.getByRole("link", { name: "Cadastrar Exemplares" }).click();
   await expect(page).toHaveURL(/\/biblioteca\/exemplares$/);
 
@@ -65,13 +72,13 @@ test("B-14: cadastrar 3 exemplares de livro existente, sem opção de livro novo
   await confirmarModal(page, "Cadastrar");
 
   await expect(
-    page.getByText(/3 exemplar\(es\) de "Dom Casmurro" cadastrado\(s\) na Biblioteca Vila Isabel: Exemplar nº \d+, Exemplar nº \d+, Exemplar nº \d+\./),
+    page.getByText(/3 exemplar\(es\) de "Dom Casmurro" cadastrado\(s\) na Biblioteca Comunitária de Vila Isabel: Exemplar nº \d+, Exemplar nº \d+, Exemplar nº \d+\./),
   ).toBeVisible();
   expect(problemas).toEqual([]);
 });
 
 test("B-14: quantidade fora de 1-50 bloqueia o cadastro", async ({ page }) => {
-  await entrar(page, CARLOS);
+  await entrar(page, BIB_VI);
   await page.goto("/biblioteca/exemplares");
   await page.getByLabel("Buscar livro do catálogo").fill("Dom Casmurro");
   await page.getByRole("row", { name: /Dom Casmurro/ }).getByRole("button", { name: "Selecionar" }).click();
@@ -80,24 +87,24 @@ test("B-14: quantidade fora de 1-50 bloqueia o cadastro", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Cadastrar Exemplares/ })).toBeDisabled();
 });
 
-test("B-15: 1º exemplar de Memórias Póstumas na VI fica DISPONIVEL e emprestável", async ({ page, request }) => {
+test("B-15: BibT cadastra o 1º exemplar de Memórias Póstumas; fica DISPONIVEL e emprestável", async ({ page, request }) => {
   const problemas = vigiar(page);
-  await entrar(page, CARLOS);
+  await entrar(page, BIB_T);
   await page.goto("/biblioteca/exemplares");
-  await page.getByLabel("Buscar livro do catálogo").fill("Memorias Postumas");
-  await page.getByRole("row", { name: /Memorias Postumas/ }).getByRole("button", { name: "Selecionar" }).click();
+  await page.getByLabel("Buscar livro do catálogo").fill("Memórias Póstumas");
+  await page.getByRole("row", { name: /Memórias Póstumas de Brás Cubas/ }).getByRole("button", { name: "Selecionar" }).click();
   await page.getByRole("button", { name: /Cadastrar Exemplares/ }).click();
   await confirmarModal(page, "Cadastrar");
-  const msg = page.getByText(/1 exemplar\(es\) de "Memorias Postumas de Bras Cubas" cadastrado\(s\)/);
+  const msg = page.getByText(/1 exemplar\(es\) de "Memórias Póstumas de Brás Cubas" cadastrado\(s\) na Biblioteca Popular da Tijuca/);
   await expect(msg).toBeVisible();
   const numero = Number((await msg.textContent())!.match(/Exemplar nº (\d+)/)![1]);
 
   // Aparece na lista de empréstimo e pode ser emprestado (sem RN11)
   await page.getByRole("link", { name: "Registrar Empréstimo" }).click();
   await expect(page.getByText(`Exemplar nº ${numero}`)).toBeVisible();
-  const auth = await token(request, CARLOS);
+  const auth = await token(request, BIB_T);
   const leitor = await (await request.post(`${API}/auth/cadastro`, {
-    data: { nome: `Leitor B15 ${unico()}`, email: `b15.${unico()}@email.com`, senha: "abc123" },
+    data: { nome: `Leitor B15 ${unico()}`, email: `b15.${unico()}@teste.com`, senha: "abc123" },
   })).json();
   const emp = await request.post(`${API}/emprestimos/registrar`, {
     headers: auth, data: { exemplarId: numero, usuarioId: leitor.usuario.id },
@@ -106,10 +113,10 @@ test("B-15: 1º exemplar de Memórias Póstumas na VI fica DISPONIVEL e emprest�
   expect(problemas).toEqual([]);
 });
 
-test("B-16: Carlos cadastrando exemplar na Central pela API recebe 403", async ({ request }) => {
-  const auth = await token(request, CARLOS);
+test("B-16: BibVI cadastrando exemplar na Central pela API recebe 403", async ({ request }) => {
+  const auth = await token(request, BIB_VI);
   const r = await request.post(`${API}/exemplares`, {
-    headers: auth, data: { livroId: 1, bibliotecaId: ID_CENTRAL, quantidade: 1 },
+    headers: auth, data: { livroId: 1, bibliotecaId: CENTRAL, quantidade: 1 },
   });
   expect(r.status()).toBe(403);
   expect(await r.text()).toContain("sua biblioteca");
@@ -120,26 +127,26 @@ test("B-17: exemplar cadastrado na Central com fila do título nasce RESERVADO e
   // Monta a fila com dados próprios (não depende do estado do seed):
   // livro novo, 1 exemplar na Central emprestado a um leitor e outro leitor na fila.
   const n = unico();
-  const admin = await token(request, ROBERTO);
-  const fernanda = await token(request, FERNANDA);
+  const admin = await token(request, ADMIN);
+  const bibC = await token(request, BIB_C);
   const titulo = `Livro com fila ${n}`;
   const livro = await (await request.post(`${API}/livros`, { headers: admin, data: { titulo, autor: "Autor Fila" } })).json();
-  const [ex] = await (await request.post(`${API}/exemplares`, { headers: fernanda, data: { livroId: livro.id } })).json();
+  const [ex] = await (await request.post(`${API}/exemplares`, { headers: bibC, data: { livroId: livro.id } })).json();
   const novoLeitor = async (nome: string) =>
     (await (await request.post(`${API}/auth/cadastro`, {
-      data: { nome, email: `${nome.replace(/\s/g, ".").toLowerCase()}.${n}@email.com`, senha: "abc123" },
+      data: { nome, email: `${nome.replace(/\s/g, ".").toLowerCase()}.${n}@teste.com`, senha: "abc123" },
     })).json());
   const tomador = await novoLeitor("Tomador Fila");
   const naFila = await novoLeitor("Leitor Fila");
   expect((await request.post(`${API}/emprestimos/registrar`, {
-    headers: fernanda, data: { exemplarId: ex.id, usuarioId: tomador.usuario.id },
+    headers: bibC, data: { exemplarId: ex.id, usuarioId: tomador.usuario.id },
   })).status()).toBe(200);
   expect((await request.post(`${API}/reservas`, {
     headers: { Authorization: `Bearer ${naFila.token}` },
-    data: { livroId: livro.id, bibliotecaFilaId: ID_CENTRAL, bibliotecaDestinoId: ID_CENTRAL },
+    data: { livroId: livro.id, bibliotecaFilaId: CENTRAL, bibliotecaDestinoId: CENTRAL },
   })).status()).toBe(200);
 
-  await entrar(page, FERNANDA);
+  await entrar(page, BIB_C);
   await page.goto("/biblioteca/exemplares");
   await page.getByLabel("Buscar livro do catálogo").fill(titulo);
   await page.getByRole("row", { name: new RegExp(titulo) }).getByRole("button", { name: "Selecionar" }).click();
@@ -157,13 +164,13 @@ test("B-17: exemplar cadastrado na Central com fila do título nasce RESERVADO e
 
 test("B-18: marcar indisponível (com motivo) e reativar pelo acervo, com modal", async ({ page }) => {
   const problemas = vigiar(page);
-  await entrar(page, CARLOS);
+  await entrar(page, BIB_VI);
   await page.getByRole("link", { name: "Acervo" }).click();
   await expect(page).toHaveURL(/\/biblioteca\/acervo$/);
   await page.getByRole("button", { name: /^Disponíveis/ }).click();
 
   const linha = page.getByRole("row").filter({ has: page.getByRole("button", { name: "Marcar indisponível" }) }).first();
-  const numero = (await linha.textContent())!.match(/Exemplar nº (\d+)/)![1];
+  const numero = (await linha.getByRole("cell").first().textContent())!.match(/Exemplar nº (\d+)/)![1];
   await linha.getByRole("button", { name: "Marcar indisponível" }).click();
   await page.getByRole("dialog").getByLabel("Motivo").fill("Capa rasgada");
   await confirmarModal(page, "Marcar indisponível");
@@ -181,12 +188,12 @@ test("B-18: marcar indisponível (com motivo) e reativar pelo acervo, com modal"
 });
 
 test("B-19: bibliotecário não cria livro/categoria (403) e não tem tela para isso", async ({ page, request }) => {
-  const auth = await token(request, CARLOS);
+  const auth = await token(request, BIB_VI);
   expect((await request.post(`${API}/livros`, { headers: auth, data: { titulo: "X", autor: "Y" } })).status()).toBe(403);
   expect((await request.post(`${API}/categorias`, { headers: auth, data: { nome: "X" } })).status()).toBe(403);
   expect((await request.put(`${API}/livros/1`, { headers: auth, data: { titulo: "X", autor: "Y" } })).status()).toBe(403);
 
-  await entrar(page, CARLOS);
+  await entrar(page, BIB_VI);
   await expect(page.getByRole("link", { name: "Catálogo" })).toHaveCount(0);
   await page.goto("/admin/catalogo");
   await expect(page).toHaveURL(/\/biblioteca$/);
@@ -194,7 +201,7 @@ test("B-19: bibliotecário não cria livro/categoria (403) e não tem tela para 
 
 test("Menus do bibliotecário levam a telas reais (sem 'Em construção')", async ({ page }) => {
   const problemas = vigiar(page);
-  await entrar(page, CARLOS);
+  await entrar(page, BIB_VI);
   for (const item of ["Empréstimos", "Registrar Empréstimo", "Registrar Devolução", "Cadastrar Exemplares", "Acervo"]) {
     await page.locator("header nav").getByRole("link", { name: item, exact: true }).click();
     await expect(page.locator("main h1")).toBeVisible();
@@ -211,7 +218,7 @@ test("A-12 e A-13: criar categoria e livro; aparece sem exemplares; editar; bibl
   const categoria = `Categoria E2E ${n}`;
   const titulo = `Livro E2E ${n}`;
 
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.getByRole("link", { name: "Categorias" }).click();
   await page.getByLabel("Nome").fill(categoria);
   await page.getByRole("button", { name: "Cadastrar categoria" }).click();
@@ -247,21 +254,21 @@ test("A-12 e A-13: criar categoria e livro; aparece sem exemplares; editar; bibl
   await page.getByLabel("Buscar no catálogo").fill(`${titulo} (revisado)`);
   await expect(page.getByRole("row", { name: new RegExp(`${titulo} \\(revisado\\)`) })).toContainText(categoria);
 
-  const livros = await (await request.get(`${API}/livros`, { headers: await token(request, ROBERTO) })).json();
+  const livros = await (await request.get(`${API}/livros`, { headers: await token(request, ADMIN) })).json();
   const criado = livros.find((l: { titulo: string }) => l.titulo === `${titulo} (revisado)`);
   const r = await request.put(`${API}/livros/${criado.id}`, {
-    headers: await token(request, CARLOS), data: { titulo: "Hackeado", autor: "X" },
+    headers: await token(request, BIB_VI), data: { titulo: "Hackeado", autor: "X" },
   });
   expect(r.status()).toBe(403);
 
   // A-12: na busca do usuário comum, "Indisponível: sem exemplares"
   const ctx = await browser.newContext();
-  const pagAna = await ctx.newPage();
-  await entrar(pagAna, ANA);
-  await pagAna.getByLabel("Buscar por título, autor ou ISBN").fill(titulo);
-  await pagAna.getByRole("button", { name: "Buscar" }).click();
-  await expect(pagAna.getByText(`${titulo} (revisado)`)).toBeVisible();
-  await expect(pagAna.getByText("Indisponível: sem exemplares")).toBeVisible();
+  const pagU1 = await ctx.newPage();
+  await entrar(pagU1, U1);
+  await pagU1.getByLabel("Buscar por título, autor ou ISBN").fill(titulo);
+  await pagU1.getByRole("button", { name: "Buscar" }).click();
+  await expect(pagU1.getByText(`${titulo} (revisado)`)).toBeVisible();
+  await expect(pagU1.getByText("Indisponível: sem exemplares")).toBeVisible();
   await ctx.close();
   expect(problemas).toEqual([]);
 });
@@ -269,14 +276,15 @@ test("A-12 e A-13: criar categoria e livro; aparece sem exemplares; editar; bibl
 test("A-14 e A-16: Admin cria e edita biblioteca, cria bibliotecário vinculado; ele vê só a sua", async ({ page }) => {
   const problemas = vigiar(page);
   const n = unico();
-  const nomeBib = `Biblioteca E2E ${n}`;
-  const email = `bib.${n}@circulabook.org.br`;
+  // Padrão da §8.1 para a unidade "Unidade<n>": Bibliotecário Unidade<n> / bibliotecariounidade<n>@circulabook.com
+  const nomeBib = `Biblioteca Unidade${n}`;
+  const email = `bibliotecariounidade${n}@circulabook.com`;
 
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.getByRole("link", { name: "Bibliotecas", exact: true }).click();
   await page.getByLabel("Nome").fill(`${nomeBib} provisória`);
   await page.getByLabel("Endereço").fill("Rua das Flores, 10");
-  await page.getByLabel("E-mail").fill(`e2e.${n}@circulabook.org.br`);
+  await page.getByLabel("E-mail").fill(`unidade${n}@circulabook.com`);
   await page.getByLabel("Telefone").fill("(21) 3000-9999");
   await page.getByRole("button", { name: "Cadastrar biblioteca" }).click();
   await confirmarModal(page, "Confirmar");
@@ -294,7 +302,7 @@ test("A-14 e A-16: Admin cria e edita biblioteca, cria bibliotecário vinculado;
   await page.getByRole("link", { name: "Bibliotecários" }).click();
   await expect(page.getByRole("heading", { name: "Bibliotecários", exact: true })).toBeVisible();
   await expect(page.getByRole("option", { name: /comum/i })).toHaveCount(0);
-  await page.getByLabel("Nome").fill(`Bibliotecária ${n}`);
+  await page.getByLabel("Nome").fill(`Bibliotecário Unidade${n}`);
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha inicial (mínimo 6 caracteres)").fill("inicial123");
   await page.getByLabel("Biblioteca").selectOption({ label: nomeBib });
@@ -327,7 +335,7 @@ test("A-14 e A-16: Admin cria e edita biblioteca, cria bibliotecário vinculado;
 test("A-16: desativar e reativar biblioteca com modal", async ({ page }) => {
   const problemas = vigiar(page);
   const n = unico();
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   await page.getByRole("link", { name: "Bibliotecas", exact: true }).click();
   await page.getByLabel("Nome").fill(`Biblioteca Temporária ${n}`);
   await page.getByRole("button", { name: "Cadastrar biblioteca" }).click();
@@ -345,17 +353,17 @@ test("A-16: desativar e reativar biblioteca com modal", async ({ page }) => {
 });
 
 test("A-15: Admin não cria COMUM, exemplar, empréstimo nem devolução (UI e API)", async ({ page, request }) => {
-  const auth = await token(request, ROBERTO);
+  const auth = await token(request, ADMIN);
   expect((await request.post(`${API}/exemplares`, { headers: auth, data: { livroId: 1 } })).status()).toBe(403);
   expect((await request.post(`${API}/emprestimos/registrar`, { headers: auth, data: { exemplarId: 1, usuarioId: 6 } })).status()).toBe(403);
   expect((await request.post(`${API}/emprestimos/devolver`, { headers: auth, data: { emprestimoId: 1 } })).status()).toBe(403);
   const comum = await request.post(`${API}/usuarios/bibliotecarios`, {
-    headers: auth, data: { nome: "Comum", email: `comum.${unico()}@email.com`, senha: "abc123", bibliotecaId: 1, tipo: "COMUM" },
+    headers: auth, data: { nome: "Comum", email: `comum.${unico()}@teste.com`, senha: "abc123", bibliotecaId: 1, tipo: "COMUM" },
   });
   expect(comum.status()).toBe(400);
   expect(await comum.text()).toContain("só cadastra bibliotecários");
 
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   for (const proibido of ["Cadastrar Exemplares", "Registrar Empréstimo", "Registrar Devolução", "Acervo"]) {
     await expect(page.getByRole("link", { name: proibido, exact: true })).toHaveCount(0);
   }
@@ -370,7 +378,7 @@ test("A-15: Admin não cria COMUM, exemplar, empréstimo nem devolução (UI e A
 
 test("Menus do Admin levam a telas reais (sem 'Em construção')", async ({ page }) => {
   const problemas = vigiar(page);
-  await entrar(page, ROBERTO);
+  await entrar(page, ADMIN);
   for (const item of ["Transferências", "Catálogo", "Categorias", "Bibliotecas", "Bibliotecários"]) {
     await page.locator("header nav").getByRole("link", { name: item, exact: true }).click();
     await expect(page.locator("main h1")).toBeVisible();

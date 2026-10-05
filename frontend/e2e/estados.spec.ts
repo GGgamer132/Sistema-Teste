@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { idBiblioteca, VI_NOME } from "./apoio";
 
 // Etapa 2 (máquina de estados): devolução DANIFICADO pela tela, sem erro 500 nem de console.
 // Marcar indisponível/reativar não tem tela ainda; é coberto pelos testes do backend e por curl.
@@ -13,16 +14,17 @@ test("BIBLIOTECARIO: devolução DANIFICADO tira o exemplar de circulação", as
 
   // Dados próprios do teste: um leitor novo pega emprestado um exemplar disponível da VI
   const login = await request.post(`${API}/auth/login`, {
-    data: { email: "carlos.lima@circulabook.org.br", senha: "senha123" },
+    data: { email: "bibliotecariovilaisabel@circulabook.com", senha: "senha123" },
   });
   const { token } = await login.json();
   const auth = { Authorization: `Bearer ${token}` };
   const nome = `Leitor Danificado ${Date.now()}`;
   const cad = await request.post(`${API}/auth/cadastro`, {
-    data: { nome, email: `danificado.${Date.now()}@email.com`, senha: "abc123" },
+    data: { nome, email: `danificado.${Date.now()}@teste.com`, senha: "abc123" },
   });
   const leitor = (await cad.json()).usuario;
-  const exemplares = await (await request.get(`${API}/exemplares/biblioteca/1`, { headers: auth })).json();
+  const vilaIsabel = await idBiblioteca(request, VI_NOME);
+  const exemplares = await (await request.get(`${API}/exemplares/biblioteca/${vilaIsabel}`, { headers: auth })).json();
   const livre = exemplares.find((e: { status: string }) => e.status === "DISPONIVEL");
   const emp = await request.post(`${API}/emprestimos/registrar`, {
     headers: auth,
@@ -32,7 +34,7 @@ test("BIBLIOTECARIO: devolução DANIFICADO tira o exemplar de circulação", as
 
   // Fluxo na tela
   await page.goto("/login");
-  await page.getByLabel("E-mail").fill("carlos.lima@circulabook.org.br");
+  await page.getByLabel("E-mail").fill("bibliotecariovilaisabel@circulabook.com");
   await page.getByLabel("Senha").fill("senha123");
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/biblioteca$/);
@@ -44,7 +46,7 @@ test("BIBLIOTECARIO: devolução DANIFICADO tira o exemplar de circulação", as
   await page.getByRole("button", { name: "Confirmar devolução", exact: true }).click();
   await expect(page.getByText("O exemplar danificado saiu de circulação")).toBeVisible();
 
-  const depois = await (await request.get(`${API}/exemplares/biblioteca/1`, { headers: auth })).json();
+  const depois = await (await request.get(`${API}/exemplares/biblioteca/${vilaIsabel}`, { headers: auth })).json();
   const exemplar = depois.find((e: { id: number }) => e.id === livre.id);
   expect(exemplar.status).toBe("INDISPONIVEL");
   expect(exemplar.estadoConservacao).toBe("DANIFICADO");
