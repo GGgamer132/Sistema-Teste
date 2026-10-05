@@ -83,31 +83,6 @@ export function BadgeSituacao({ situacao }: { situacao: string }) {
   return <Badge tom="vermelho">🔴 Indisponível: sem exemplares</Badge>;
 }
 
-/**
- * Traduz o status de uma solicitação de transferência.
- * APROVADA sem exemplar vinculado = "aguardando exemplar" (ainda não saiu da origem).
- */
-export function BadgeTransferencia({
-  status,
-  semExemplar = false,
-}: {
-  status: string;
-  semExemplar?: boolean;
-}) {
-  const mapa: Record<string, { tom: Tom; texto: string }> = {
-    PENDENTE: { tom: "amarelo", texto: "PENDENTE" },
-    APROVADA: semExemplar
-      ? { tom: "azul", texto: "APROVADA — AGUARDANDO EXEMPLAR" }
-      : { tom: "azul", texto: "APROVADA" },
-    EM_TRANSITO: { tom: "azul", texto: "EM TRÂNSITO" },
-    CONCLUIDA: { tom: "verde", texto: "CONCLUÍDA" },
-    REJEITADA: { tom: "vermelho", texto: "REJEITADA" },
-    CANCELADA: { tom: "cinza", texto: "CANCELADA" },
-  };
-  const m = mapa[status] ?? { tom: "cinza" as Tom, texto: status };
-  return <Badge tom={m.tom}>{m.texto}</Badge>;
-}
-
 /** Etapa legível de uma transferência (DTOs novos: já vem "APROVADA_AGUARDANDO_EXEMPLAR"). */
 export function BadgeEtapaTransferencia({ etapa }: { etapa: string }) {
   const mapa: Record<string, { tom: Tom; texto: string }> = {
