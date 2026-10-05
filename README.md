@@ -33,11 +33,11 @@ A especificação funcional completa está em `CONTEXTO_SISTEMA_CIRCULA_BOOK_v2.
 
 ## Perfis de usuário
 
-| Perfil | Descrição |
-|--------|-----------|
-| **Usuário Comum** | Busca livros, faz reservas, solicita transferências, acompanha empréstimos, registra interesse em livros |
-| **Bibliotecário/Voluntário** | Gerencia o acervo da sua unidade, registra empréstimos e devoluções |
-| **Administrador da Rede** | Gerencia todas as unidades, aprova transferências, analisa demandas de aquisição |
+| Perfil                       | Descrição                                                                                                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Usuário Comum**            | Busca livros, faz reservas, solicita transferências, acompanha empréstimos, registra interesse em livros |
+| **Bibliotecário/Voluntário** | Gerencia o acervo da sua unidade, registra empréstimos e devoluções                                      |
+| **Administrador da Rede**    | Gerencia todas as unidades, aprova transferências, analisa demandas de aquisição                         |
 
 ## Tecnologias utilizadas
 
@@ -80,27 +80,14 @@ Senha de todos: `senha123`.
 | Usuário       | Usuário 2 (3/3, atrasado) | `usuario2@circulabook.com`                |
 | Usuário       | Usuário 3 (com reservas)  | `usuario3@circulabook.com`                |
 
-## Gravação do vídeo de demonstração
-
-1. **Reinicie o backend antes de gravar** (o roteiro parte do seed limpo): `cd frontend && npm run backend:reiniciar`.
-2. Siga o roteiro da seção 9.0 da especificação, na ordem.
-3. Para ensaiar vendo o navegador, com pausas: `DEMO_LENTA=1 npm run test:e2e:demo` (PowerShell: `$env:DEMO_LENTA=1; npm run test:e2e:demo`).
-
-## Testes
-
-```
-cd backend/circula-book && mvn test     # inclui o seed real no PostgreSQL (schema seed_teste)
-cd frontend && npm run test:e2e         # cada spec roda num backend recém-reiniciado
-```
-
 ## Equipe
 
-| Nome | Matrícula |
-|------|-----------|
-| João Kongevold   | 2311996BCC |
-| Milena Soares    | 2312314BCC |
-| Otávio Medeiros  | 2417852BCC |
-| Sarah Campos     | 2311893BCC |
+| Nome            | Matrícula  |
+| --------------- | ---------- |
+| João Kongevold  | 2311996BCC |
+| Milena Soares   | 2312314BCC |
+| Otavio Medeiros | 2417852BCC |
+| Sarah Campos    | 2311893BCC |
 
 ## Repositório
 
