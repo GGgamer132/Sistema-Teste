@@ -26,12 +26,10 @@ export function useUsuarioLogado(): UsuarioSessao {
 /** Tela inicial de cada perfil, pós-login. */
 export const TELA_INICIAL: Record<Perfil, string> = {
   COMUM: "/",
-  BIBLIOTECARIO: "/biblioteca",
-  ADMIN: "/admin",
+  BIBLIOTECARIO: "/biblioteca/emprestimo",
 };
 
 export const NOME_PERFIL: Record<Perfil, string> = {
   COMUM: "Usuário da Comunidade",
   BIBLIOTECARIO: "Bibliotecário",
-  ADMIN: "Administrador da Rede",
 };

@@ -5,10 +5,10 @@
  * para http://localhost:8080, então basta usar caminhos relativos.
  *
  * Toda requisição leva o token da sessão (Authorization: Bearer). Um 401
- * fora do login/cadastro significa sessão inválida ou expirada: a sessão é
+ * fora do login significa sessão inválida ou expirada: a sessão é
  * limpa e o AuthContext manda o usuário para /login.
  */
-import type { Pagina, Sessao } from "../types";
+import type { Sessao } from "../types";
 
 const BASE = "/api";
 const CHAVE_SESSAO = "circulabook.sessao";
@@ -94,15 +94,6 @@ export function nomeExemplar(id: number): string {
   return `Exemplar nº ${id}`;
 }
 
-/** Frase sobre para onde o exemplar foi após uma devolução em bom estado (fila/transferência). */
-export function destinoAposDevolucao(statusExemplar?: string): string {
-  if (statusExemplar === "EM_TRANSFERENCIA") {
-    return "O exemplar seguiu direto para transferência: o pedido já estava aprovado.";
-  }
-  if (statusExemplar === "RESERVADO") return "O exemplar ficou reservado para o 1º da fila de espera.";
-  return "";
-}
-
 /** Formata ISO date-time do Java para dd/mm/aaaa. */
 export function formatarData(iso?: string | null): string {
   if (!iso) return "—";
@@ -118,20 +109,4 @@ export function diasDeAtraso(dataPrevista?: string | null): number {
   const hoje = Date.now();
   if (hoje <= prev) return 0;
   return Math.floor((hoje - prev) / (1000 * 60 * 60 * 24));
-}
-
-/**
- * Busca todas as páginas de um endpoint paginado do servidor ({itens, totalPaginas}),
- * para a TabelaPaginada paginar na tela. Usa o maior tamanho aceito (50).
- */
-export async function todasAsPaginas<T>(
-  path: string,
-  params: Record<string, string | number | undefined | null> = {},
-): Promise<T[]> {
-  const itens: T[] = [];
-  for (let pagina = 0; ; pagina++) {
-    const p = await api.get<Pagina<T>>(path + qs({ ...params, pagina, tamanho: 50 }));
-    itens.push(...p.itens);
-    if (pagina + 1 >= p.totalPaginas) return itens;
-  }
 }

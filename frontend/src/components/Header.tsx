@@ -2,14 +2,13 @@
  * Barra azul do topo, presente em todas as telas.
  * O menu muda conforme o perfil do usuário logado e o item da página atual
  * fica em destaque. Em telas largas os links ficam em linha; em telas estreitas
- * viram um menu recolhível ("Menu"). O sino de notificações aparece em todos os perfis.
+ * viram um menu recolhível ("Menu").
  * A identificação encolhe (com reticências) para nunca cobrir o menu.
  */
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import type { Perfil } from "../types";
 import { NOME_PERFIL, TELA_INICIAL, useAuth, useUsuarioLogado } from "../auth/contexto";
-import Sino from "./Sino";
 
 interface ItemMenu {
   rotulo: string;
@@ -20,48 +19,20 @@ interface ItemMenu {
 
 const MENUS: Record<Perfil, ItemMenu[]> = {
   COMUM: [
-    { rotulo: "Buscar Livros", to: "/", tambem: ["/resultados", "/livro"] },
-    { rotulo: "Meus Empréstimos", to: "/meus-emprestimos" },
-    { rotulo: "Minhas Reservas", to: "/minhas-reservas" },
-    { rotulo: "Meu Histórico", to: "/historico" },
-    { rotulo: "Pedir um Livro", to: "/interesse" },
+    { rotulo: "Buscar livros", to: "/", tambem: ["/resultados", "/livro"] },
   ],
   BIBLIOTECARIO: [
-    { rotulo: "Empréstimos", to: "/biblioteca" },
-    { rotulo: "Registrar Empréstimo", to: "/biblioteca/emprestimo" },
-    { rotulo: "Registrar Devolução", to: "/biblioteca/devolucao" },
-    { rotulo: "Cadastrar Exemplares", to: "/biblioteca/exemplares" },
-    { rotulo: "Acervo", to: "/biblioteca/acervo" },
-    { rotulo: "Transferências", to: "/biblioteca/transferencias" },
-    { rotulo: "Reservas", to: "/biblioteca/reservas" },
-  ],
-  ADMIN: [
-    { rotulo: "Painel", to: "/admin" },
-    { rotulo: "Transferências", to: "/admin/transferencias" },
-    { rotulo: "Catálogo", to: "/admin/catalogo" },
-    { rotulo: "Categorias", to: "/admin/categorias" },
-    { rotulo: "Bibliotecas", to: "/admin/bibliotecas" },
-    { rotulo: "Bibliotecários", to: "/admin/bibliotecarios" },
-    { rotulo: "Demandas", to: "/admin/demandas" },
-    { rotulo: "Histórico", to: "/admin/historico" },
-    { rotulo: "Relatórios", to: "/admin/relatorios" },
+    { rotulo: "Empréstimo", to: "/biblioteca/emprestimo" },
+    { rotulo: "Devolução", to: "/biblioteca/devolucao" },
   ],
 };
 
-/**
- * A partir de que largura o menu cabe em linha (classes fixas para o Tailwind achar):
- * os 5 do usuário comum cabem a partir de 1024 px; os do bibliotecário e do Admin, a partir de 1280 px.
- */
-const EM_LINHA: Record<Perfil, { nav: string; botao: string }> = {
-  COMUM: { nav: "hidden lg:flex", botao: "lg:hidden" },
-  ADMIN: { nav: "hidden xl:flex", botao: "xl:hidden" },
-  BIBLIOTECARIO: { nav: "hidden xl:flex", botao: "xl:hidden" },
-};
+/** A partir de que largura o menu cabe em linha (classes fixas para o Tailwind achar). */
+const EM_LINHA = { nav: "hidden md:flex", botao: "md:hidden" };
 
 const ICONE: Record<Perfil, string> = {
   COMUM: "👤",
   BIBLIOTECARIO: "🧑‍💼",
-  ADMIN: "🛡️",
 };
 
 export default function Header() {
@@ -108,7 +79,7 @@ export default function Header() {
             📚 Circula Book
           </Link>
 
-          <nav aria-label="Menu principal" className={`${EM_LINHA[perfil].nav} items-center gap-4`}>
+          <nav aria-label="Menu principal" className={`${EM_LINHA.nav} items-center gap-4`}>
             {MENUS[perfil].map((item) => link(item, false))}
           </nav>
         </div>
@@ -116,20 +87,17 @@ export default function Header() {
         <div className="flex items-center justify-end gap-2 sm:gap-3 min-w-0 flex-1">
           <span
             className="hidden lg:block min-w-0 truncate text-[13px] font-medium"
-            data-testid="identificacao"
             title={identificacao}
           >
             {ICONE[perfil]} {identificacao}
           </span>
-
-          <Sino />
 
           <button
             type="button"
             onClick={() => setMenuAberto(!menuAberto)}
             aria-expanded={menuAberto}
             aria-controls="menu-recolhivel"
-            className={`${EM_LINHA[perfil].botao} shrink-0 bg-white/15 border border-white/40 rounded-[8px] px-3 py-[6px] text-[13px] hover:bg-white/25`}
+            className={`${EM_LINHA.botao} shrink-0 bg-white/15 border border-white/40 rounded-[8px] px-3 py-[6px] text-[13px] hover:bg-white/25`}
           >
             ☰ Menu
           </button>
@@ -149,7 +117,7 @@ export default function Header() {
         <nav
           id="menu-recolhivel"
           aria-label="Menu"
-          className={`${EM_LINHA[perfil].botao} absolute left-0 right-0 top-full z-40 bg-[#1565c0] px-4 pb-4 pt-2 shadow-lg`}
+          className={`${EM_LINHA.botao} absolute left-0 right-0 top-full z-40 bg-[#1565c0] px-4 pb-4 pt-2 shadow-lg`}
         >
           <p className="px-3 pb-2 text-[12px] opacity-80 truncate">
             {ICONE[perfil]} {identificacao}

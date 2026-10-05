@@ -1,13 +1,13 @@
-/** Tela de login (e-mail + senha) com link para o autocadastro. */
+/** Tela de login (e-mail + senha) dos usuários já cadastrados na base. */
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { TELA_INICIAL, useAuth } from "../auth/contexto";
 import type { Sessao } from "../types";
 import { Botao, Campo, Card, Entrada, Erro } from "../components/ui";
 
-/** Moldura das telas de acesso (login e cadastro), sem o menu do sistema. */
-export function TelaAcesso({
+/** Moldura da tela de acesso, sem o menu do sistema. */
+function TelaAcesso({
   titulo,
   children,
 }: {
@@ -80,12 +80,6 @@ export default function Login() {
           {enviando ? "Entrando..." : "Entrar"}
         </Botao>
       </form>
-      <p className="text-center text-[14px] text-[#66707d]">
-        Ainda não tem conta?{" "}
-        <Link to="/cadastro" className="font-semibold text-[#1976d2] hover:underline">
-          Cadastre-se
-        </Link>
-      </p>
     </TelaAcesso>
   );
 }

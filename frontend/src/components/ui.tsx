@@ -83,35 +83,6 @@ export function BadgeSituacao({ situacao }: { situacao: string }) {
   return <Badge tom="vermelho">🔴 Indisponível: sem exemplares</Badge>;
 }
 
-/** Etapa legível de uma transferência (DTOs novos: já vem "APROVADA_AGUARDANDO_EXEMPLAR"). */
-export function BadgeEtapaTransferencia({ etapa }: { etapa: string }) {
-  const mapa: Record<string, { tom: Tom; texto: string }> = {
-    PENDENTE: { tom: "amarelo", texto: "Aguardando decisão" },
-    APROVADA: { tom: "azul", texto: "Aprovada" },
-    APROVADA_AGUARDANDO_EXEMPLAR: { tom: "azul", texto: "Aprovada, aguardando exemplar" },
-    EM_TRANSITO: { tom: "azul", texto: "Em trânsito" },
-    CONCLUIDA: { tom: "verde", texto: "Concluída" },
-    REJEITADA: { tom: "vermelho", texto: "Rejeitada" },
-    CANCELADA: { tom: "cinza", texto: "Cancelada" },
-  };
-  const m = mapa[etapa] ?? { tom: "cinza" as Tom, texto: etapa };
-  return <Badge tom={m.tom}>{m.texto}</Badge>;
-}
-
-/** Traduz o status de uma reserva. */
-export function BadgeReserva({ status }: { status: string }) {
-  const mapa: Record<string, { tom: Tom; texto: string }> = {
-    PENDENTE: { tom: "amarelo", texto: "NA FILA" },
-    AGUARDANDO_TRANSFERENCIA: { tom: "azul", texto: "AGUARDANDO TRANSFERÊNCIA" },
-    DISPONIVEL: { tom: "verde", texto: "PRONTA PARA RETIRADA" },
-    RETIRADA: { tom: "cinza", texto: "RETIRADA" },
-    CANCELADA: { tom: "cinza", texto: "CANCELADA" },
-    EXPIRADA: { tom: "vermelho", texto: "EXPIRADA" },
-  };
-  const m = mapa[status] ?? { tom: "cinza" as Tom, texto: status };
-  return <Badge tom={m.tom}>{m.texto}</Badge>;
-}
-
 /* ─────────────── Caixas de alerta da coluna lateral ─────────────── */
 export function Callout({
   tipo,
@@ -212,62 +183,9 @@ export function Entrada(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${ENTRADA} ${props.className ?? ""}`} />;
 }
 
-export function AreaTexto(
-  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>,
-) {
-  return (
-    <textarea
-      {...props}
-      className={`w-full min-h-[76px] rounded-[8px] border border-[#e0e0e0] bg-white
-                  px-[14px] py-3 text-[14px] text-[#2c3e50] placeholder:text-[#9aa3ad]
-                  ${props.className ?? ""}`}
-    />
-  );
-}
-
 export function Selecao(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select {...props} className={`${ENTRADA} ${props.className ?? ""}`} />
-  );
-}
-
-/** Grupo de opções em formato de "pílula", como na condição do exemplar. */
-export function GrupoRadio<T extends string>({
-  opcoes,
-  valor,
-  onChange,
-}: {
-  opcoes: { valor: T; rotulo: string; desabilitada?: boolean }[];
-  valor: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-3">
-      {opcoes.map((o) => {
-        const ativo = o.valor === valor;
-        return (
-          <button
-            key={o.valor}
-            type="button"
-            onClick={() => onChange(o.valor)}
-            disabled={o.desabilitada}
-            aria-pressed={ativo}
-            aria-disabled={o.desabilitada || undefined}
-            className={`flex items-center gap-2 px-4 py-[10px] rounded-[8px] border text-[14px]
-              ${
-                o.desabilitada
-                  ? "border-[#e0e0e0] bg-[#f5f7fa] text-[#9aa3ad] cursor-not-allowed"
-                  : ativo
-                    ? "border-[#1976d2] bg-[#e8f0fc] text-[#125ca8] font-semibold"
-                    : "border-[#e0e0e0] bg-white text-[#2c3e50]"
-              }`}
-          >
-            <span aria-hidden>{ativo ? "●" : "○"}</span>
-            {o.rotulo}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

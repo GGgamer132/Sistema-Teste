@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api, qs } from "../api/client";
+import { api } from "../api/client";
 import type { LivroResumo } from "../types";
 import {
   BadgeSituacao,
@@ -85,21 +85,7 @@ export default function ResultadosBusca() {
         <Carregando texto="Consultando o acervo da rede..." />
       )}
       {livros?.length === 0 && (
-        <>
-          <Vazio texto="Nenhum título corresponde a esses filtros. Tente ampliar a busca ou registre o interesse para que a rede avalie a aquisição." />
-          <div className="flex justify-center">
-            <Botao
-              onClick={() =>
-                navigate(
-                  "/interesse" +
-                    qs({ titulo: searchParams.get("termo"), autor: searchParams.get("autor") }),
-                )
-              }
-            >
-              📝 Registrar interesse neste livro
-            </Botao>
-          </div>
-        </>
+        <Vazio texto="Nenhum título corresponde a esses filtros. Tente ampliar a busca." />
       )}
 
       <div className="flex flex-col gap-4">

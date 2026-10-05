@@ -3,11 +3,8 @@
  * Três passos: identificar o usuário, escolher o exemplar e confirmar.
  * O prazo é fixo (14 dias corridos) e calculado pelo servidor.
  * A coluna direita mostra em tempo real se o usuário está apto (limite e bloqueio).
- * Aceita ?usuario=ID&exemplar=ID (atalho das reservas aguardando retirada) para já
- * chegar com o leitor e o exemplar selecionados.
  */
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { api, nomeExemplar, formatarData } from "../api/client";
 import type { Emprestimo, Exemplar, SituacaoUsuario, Usuario } from "../types";
 import {
@@ -24,7 +21,6 @@ import {
   SectionCard,
   Sucesso,
   TituloPagina,
-  Trilha,
 } from "../components/ui";
 import ModalConfirmacao, { ResumoModal } from "../components/ModalConfirmacao";
 import { useUsuarioLogado } from "../auth/contexto";
@@ -35,7 +31,6 @@ const PRAZO_EMPRESTIMO_DIAS = 14;
 
 export default function RegistrarEmprestimo() {
   const { bibliotecaId, bibliotecaNome } = useUsuarioLogado();
-  const [searchParams] = useSearchParams();
   const [exemplares, setExemplares] = useState<Exemplar[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -64,15 +59,9 @@ export default function RegistrarEmprestimo() {
   useEffect(() => {
     Promise.all([
       carregarAcervo(),
-      api.get<Usuario[]>("/usuarios/tipo/COMUM"),
+      api.get<Usuario[]>("/usuarios/comuns"),
     ])
-      .then(([acervo, comuns]) => {
-        setUsuarios(comuns);
-        const u = comuns.find((x) => x.id === Number(searchParams.get("usuario")));
-        const e = acervo.find((x) => x.id === Number(searchParams.get("exemplar")));
-        if (u) setUsuarioSel(u);
-        if (e) setExemplarSel(e);
-      })
+      .then(([, comuns]) => setUsuarios(comuns))
       .catch((e) => setErro(e.message))
       .finally(() => setCarregando(false));
     // carga única ao abrir a tela (a biblioteca da sessão não muda aqui)
@@ -199,15 +188,8 @@ export default function RegistrarEmprestimo() {
 
   return (
     <>
-      <Trilha
-        voltarPara="/biblioteca"
-        itens={[
-          { rotulo: "Empréstimos", to: "/biblioteca" },
-          { rotulo: "Novo empréstimo" },
-        ]}
-      />
       <TituloPagina
-        titulo="Novo Empréstimo"
+        titulo="Registrar Empréstimo"
         subtitulo={`${bibliotecaNome ?? ""} · identifique o usuário, escolha o exemplar e confirme`}
       />
 
