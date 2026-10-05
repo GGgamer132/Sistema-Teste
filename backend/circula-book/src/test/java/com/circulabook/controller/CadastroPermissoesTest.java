@@ -46,22 +46,22 @@ class CadastroPermissoesTest {
     @Autowired private VerificadorConsistencia verificador;
 
     private Biblioteca central, vilaIsabel;
-    private Usuario ana, bruno;
-    private String tokenAdmin, tokenCarlos, tokenFernanda, tokenAna;
+    private Usuario u1, u2;
+    private String tokenAdmin, tokenBibVI, tokenBibC, tokenU1;
 
     @BeforeEach
     void montar() throws Exception {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
-        usuario("Roberto Dias", "ADMIN", null);
-        usuario("Carlos Lima", "BIBLIOTECARIO", vilaIsabel);
-        usuario("Fernanda Reis", "BIBLIOTECARIO", central);
-        ana = usuario("Ana Souza", "COMUM", null);
-        bruno = usuario("Bruno Alves", "COMUM", null);
-        tokenAdmin = login("roberto.dias@teste.com");
-        tokenCarlos = login("carlos.lima@teste.com");
-        tokenFernanda = login("fernanda.reis@teste.com");
-        tokenAna = login("ana.souza@teste.com");
+        usuario("Admin", "ADMIN", null);
+        usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
+        usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central);
+        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
+        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        tokenAdmin = login("admin@teste.com");
+        tokenBibVI = login("bibliotecÃ¡rio.vila.isabel@teste.com");
+        tokenBibC = login("bibliotecÃ¡rio.central@teste.com");
+        tokenU1 = login("usuÃ¡rio.1@teste.com");
     }
 
     // ───────────────────────── Livros ─────────────────────────
@@ -71,8 +71,8 @@ class CadastroPermissoesTest {
     void livros() throws Exception {
         String corpo = "{\"titulo\":\"Livro Novo\",\"autor\":\"Autora X\",\"isbn\":\"978-65-00000-01-1\"}";
         chamar(HttpMethod.POST, "/api/livros", null, corpo).andExpect(status().isUnauthorized());
-        chamar(HttpMethod.POST, "/api/livros", tokenCarlos, corpo).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/livros", tokenAna, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/livros", tokenBibVI, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/livros", tokenU1, corpo).andExpect(status().isForbidden());
         String json = chamar(HttpMethod.POST, "/api/livros", tokenAdmin, corpo)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.titulo").value("Livro Novo"))
@@ -87,7 +87,7 @@ class CadastroPermissoesTest {
             .andExpect(status().isBadRequest());
 
         String edicao = "{\"titulo\":\"Livro Novo (2ª ed.)\",\"autor\":\"Autora X\",\"isbn\":\"978-65-00000-01-1\",\"anoPublicacao\":2024}";
-        chamar(HttpMethod.PUT, "/api/livros/" + id, tokenCarlos, edicao).andExpect(status().isForbidden());
+        chamar(HttpMethod.PUT, "/api/livros/" + id, tokenBibVI, edicao).andExpect(status().isForbidden());
         chamar(HttpMethod.PUT, "/api/livros/" + id, tokenAdmin, edicao)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.titulo").value("Livro Novo (2ª ed.)"))
@@ -95,7 +95,7 @@ class CadastroPermissoesTest {
 
         // Sem termo: o LIKE com "escape ''" gerado pelo Hibernate não funciona no H2 (no PostgreSQL sim;
         // a busca por termo é coberta pelo Playwright contra o banco real)
-        chamar(HttpMethod.GET, "/api/livros/busca", tokenAna, null)
+        chamar(HttpMethod.GET, "/api/livros/busca", tokenU1, null)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].situacao").value("INDISPONIVEL"))
             .andExpect(jsonPath("$[0].totalExemplares").value(0));
@@ -108,8 +108,8 @@ class CadastroPermissoesTest {
     void categorias() throws Exception {
         String corpo = "{\"nome\":\"Poesia\",\"descricao\":\"Versos\"}";
         chamar(HttpMethod.POST, "/api/categorias", null, corpo).andExpect(status().isUnauthorized());
-        chamar(HttpMethod.POST, "/api/categorias", tokenCarlos, corpo).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/categorias", tokenAna, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/categorias", tokenBibVI, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/categorias", tokenU1, corpo).andExpect(status().isForbidden());
         String json = chamar(HttpMethod.POST, "/api/categorias", tokenAdmin, corpo)
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         long id = Long.parseLong(json.replaceAll(".*\"id\":(\\d+).*", "$1"));
@@ -117,11 +117,11 @@ class CadastroPermissoesTest {
         chamar(HttpMethod.POST, "/api/categorias", tokenAdmin, "{\"nome\":\"poesia\"}")
             .andExpect(status().isBadRequest())
             .andExpect(content().string(containsString("Já existe a categoria")));
-        chamar(HttpMethod.PUT, "/api/categorias/" + id, tokenFernanda, "{\"nome\":\"Poemas\"}")
+        chamar(HttpMethod.PUT, "/api/categorias/" + id, tokenBibC, "{\"nome\":\"Poemas\"}")
             .andExpect(status().isForbidden());
         chamar(HttpMethod.PUT, "/api/categorias/" + id, tokenAdmin, "{\"nome\":\"Poemas\"}")
             .andExpect(status().isOk()).andExpect(jsonPath("$.nome").value("Poemas"));
-        chamar(HttpMethod.GET, "/api/categorias", tokenAna, null).andExpect(status().isOk());
+        chamar(HttpMethod.GET, "/api/categorias", tokenU1, null).andExpect(status().isOk());
     }
 
     // ───────────────────────── Bibliotecas ─────────────────────────
@@ -131,8 +131,8 @@ class CadastroPermissoesTest {
     void bibliotecas() throws Exception {
         String corpo = "{\"nome\":\"Biblioteca Popular da Tijuca\",\"endereco\":\"Rua X, 1\",\"email\":\"tijuca@teste.com\",\"telefone\":\"(21) 3000-0000\"}";
         chamar(HttpMethod.POST, "/api/bibliotecas", null, corpo).andExpect(status().isUnauthorized());
-        chamar(HttpMethod.POST, "/api/bibliotecas", tokenCarlos, corpo).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/bibliotecas", tokenAna, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/bibliotecas", tokenBibVI, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/bibliotecas", tokenU1, corpo).andExpect(status().isForbidden());
         String json = chamar(HttpMethod.POST, "/api/bibliotecas", tokenAdmin, corpo)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.ativa").value(true))
@@ -140,20 +140,20 @@ class CadastroPermissoesTest {
         long id = Long.parseLong(json.replaceAll(".*\"id\":(\\d+).*", "$1"));
 
         chamar(HttpMethod.POST, "/api/bibliotecas", tokenAdmin, "{\"nome\":\"\"}").andExpect(status().isBadRequest());
-        chamar(HttpMethod.PUT, "/api/bibliotecas/" + id, tokenCarlos, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.PUT, "/api/bibliotecas/" + id, tokenBibVI, corpo).andExpect(status().isForbidden());
         chamar(HttpMethod.PUT, "/api/bibliotecas/" + id, tokenAdmin,
                "{\"nome\":\"Biblioteca da Tijuca\",\"endereco\":\"Rua Y, 2\"}")
             .andExpect(status().isOk()).andExpect(jsonPath("$.nome").value("Biblioteca da Tijuca"));
 
-        chamar(HttpMethod.PATCH, "/api/bibliotecas/" + id + "/desativar", tokenFernanda, null)
+        chamar(HttpMethod.PATCH, "/api/bibliotecas/" + id + "/desativar", tokenBibC, null)
             .andExpect(status().isForbidden());
         chamar(HttpMethod.PATCH, "/api/bibliotecas/" + id + "/desativar", tokenAdmin, null)
             .andExpect(status().isOk()).andExpect(jsonPath("$.ativa").value(false));
 
-        chamar(HttpMethod.GET, "/api/bibliotecas", tokenAna, null)
+        chamar(HttpMethod.GET, "/api/bibliotecas", tokenU1, null)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[*].id", not(hasItem((int) id))));
-        chamar(HttpMethod.GET, "/api/bibliotecas/todas", tokenCarlos, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.GET, "/api/bibliotecas/todas", tokenBibVI, null).andExpect(status().isForbidden());
         chamar(HttpMethod.GET, "/api/bibliotecas/todas", tokenAdmin, null)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[*].id", hasItem((int) id)));
@@ -167,17 +167,17 @@ class CadastroPermissoesTest {
     @DisplayName("Bibliotecário: só o Admin lista/cria/ativa; biblioteca obrigatória; não cria COMUM; sem hash")
     void bibliotecarios() throws Exception {
         chamar(HttpMethod.GET, "/api/usuarios/bibliotecarios", null, null).andExpect(status().isUnauthorized());
-        chamar(HttpMethod.GET, "/api/usuarios/bibliotecarios", tokenCarlos, null).andExpect(status().isForbidden());
-        chamar(HttpMethod.GET, "/api/usuarios/bibliotecarios", tokenAna, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.GET, "/api/usuarios/bibliotecarios", tokenBibVI, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.GET, "/api/usuarios/bibliotecarios", tokenU1, null).andExpect(status().isForbidden());
         chamar(HttpMethod.GET, "/api/usuarios/bibliotecarios", tokenAdmin, null)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[*].tipo", everyItem(is("BIBLIOTECARIO"))))
             .andExpect(content().string(not(containsString("senhaHash"))));
 
-        String corpo = "{\"nome\":\"Paula Tijuca\",\"email\":\"paula@teste.com\",\"senha\":\"abc123\",\"bibliotecaId\":"
+        String corpo = "{\"nome\":\"BibliotecÃ¡rio Tijuca\",\"email\":\"bibliotecariotijuca@teste.com\",\"senha\":\"abc123\",\"bibliotecaId\":"
             + central.getId() + "}";
-        chamar(HttpMethod.POST, "/api/usuarios/bibliotecarios", tokenCarlos, corpo).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/usuarios/bibliotecarios", tokenAna, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/usuarios/bibliotecarios", tokenBibVI, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/usuarios/bibliotecarios", tokenU1, corpo).andExpect(status().isForbidden());
         String json = chamar(HttpMethod.POST, "/api/usuarios/bibliotecarios", tokenAdmin, corpo)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.tipo").value("BIBLIOTECARIO"))
@@ -186,7 +186,7 @@ class CadastroPermissoesTest {
             .andExpect(content().string(not(containsString("$2a$"))))
             .andReturn().getResponse().getContentAsString();
         long id = Long.parseLong(json.replaceAll("^\\{\"id\":(\\d+).*", "$1"));
-        assertThat(login("paula@teste.com")).isNotBlank();
+        assertThat(login("bibliotecariotijuca@teste.com")).isNotBlank();
 
         chamar(HttpMethod.POST, "/api/usuarios/bibliotecarios", tokenAdmin, corpo)
             .andExpect(status().isBadRequest()).andExpect(content().string(containsString("e-mail")));
@@ -205,9 +205,9 @@ class CadastroPermissoesTest {
 
         chamar(HttpMethod.PATCH, "/api/usuarios/bibliotecarios/" + id + "/desativar", tokenAdmin, null)
             .andExpect(status().isOk()).andExpect(jsonPath("$.ativo").value(false));
-        chamar(HttpMethod.POST, "/api/auth/login", null, "{\"email\":\"paula@teste.com\",\"senha\":\"abc123\"}")
+        chamar(HttpMethod.POST, "/api/auth/login", null, "{\"email\":\"bibliotecariotijuca@teste.com\",\"senha\":\"abc123\"}")
             .andExpect(status().isForbidden());
-        chamar(HttpMethod.PATCH, "/api/usuarios/bibliotecarios/" + ana.getId() + "/desativar", tokenAdmin, null)
+        chamar(HttpMethod.PATCH, "/api/usuarios/bibliotecarios/" + u1.getId() + "/desativar", tokenAdmin, null)
             .andExpect(status().isBadRequest());
     }
 
@@ -221,33 +221,33 @@ class CadastroPermissoesTest {
 
         chamar(HttpMethod.POST, "/api/exemplares", null, corpo).andExpect(status().isUnauthorized());
         chamar(HttpMethod.POST, "/api/exemplares", tokenAdmin, corpo).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/exemplares", tokenAna, corpo).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/exemplares", tokenCarlos,
+        chamar(HttpMethod.POST, "/api/exemplares", tokenU1, corpo).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/exemplares", tokenBibVI,
                "{\"livroId\":" + livro.getId() + ",\"bibliotecaId\":" + central.getId() + "}")
             .andExpect(status().isForbidden());
 
-        chamar(HttpMethod.POST, "/api/exemplares", tokenCarlos, corpo)
+        chamar(HttpMethod.POST, "/api/exemplares", tokenBibVI, corpo)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(3)))
             .andExpect(jsonPath("$[*].status", everyItem(is("DISPONIVEL"))))
             .andExpect(jsonPath("$[*].estadoConservacao", everyItem(is("BOM"))))
             .andExpect(jsonPath("$[*].biblioteca.id", everyItem(is(vilaIsabel.getId().intValue()))));
 
-        chamar(HttpMethod.POST, "/api/exemplares", tokenCarlos, "{\"livroId\":" + livro.getId() + ",\"quantidade\":0}")
+        chamar(HttpMethod.POST, "/api/exemplares", tokenBibVI, "{\"livroId\":" + livro.getId() + ",\"quantidade\":0}")
             .andExpect(status().isBadRequest()).andExpect(content().string(containsString("1 a 50")));
-        chamar(HttpMethod.POST, "/api/exemplares", tokenCarlos, "{\"livroId\":" + livro.getId() + ",\"quantidade\":51}")
+        chamar(HttpMethod.POST, "/api/exemplares", tokenBibVI, "{\"livroId\":" + livro.getId() + ",\"quantidade\":51}")
             .andExpect(status().isBadRequest());
-        chamar(HttpMethod.POST, "/api/exemplares", tokenCarlos, "{\"quantidade\":1}")
+        chamar(HttpMethod.POST, "/api/exemplares", tokenBibVI, "{\"quantidade\":1}")
             .andExpect(status().isBadRequest()).andExpect(content().string(containsString("livro já cadastrado")));
-        chamar(HttpMethod.POST, "/api/exemplares", tokenCarlos,
+        chamar(HttpMethod.POST, "/api/exemplares", tokenBibVI,
                "{\"titulo\":\"Livro inventado\",\"autor\":\"Ninguém\",\"quantidade\":1}")
             .andExpect(status().isBadRequest());
-        chamar(HttpMethod.POST, "/api/exemplares", tokenCarlos,
+        chamar(HttpMethod.POST, "/api/exemplares", tokenBibVI,
                "{\"livroId\":" + livro.getId() + ",\"conservacao\":\"DANIFICADO\"}")
             .andExpect(status().isBadRequest());
         assertThat(livroRepository.count()).isEqualTo(1);
         // Sem quantidade: cria 1, conservação padrão NOVO
-        chamar(HttpMethod.POST, "/api/exemplares", tokenCarlos, "{\"livroId\":" + livro.getId() + "}")
+        chamar(HttpMethod.POST, "/api/exemplares", tokenBibVI, "{\"livroId\":" + livro.getId() + "}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(1)))
             .andExpect(jsonPath("$[0].estadoConservacao").value("NOVO"));
@@ -259,13 +259,13 @@ class CadastroPermissoesTest {
     void exemplaresComFila() throws Exception {
         Livro livro = livro("Harry Potter");
         Exemplar emprestado = exemplar(livro, vilaIsabel, StatusExemplar.EMPRESTADO_RESERVADO);
-        emprestimoAtivo(emprestado, bruno);
-        Reserva primeira = reserva(livro, ana, vilaIsabel, LocalDateTime.now().minusDays(3));
-        Reserva segunda = reserva(livro, usuario("Camila Duarte", "COMUM", null), vilaIsabel,
+        emprestimoAtivo(emprestado, u2);
+        Reserva primeira = reserva(livro, u1, vilaIsabel, LocalDateTime.now().minusDays(3));
+        Reserva segunda = reserva(livro, usuario("UsuÃ¡rio 3", "COMUM", null), vilaIsabel,
                                   LocalDateTime.now().minusDays(1));
         assertThat(verificador.violacoes()).isEmpty();
 
-        chamar(HttpMethod.POST, "/api/exemplares", tokenCarlos,
+        chamar(HttpMethod.POST, "/api/exemplares", tokenBibVI,
                "{\"livroId\":" + livro.getId() + ",\"conservacao\":\"NOVO\",\"quantidade\":3}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].status").value("RESERVADO"))
@@ -287,22 +287,22 @@ class CadastroPermissoesTest {
         Livro livro = livro("Dom Casmurro");
         Exemplar naVi = exemplar(livro, vilaIsabel, StatusExemplar.DISPONIVEL);
         Exemplar naCentral = exemplar(livro, central, StatusExemplar.DISPONIVEL);
-        String corpoVi = "{\"exemplarId\":" + naVi.getId() + ",\"usuarioId\":" + ana.getId() + "}";
+        String corpoVi = "{\"exemplarId\":" + naVi.getId() + ",\"usuarioId\":" + u1.getId() + "}";
 
         chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenAdmin, corpoVi).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenAna, corpoVi).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenCarlos,
-               "{\"exemplarId\":" + naCentral.getId() + ",\"usuarioId\":" + ana.getId() + "}")
+        chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenU1, corpoVi).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenBibVI,
+               "{\"exemplarId\":" + naCentral.getId() + ",\"usuarioId\":" + u1.getId() + "}")
             .andExpect(status().isForbidden());
-        String json = chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenCarlos, corpoVi)
+        String json = chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenBibVI, corpoVi)
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         long empId = Long.parseLong(json.replaceAll("^\\{\"id\":(\\d+).*", "$1"));
 
         String devolucao = "{\"emprestimoId\":" + empId + ",\"condicaoExemplar\":\"BOM\"}";
         chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenAdmin, devolucao).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenAna, devolucao).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenFernanda, devolucao).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenCarlos, devolucao).andExpect(status().isOk());
+        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenU1, devolucao).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenBibC, devolucao).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenBibVI, devolucao).andExpect(status().isOk());
     }
 
     @Test
@@ -311,12 +311,12 @@ class CadastroPermissoesTest {
         Exemplar e = exemplar(livro("O Alienista"), vilaIsabel, StatusExemplar.DISPONIVEL);
         String url = "/api/exemplares/" + e.getId();
         chamar(HttpMethod.PATCH, url + "/indisponivel", null, null).andExpect(status().isUnauthorized());
-        chamar(HttpMethod.PATCH, url + "/indisponivel", tokenFernanda, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.PATCH, url + "/indisponivel", tokenBibC, null).andExpect(status().isForbidden());
         chamar(HttpMethod.PATCH, url + "/indisponivel", tokenAdmin, null).andExpect(status().isForbidden());
-        chamar(HttpMethod.PATCH, url + "/indisponivel", tokenCarlos, "{\"motivo\":\"Molhado\"}")
+        chamar(HttpMethod.PATCH, url + "/indisponivel", tokenBibVI, "{\"motivo\":\"Molhado\"}")
             .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("INDISPONIVEL"));
-        chamar(HttpMethod.PATCH, url + "/reativar", tokenFernanda, null).andExpect(status().isForbidden());
-        chamar(HttpMethod.PATCH, url + "/reativar", tokenCarlos, null)
+        chamar(HttpMethod.PATCH, url + "/reativar", tokenBibC, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.PATCH, url + "/reativar", tokenBibVI, null)
             .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DISPONIVEL"));
     }
 
@@ -330,7 +330,7 @@ class CadastroPermissoesTest {
     }
 
     private String login(String email) throws Exception {
-        String senha = email.startsWith("paula") ? "abc123" : "senha123";
+        String senha = email.startsWith("bibliotecariotijuca") ? "abc123" : "senha123";
         String json = chamar(HttpMethod.POST, "/api/auth/login", null,
                              "{\"email\":\"" + email + "\",\"senha\":\"" + senha + "\"}")
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();

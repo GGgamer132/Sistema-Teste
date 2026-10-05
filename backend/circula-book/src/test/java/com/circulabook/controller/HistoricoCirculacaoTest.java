@@ -28,65 +28,65 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
     @Autowired private FilaEsperaService filaEsperaService;
 
     private Biblioteca central, vilaIsabel;
-    private Usuario ana, bruno, camila;
-    private String tokenAdmin, tokenFernanda, tokenCarlos, tokenAna, tokenCamila;
+    private Usuario u1, u2, u3;
+    private String tokenAdmin, tokenBibC, tokenBibVI, tokenU1, tokenU3;
 
     @BeforeEach
     void montar() throws Exception {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
-        tokenAdmin = login(usuario("Roberto Dias", "ADMIN", null));
-        tokenFernanda = login(usuario("Fernanda Reis", "BIBLIOTECARIO", central));
-        tokenCarlos = login(usuario("Carlos Lima", "BIBLIOTECARIO", vilaIsabel));
-        ana = usuario("Ana Souza", "COMUM", null);
-        bruno = usuario("Bruno Alves", "COMUM", null);
-        camila = usuario("Camila Duarte", "COMUM", null);
-        tokenAna = login(ana);
-        tokenCamila = login(camila);
+        tokenAdmin = login(usuario("Admin", "ADMIN", null));
+        tokenBibC = login(usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central));
+        tokenBibVI = login(usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel));
+        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
+        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        tokenU1 = login(u1);
+        tokenU3 = login(u3);
     }
 
     @Test
     @DisplayName("A-18: cada operação gera uma linha com o responsável certo; linha do tempo completa")
     void cicloCompleto() throws Exception {
         Livro livro = livro("O Hobbit");
-        List<Long> ex = cadastrar(livro, 2);                                   // CADASTRO x2 (Fernanda)
+        List<Long> ex = cadastrar(livro, 2);                                   // CADASTRO x2 (BibC)
         long ex1 = ex.get(0), ex2 = ex.get(1);
-        long empAna = emprestar(ex1, ana);                                     // EMPRESTIMO (Fernanda)
-        emprestar(ex2, bruno);                                                 // EMPRESTIMO (Fernanda)
-        reservar(tokenCamila, livro, central, central);                        // FILA x2 (Camila)
-        devolver(empAna);                                                      // DEVOLUCAO + RESERVA + FILA ex2 (Fernanda)
-        chamar(HttpMethod.PATCH, "/api/exemplares/" + ex1 + "/indisponivel", tokenFernanda,
+        long empU1 = emprestar(ex1, u1);                                     // EMPRESTIMO (BibC)
+        emprestar(ex2, u2);                                                 // EMPRESTIMO (BibC)
+        reservar(tokenU3, livro, central, central);                        // FILA x2 (U3)
+        devolver(empU1);                                                      // DEVOLUCAO + RESERVA + FILA ex2 (BibC)
+        chamar(HttpMethod.PATCH, "/api/exemplares/" + ex1 + "/indisponivel", tokenBibC,
                "{\"motivo\":\"capa rasgada\"}").andExpect(status().isOk());    // BAIXA + FILA ex2
-        chamar(HttpMethod.PATCH, "/api/exemplares/" + ex1 + "/reativar", tokenFernanda, null)
+        chamar(HttpMethod.PATCH, "/api/exemplares/" + ex1 + "/reativar", tokenBibC, null)
             .andExpect(status().isOk());                                       // REATIVACAO + RESERVA + FILA ex2
-        vencerReservaDe(camila);
+        vencerReservaDe(u3);
         chamar(HttpMethod.POST, "/api/reservas/expirar-vencidas", tokenAdmin, null)
-            .andExpect(status().isOk());                                       // RESERVA (T7, Roberto)
+            .andExpect(status().isOk());                                       // RESERVA (T7, Admin)
         String avulsa = chamar(HttpMethod.POST, "/api/transferencias/avulsa", tokenAdmin,
             "{\"exemplarIds\":[" + ex1 + "],\"bibliotecaDestinoId\":" + vilaIsabel.getId() + "}")
-            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();   // SAIDA (Roberto)
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();   // SAIDA (Admin)
         long tAvulsa = Long.parseLong(avulsa.replaceAll("^\\[\\{\"id\":(\\d+).*", "$1"));
-        chamar(HttpMethod.PATCH, "/api/transferencias/" + tAvulsa + "/confirmar-chegada", tokenCarlos, null)
-            .andExpect(status().isOk());                                       // CHEGADA (Carlos)
+        chamar(HttpMethod.PATCH, "/api/transferencias/" + tAvulsa + "/confirmar-chegada", tokenBibVI, null)
+            .andExpect(status().isOk());                                       // CHEGADA (BibVI)
 
         List<HistoricoCirculacao> linhas = historicoRepository.findByExemplarOrderByDataEventoAscIdAsc(
             exemplarRepository.findById(ex1).orElseThrow());
         assertThat(linhas).extracting(HistoricoCirculacao::getEvento, HistoricoCirculacao::getResponsavel)
             .containsExactly(
-                tuple("CADASTRO", "Fernanda Reis"),
-                tuple("EMPRESTIMO", "Fernanda Reis"),
-                tuple("FILA", "Camila Duarte"),
-                tuple("DEVOLUCAO", "Fernanda Reis"),
-                tuple("RESERVA", "Fernanda Reis"),
-                tuple("BAIXA", "Fernanda Reis"),
-                tuple("REATIVACAO", "Fernanda Reis"),
-                tuple("RESERVA", "Fernanda Reis"),
-                tuple("RESERVA", "Roberto Dias"),
-                tuple("TRANSFERENCIA_SAIDA", "Roberto Dias"),
-                tuple("TRANSFERENCIA_CHEGADA", "Carlos Lima"));
-        assertThat(linhas.get(1).getObservacoes()).contains("Emprestado a Ana Souza por 14 dias");
-        assertThat(linhas.get(3).getObservacoes()).contains("Devolvido por Ana Souza dentro do prazo");
-        assertThat(linhas.get(4).getObservacoes()).contains("Separado para Camila Duarte");
+                tuple("CADASTRO", "BibliotecÃ¡rio Central"),
+                tuple("EMPRESTIMO", "BibliotecÃ¡rio Central"),
+                tuple("FILA", "UsuÃ¡rio 3"),
+                tuple("DEVOLUCAO", "BibliotecÃ¡rio Central"),
+                tuple("RESERVA", "BibliotecÃ¡rio Central"),
+                tuple("BAIXA", "BibliotecÃ¡rio Central"),
+                tuple("REATIVACAO", "BibliotecÃ¡rio Central"),
+                tuple("RESERVA", "BibliotecÃ¡rio Central"),
+                tuple("RESERVA", "Admin"),
+                tuple("TRANSFERENCIA_SAIDA", "Admin"),
+                tuple("TRANSFERENCIA_CHEGADA", "BibliotecÃ¡rio Vila Isabel"));
+        assertThat(linhas.get(1).getObservacoes()).contains("Emprestado a UsuÃ¡rio 1 por 14 dias");
+        assertThat(linhas.get(3).getObservacoes()).contains("Devolvido por UsuÃ¡rio 1 dentro do prazo");
+        assertThat(linhas.get(4).getObservacoes()).contains("Separado para UsuÃ¡rio 3");
         assertThat(linhas.get(5).getObservacoes()).contains("capa rasgada", "voltou para a fila");
         assertThat(linhas.get(8).getObservacoes()).contains("expirou");
         assertThat(linhas.get(9).getObservacoes()).contains("transferência avulsa");
@@ -108,7 +108,7 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
             .andExpect(jsonPath("$.eventos.length()").value(11))
             .andExpect(jsonPath("$.eventos[0].eventoRotulo").value("Cadastro no acervo"))
             .andExpect(jsonPath("$.eventos[10].eventoRotulo").value("Chegada de transferência"))
-            .andExpect(jsonPath("$.eventos[10].responsavel").value("Carlos Lima"))
+            .andExpect(jsonPath("$.eventos[10].responsavel").value("BibliotecÃ¡rio Vila Isabel"))
             .andExpect(jsonPath("$.eventos[10].biblioteca").value("Biblioteca Vila Isabel"));
     }
 
@@ -117,28 +117,28 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
     void transferenciaDeReserva() throws Exception {
         Livro livro = livro("Duna");
         List<Long> ex = cadastrar(livro, 2);
-        long emp = emprestar(ex.get(0), ana);
-        emprestar(ex.get(1), bruno);
-        long reserva = reservar(tokenCamila, livro, central, vilaIsabel);
+        long emp = emprestar(ex.get(0), u1);
+        emprestar(ex.get(1), u2);
+        long reserva = reservar(tokenU3, livro, central, vilaIsabel);
         long t = transferenciaRepository.findAll().stream()
             .filter(s -> s.getReserva() != null && s.getReserva().getId().equals(reserva))
             .findFirst().orElseThrow().getId();
         chamar(HttpMethod.PATCH, "/api/transferencias/" + t + "/aprovar", tokenAdmin, null).andExpect(status().isOk());
         devolver(emp);
-        chamar(HttpMethod.PATCH, "/api/transferencias/" + t + "/confirmar-chegada", tokenCarlos, null)
+        chamar(HttpMethod.PATCH, "/api/transferencias/" + t + "/confirmar-chegada", tokenBibVI, null)
             .andExpect(status().isOk());
 
         assertThat(historicoRepository.findByExemplarOrderByDataEventoAscIdAsc(
                 exemplarRepository.findById(ex.get(0)).orElseThrow()))
             .extracting(HistoricoCirculacao::getEvento, HistoricoCirculacao::getResponsavel)
             .containsExactly(
-                tuple("CADASTRO", "Fernanda Reis"),
-                tuple("EMPRESTIMO", "Fernanda Reis"),
-                tuple("FILA", "Camila Duarte"),
-                tuple("DEVOLUCAO", "Fernanda Reis"),
-                tuple("TRANSFERENCIA_SAIDA", "Fernanda Reis"),
-                tuple("TRANSFERENCIA_CHEGADA", "Carlos Lima"),
-                tuple("RESERVA", "Carlos Lima"));
+                tuple("CADASTRO", "BibliotecÃ¡rio Central"),
+                tuple("EMPRESTIMO", "BibliotecÃ¡rio Central"),
+                tuple("FILA", "UsuÃ¡rio 3"),
+                tuple("DEVOLUCAO", "BibliotecÃ¡rio Central"),
+                tuple("TRANSFERENCIA_SAIDA", "BibliotecÃ¡rio Central"),
+                tuple("TRANSFERENCIA_CHEGADA", "BibliotecÃ¡rio Vila Isabel"),
+                tuple("RESERVA", "BibliotecÃ¡rio Vila Isabel"));
     }
 
     @Test
@@ -146,10 +146,10 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
     void rotinaComoSistema() throws Exception {
         Livro livro = livro("1984");
         long ex = cadastrar(livro, 1).get(0);
-        long emp = emprestar(ex, ana);
-        reservar(tokenCamila, livro, central, central);
+        long emp = emprestar(ex, u1);
+        reservar(tokenU3, livro, central, central);
         devolver(emp);
-        vencerReservaDe(camila);
+        vencerReservaDe(u3);
         filaEsperaService.expirarVencidas(); // como o agendador: sem requisição, sem token
 
         List<HistoricoCirculacao> l = historicoRepository.findByExemplarOrderByDataEventoAscIdAsc(
@@ -167,7 +167,7 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
     void filtros() throws Exception {
         Livro livro = livro("Sapiens");
         List<Long> ex = cadastrar(livro, 3);
-        emprestar(ex.get(0), ana);
+        emprestar(ex.get(0), u1);
         chamar(HttpMethod.POST, "/api/transferencias/avulsa", tokenAdmin,
             "{\"exemplarIds\":[" + ex.get(1) + "],\"bibliotecaDestinoId\":" + vilaIsabel.getId() + "}")
             .andExpect(status().isOk());
@@ -203,7 +203,7 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
             .andExpect(jsonPath("$.length()").value(9))
             .andExpect(jsonPath("$[*].rotulo", hasItem("Saída para transferência")));
 
-        for (String token : new String[]{tokenFernanda, tokenAna}) {
+        for (String token : new String[]{tokenBibC, tokenU1}) {
             chamar(HttpMethod.GET, "/api/historico", token, null).andExpect(status().isForbidden());
             chamar(HttpMethod.GET, "/api/historico/exemplar/" + ex.get(0), token, null).andExpect(status().isForbidden());
             chamar(HttpMethod.GET, "/api/historico/eventos", token, null).andExpect(status().isForbidden());
@@ -214,7 +214,7 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
     // ───────────────────────── Apoio ─────────────────────────
 
     private List<Long> cadastrar(Livro livro, int quantidade) throws Exception {
-        String json = chamar(HttpMethod.POST, "/api/exemplares", tokenFernanda,
+        String json = chamar(HttpMethod.POST, "/api/exemplares", tokenBibC,
             "{\"livroId\":" + livro.getId() + ",\"conservacao\":\"BOM\",\"quantidade\":" + quantidade + "}")
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         return java.util.Arrays.stream(json.split("\\{\"id\":"))
@@ -225,13 +225,13 @@ class HistoricoCirculacaoTest extends ApoioApiTest {
     }
 
     private long emprestar(long exemplarId, Usuario u) throws Exception {
-        return id(chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenFernanda,
+        return id(chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenBibC,
             "{\"exemplarId\":" + exemplarId + ",\"usuarioId\":" + u.getId() + "}")
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
     }
 
     private void devolver(long emprestimoId) throws Exception {
-        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenFernanda,
+        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenBibC,
                "{\"emprestimoId\":" + emprestimoId + ",\"condicaoExemplar\":\"BOM\"}")
             .andExpect(status().isOk());
     }

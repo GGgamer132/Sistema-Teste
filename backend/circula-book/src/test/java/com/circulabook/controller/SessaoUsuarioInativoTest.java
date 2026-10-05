@@ -13,26 +13,26 @@ class SessaoUsuarioInativoTest extends ApoioApiTest {
     @Test
     @DisplayName("Usuário desativado depois do login: o token passa a dar 401")
     void tokenDeUsuarioDesativado() throws Exception {
-        Usuario ana = usuario("Ana Souza", "COMUM", null);
-        String token = login(ana);
+        Usuario u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
+        String token = login(u1);
         chamar(HttpMethod.GET, "/api/auth/me", token, null).andExpect(status().isOk());
 
-        ana.setAtivo(false);
-        usuarioRepository.saveAndFlush(ana);
+        u1.setAtivo(false);
+        usuarioRepository.saveAndFlush(u1);
         chamar(HttpMethod.GET, "/api/auth/me", token, null).andExpect(status().isUnauthorized());
         chamar(HttpMethod.GET, "/api/livros", token, null).andExpect(status().isUnauthorized());
 
-        ana.setAtivo(true);
-        usuarioRepository.saveAndFlush(ana);
+        u1.setAtivo(true);
+        usuarioRepository.saveAndFlush(u1);
         chamar(HttpMethod.GET, "/api/auth/me", token, null).andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("Usuário removido do banco: o token dá 401")
     void tokenDeUsuarioInexistente() throws Exception {
-        Usuario bruno = usuario("Bruno Alves", "COMUM", null);
-        String token = login(bruno);
-        usuarioRepository.delete(bruno);
+        Usuario u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        String token = login(u2);
+        usuarioRepository.delete(u2);
         usuarioRepository.flush();
         chamar(HttpMethod.GET, "/api/auth/me", token, null).andExpect(status().isUnauthorized());
     }

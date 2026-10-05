@@ -29,13 +29,13 @@ class NotificacoesTest extends ApoioApiTest {
     @Autowired private NotificacaoRepository notificacaoRepository;
 
     private Biblioteca central, vilaIsabel;
-    private Usuario roberto, rita, adminInativo, fernanda, fernandaInativa, carlos, ana, bruno, camila;
+    private Usuario admin, rita, adminInativo, bibC, bibCInativo, bibVI, u1, u2, u3;
     private Livro hobbit;
-    private Exemplar hobbitAna;
-    private Emprestimo empHobbitAna;
-    private Reserva r1Camila;
+    private Exemplar hobbitU1;
+    private Emprestimo empHobbitU1;
+    private Reserva r1U3;
     private SolicitacaoTransferencia t1;
-    private String tokenAdmin, tokenFernanda, tokenCarlos, tokenAna, tokenCamila;
+    private String tokenAdmin, tokenBibC, tokenBibVI, tokenU1, tokenU3;
 
     private static final DateTimeFormatter DIA_MES = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -43,32 +43,32 @@ class NotificacoesTest extends ApoioApiTest {
     void montar() throws Exception {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
-        roberto = usuario("Roberto Dias", "ADMIN", null);
+        admin = usuario("Admin", "ADMIN", null);
         rita = usuario("Rita Admin", "ADMIN", null);
         adminInativo = inativo(usuario("Ze Inativo", "ADMIN", null));
-        fernanda = usuario("Fernanda Reis", "BIBLIOTECARIO", central);
-        fernandaInativa = inativo(usuario("Flavia Inativa", "BIBLIOTECARIO", central));
-        carlos = usuario("Carlos Lima", "BIBLIOTECARIO", vilaIsabel);
-        ana = usuario("Ana Souza", "COMUM", null);
-        bruno = usuario("Bruno Alves", "COMUM", null);
-        camila = usuario("Camila Duarte", "COMUM", null);
-        tokenAdmin = login(roberto);
-        tokenFernanda = login(fernanda);
-        tokenCarlos = login(carlos);
-        tokenAna = login(ana);
-        tokenCamila = login(camila);
+        bibC = usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central);
+        bibCInativo = inativo(usuario("Flavia Inativa", "BIBLIOTECARIO", central));
+        bibVI = usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
+        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
+        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        tokenAdmin = login(admin);
+        tokenBibC = login(bibC);
+        tokenBibVI = login(bibVI);
+        tokenU1 = login(u1);
+        tokenU3 = login(u3);
 
-        // O Hobbit: 2 emprestados na Central; Camila na fila com retirada na VI (gera o pedido T1)
+        // O Hobbit: 2 emprestados na Central; U3 na fila com retirada na VI (gera o pedido T1)
         hobbit = livro("O Hobbit");
-        hobbitAna = exemplar(hobbit, central, EMPRESTADO);
-        Exemplar hobbitBruno = exemplar(hobbit, central, EMPRESTADO);
-        empHobbitAna = emprestimo(hobbitAna, ana, 3);
-        emprestimo(hobbitBruno, bruno, 8);
-        String json = chamar(HttpMethod.POST, "/api/reservas", tokenCamila,
+        hobbitU1 = exemplar(hobbit, central, EMPRESTADO);
+        Exemplar hobbitU2 = exemplar(hobbit, central, EMPRESTADO);
+        empHobbitU1 = emprestimo(hobbitU1, u1, 3);
+        emprestimo(hobbitU2, u2, 8);
+        String json = chamar(HttpMethod.POST, "/api/reservas", tokenU3,
             "{\"livroId\":" + hobbit.getId() + ",\"bibliotecaFilaId\":" + central.getId()
             + ",\"bibliotecaDestinoId\":" + vilaIsabel.getId() + "}")
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        r1Camila = reservaRepository.findById(id(json)).orElseThrow();
+        r1U3 = reservaRepository.findById(id(json)).orElseThrow();
         t1 = transferenciaRepository.findAll().get(0);
     }
 
@@ -77,68 +77,68 @@ class NotificacoesTest extends ApoioApiTest {
     @Test
     @DisplayName("A-20: novo pedido avisa só os Admins ativos")
     void a20_novoPedido() {
-        assertThat(tipos(roberto)).containsExactly(TIPO_NOVO_PEDIDO);
+        assertThat(tipos(admin)).containsExactly(TIPO_NOVO_PEDIDO);
         assertThat(tipos(rita)).containsExactly(TIPO_NOVO_PEDIDO);
-        assertThat(ultima(roberto).getLink()).isEqualTo("/admin/transferencias");
-        assertThat(ultima(roberto).getMensagem()).contains("Camila Duarte", "O Hobbit", "Biblioteca Vila Isabel");
-        semNotificacao(adminInativo, fernanda, fernandaInativa, carlos, ana, bruno, camila);
+        assertThat(ultima(admin).getLink()).isEqualTo("/admin/transferencias");
+        assertThat(ultima(admin).getMensagem()).contains("UsuÃ¡rio 3", "O Hobbit", "Biblioteca Vila Isabel");
+        semNotificacao(adminInativo, bibC, bibCInativo, bibVI, u1, u2, u3);
     }
 
     @Test
     @DisplayName("A-20: exemplar retido aguardando decisão avisa os Admins (urgente)")
     void a20_exemplarRetido() throws Exception {
-        devolver(empHobbitAna, tokenFernanda);
-        assertThat(tipos(roberto)).containsExactly(TIPO_NOVO_PEDIDO, TIPO_EXEMPLAR_RETIDO);
+        devolver(empHobbitU1, tokenBibC);
+        assertThat(tipos(admin)).containsExactly(TIPO_NOVO_PEDIDO, TIPO_EXEMPLAR_RETIDO);
         assertThat(tipos(rita)).containsExactly(TIPO_NOVO_PEDIDO, TIPO_EXEMPLAR_RETIDO);
-        assertThat(ultima(roberto).getTitulo()).startsWith("Urgente");
-        assertThat(ultima(roberto).getMensagem()).contains("Exemplar nº " + hobbitAna.getId());
-        semNotificacao(adminInativo, fernanda, fernandaInativa, carlos, camila);
+        assertThat(ultima(admin).getTitulo()).startsWith("Urgente");
+        assertThat(ultima(admin).getMensagem()).contains("Exemplar nº " + hobbitU1.getId());
+        semNotificacao(adminInativo, bibC, bibCInativo, bibVI, u3);
     }
 
     @Test
     @DisplayName("Ciclo aprovado: usuário (aprovado, a caminho, pronta); destino (a caminho, retirada); origem (envio)")
     void cicloAprovado() throws Exception {
         aprovar().andExpect(status().isOk());
-        assertThat(tipos(camila)).containsExactly(TIPO_PEDIDO_APROVADO);
+        assertThat(tipos(u3)).containsExactly(TIPO_PEDIDO_APROVADO);
 
-        devolver(empHobbitAna, tokenFernanda);
-        assertThat(tipos(camila)).containsExactly(TIPO_PEDIDO_APROVADO, TIPO_EXEMPLAR_A_CAMINHO);
-        assertThat(tipos(carlos)).containsExactly(TIPO_TRANSFERENCIA_A_CAMINHO);
-        assertThat(ultima(carlos).getMensagem()).contains("Confirme a chegada", "reservado para Camila Duarte");
-        assertThat(ultima(carlos).getLink()).isEqualTo("/biblioteca/transferencias");
-        assertThat(tipos(fernanda)).containsExactly(TIPO_SEPARADO_PARA_ENVIO);
-        assertThat(tipos(roberto)).containsExactly(TIPO_NOVO_PEDIDO);
-        semNotificacao(fernandaInativa, adminInativo, ana);
+        devolver(empHobbitU1, tokenBibC);
+        assertThat(tipos(u3)).containsExactly(TIPO_PEDIDO_APROVADO, TIPO_EXEMPLAR_A_CAMINHO);
+        assertThat(tipos(bibVI)).containsExactly(TIPO_TRANSFERENCIA_A_CAMINHO);
+        assertThat(ultima(bibVI).getMensagem()).contains("Confirme a chegada", "reservado para UsuÃ¡rio 3");
+        assertThat(ultima(bibVI).getLink()).isEqualTo("/biblioteca/transferencias");
+        assertThat(tipos(bibC)).containsExactly(TIPO_SEPARADO_PARA_ENVIO);
+        assertThat(tipos(admin)).containsExactly(TIPO_NOVO_PEDIDO);
+        semNotificacao(bibCInativo, adminInativo, u1);
 
-        chamar(HttpMethod.PATCH, "/api/transferencias/" + t1.getId() + "/confirmar-chegada", tokenCarlos, null)
+        chamar(HttpMethod.PATCH, "/api/transferencias/" + t1.getId() + "/confirmar-chegada", tokenBibVI, null)
             .andExpect(status().isOk());
-        assertThat(tipos(camila)).endsWith(TIPO_RESERVA_PRONTA);
-        String prazo = r(r1Camila).getDataExpiracao().format(DIA_MES);
-        assertThat(ultima(camila).getMensagem()).contains("Biblioteca Vila Isabel", "Retire até " + prazo);
-        assertThat(tipos(carlos)).containsExactly(TIPO_TRANSFERENCIA_A_CAMINHO, TIPO_RETIRADA_NA_BIBLIOTECA);
-        assertThat(ultima(carlos).getMensagem()).contains("Camila Duarte virá buscar");
-        assertThat(ultima(carlos).getLink()).isEqualTo("/biblioteca/reservas");
-        assertThat(tipos(fernanda)).containsExactly(TIPO_SEPARADO_PARA_ENVIO);
+        assertThat(tipos(u3)).endsWith(TIPO_RESERVA_PRONTA);
+        String prazo = r(r1U3).getDataExpiracao().format(DIA_MES);
+        assertThat(ultima(u3).getMensagem()).contains("Biblioteca Vila Isabel", "Retire até " + prazo);
+        assertThat(tipos(bibVI)).containsExactly(TIPO_TRANSFERENCIA_A_CAMINHO, TIPO_RETIRADA_NA_BIBLIOTECA);
+        assertThat(ultima(bibVI).getMensagem()).contains("UsuÃ¡rio 3 virá buscar");
+        assertThat(ultima(bibVI).getLink()).isEqualTo("/biblioteca/reservas");
+        assertThat(tipos(bibC)).containsExactly(TIPO_SEPARADO_PARA_ENVIO);
     }
 
     @Test
     @DisplayName("Rejeitado sem exemplar: usuário avisado de que a retirada voltou para a fila")
     void rejeitadoSemExemplar() throws Exception {
         rejeitar().andExpect(status().isOk());
-        assertThat(tipos(camila)).containsExactly(TIPO_PEDIDO_REJEITADO);
-        assertThat(ultima(camila).getMensagem()).contains("a retirada voltou para a Biblioteca Central");
-        semNotificacao(carlos, fernanda, ana);
+        assertThat(tipos(u3)).containsExactly(TIPO_PEDIDO_REJEITADO);
+        assertThat(ultima(u3).getMensagem()).contains("a retirada voltou para a Biblioteca Central");
+        semNotificacao(bibVI, bibC, u1);
     }
 
     @Test
     @DisplayName("Rejeitado com exemplar retido: usuário (rejeitado + pronta na origem) e bibliotecária da origem")
     void rejeitadoComRetido() throws Exception {
-        devolver(empHobbitAna, tokenFernanda);
+        devolver(empHobbitU1, tokenBibC);
         rejeitar().andExpect(status().isOk());
-        assertThat(tipos(camila)).containsExactly(TIPO_PEDIDO_REJEITADO, TIPO_RESERVA_PRONTA);
-        assertThat(ultima(camila).getMensagem()).contains("Biblioteca Central");
-        assertThat(tipos(fernanda)).containsExactly(TIPO_RETIRADA_NA_BIBLIOTECA);
-        semNotificacao(carlos, fernandaInativa);
+        assertThat(tipos(u3)).containsExactly(TIPO_PEDIDO_REJEITADO, TIPO_RESERVA_PRONTA);
+        assertThat(ultima(u3).getMensagem()).contains("Biblioteca Central");
+        assertThat(tipos(bibC)).containsExactly(TIPO_RETIRADA_NA_BIBLIOTECA);
+        semNotificacao(bibVI, bibCInativo);
     }
 
     @Test
@@ -149,30 +149,30 @@ class NotificacoesTest extends ApoioApiTest {
         extra.setLivro(hobbit);
         extra.setBibliotecaOrigem(central);
         extra.setBibliotecaDestino(vilaIsabel);
-        extra.setSolicitante(ana);
+        extra.setSolicitante(u1);
         extra.setStatus("EM_TRANSITO");
         extra.setDataSolicitacao(LocalDateTime.now().minusDays(2));
         transferenciaRepository.save(extra);
 
-        devolver(empHobbitAna, tokenFernanda);
-        assertThat(tipos(roberto)).containsExactly(TIPO_NOVO_PEDIDO, TIPO_PEDIDO_CANCELADO_CAPACIDADE);
+        devolver(empHobbitU1, tokenBibC);
+        assertThat(tipos(admin)).containsExactly(TIPO_NOVO_PEDIDO, TIPO_PEDIDO_CANCELADO_CAPACIDADE);
         assertThat(tipos(rita)).endsWith(TIPO_PEDIDO_CANCELADO_CAPACIDADE);
-        assertThat(ultima(roberto).getMensagem()).contains("ficaria sem nenhum exemplar");
-        assertThat(tipos(camila)).containsExactly(TIPO_PEDIDO_APROVADO, TIPO_RESERVA_PRONTA);
-        semNotificacao(carlos);
+        assertThat(ultima(admin).getMensagem()).contains("ficaria sem nenhum exemplar");
+        assertThat(tipos(u3)).containsExactly(TIPO_PEDIDO_APROVADO, TIPO_RESERVA_PRONTA);
+        semNotificacao(bibVI);
     }
 
     @Test
     @DisplayName("Chegada danificada: a reserva volta à fila e o usuário é avisado (§4.4)")
     void chegadaDanificada() throws Exception {
         aprovar().andExpect(status().isOk());
-        devolver(empHobbitAna, tokenFernanda);
-        chamar(HttpMethod.PATCH, "/api/transferencias/" + t1.getId() + "/confirmar-chegada", tokenCarlos,
+        devolver(empHobbitU1, tokenBibC);
+        chamar(HttpMethod.PATCH, "/api/transferencias/" + t1.getId() + "/confirmar-chegada", tokenBibVI,
                "{\"danificado\":true}").andExpect(status().isOk());
-        assertThat(tipos(camila)).endsWith(TIPO_RESERVA_VOLTOU_FILA);
-        assertThat(ultima(camila).getMensagem()).contains("chegou danificado", "fila da Biblioteca Central",
+        assertThat(tipos(u3)).endsWith(TIPO_RESERVA_VOLTOU_FILA);
+        assertThat(ultima(u3).getMensagem()).contains("chegou danificado", "fila da Biblioteca Central",
             "retirada será na Biblioteca Central");
-        assertThat(tipos(carlos)).containsExactly(TIPO_TRANSFERENCIA_A_CAMINHO);
+        assertThat(tipos(bibVI)).containsExactly(TIPO_TRANSFERENCIA_A_CAMINHO);
     }
 
     // ───────────────────────── Reserva e empréstimo ─────────────────────────
@@ -182,31 +182,31 @@ class NotificacoesTest extends ApoioApiTest {
     void reservaLocal() throws Exception {
         Livro harry = livro("Harry Potter");
         Exemplar h = exemplar(harry, vilaIsabel, EMPRESTADO);
-        Emprestimo emp = emprestimo(h, camila, 4);
-        chamar(HttpMethod.POST, "/api/reservas", tokenAna,
+        Emprestimo emp = emprestimo(h, u3, 4);
+        chamar(HttpMethod.POST, "/api/reservas", tokenU1,
                "{\"livroId\":" + harry.getId() + ",\"bibliotecaFilaId\":" + vilaIsabel.getId()
                + ",\"bibliotecaDestinoId\":" + vilaIsabel.getId() + "}").andExpect(status().isOk());
 
-        devolver(emp, tokenCarlos);                                      // B-10: separado para Ana
-        assertThat(tipos(ana)).containsExactly(TIPO_RESERVA_PRONTA);
-        assertThat(tipos(carlos)).containsExactly(TIPO_RETIRADA_NA_BIBLIOTECA);   // B-20
-        assertThat(ultima(carlos).getMensagem()).contains("Ana Souza virá buscar \"Harry Potter\"");
-        semNotificacao(fernanda);
+        devolver(emp, tokenBibVI);                                      // B-10: separado para U1
+        assertThat(tipos(u1)).containsExactly(TIPO_RESERVA_PRONTA);
+        assertThat(tipos(bibVI)).containsExactly(TIPO_RETIRADA_NA_BIBLIOTECA);   // B-20
+        assertThat(ultima(bibVI).getMensagem()).contains("UsuÃ¡rio 1 virá buscar \"Harry Potter\"");
+        semNotificacao(bibC);
 
-        // ES-13: Carlos marca o exemplar separado como indisponível
-        chamar(HttpMethod.PATCH, "/api/exemplares/" + h.getId() + "/indisponivel", tokenCarlos,
+        // ES-13: BibVI marca o exemplar separado como indisponível
+        chamar(HttpMethod.PATCH, "/api/exemplares/" + h.getId() + "/indisponivel", tokenBibVI,
                "{\"motivo\":\"capa rasgada\"}").andExpect(status().isOk());
-        assertThat(tipos(ana)).containsExactly(TIPO_RESERVA_PRONTA, TIPO_RESERVA_VOLTOU_FILA);
-        assertThat(ultima(ana).getMensagem()).contains("ficou indisponível", "sem perder a posição");
+        assertThat(tipos(u1)).containsExactly(TIPO_RESERVA_PRONTA, TIPO_RESERVA_VOLTOU_FILA);
+        assertThat(ultima(u1).getMensagem()).contains("ficou indisponível", "sem perder a posição");
 
         // Reativado, volta a ficar pronta; depois expira
-        chamar(HttpMethod.PATCH, "/api/exemplares/" + h.getId() + "/reativar", tokenCarlos, null)
+        chamar(HttpMethod.PATCH, "/api/exemplares/" + h.getId() + "/reativar", tokenBibVI, null)
             .andExpect(status().isOk());
-        Reserva r = reservaRepository.findByUsuario(ana).get(0);
+        Reserva r = reservaRepository.findByUsuario(u1).get(0);
         r.setDataExpiracao(LocalDateTime.now().minusMinutes(1));
         reservaRepository.save(r);
         chamar(HttpMethod.POST, "/api/reservas/expirar-vencidas", tokenAdmin, null).andExpect(status().isOk());
-        assertThat(tipos(ana)).containsExactly(TIPO_RESERVA_PRONTA, TIPO_RESERVA_VOLTOU_FILA,
+        assertThat(tipos(u1)).containsExactly(TIPO_RESERVA_PRONTA, TIPO_RESERVA_VOLTOU_FILA,
             TIPO_RESERVA_PRONTA, TIPO_RESERVA_EXPIRADA);
     }
 
@@ -214,35 +214,35 @@ class NotificacoesTest extends ApoioApiTest {
     @DisplayName("B-07: devolução com 6 dias de atraso avisa o bloqueio de 12 dias com a data final")
     void b07_bloqueio() throws Exception {
         Livro duna = livro("Duna");
-        Emprestimo emp = emprestimo(exemplar(duna, central, EMPRESTADO), camila, 20);
-        devolver(emp, tokenFernanda);
-        assertThat(tipos(camila)).containsExactly(TIPO_BLOQUEIO);
+        Emprestimo emp = emprestimo(exemplar(duna, central, EMPRESTADO), u3, 20);
+        devolver(emp, tokenBibC);
+        assertThat(tipos(u3)).containsExactly(TIPO_BLOQUEIO);
         String fim = LocalDateTime.now().plusDays(12).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-        assertThat(ultima(camila).getMensagem()).contains("6 dia(s) de atraso", "até " + fim);
-        assertThat(ultima(camila).getLink()).isEqualTo("/meus-emprestimos");
-        semNotificacao(ana, fernanda);
+        assertThat(ultima(u3).getMensagem()).contains("6 dia(s) de atraso", "até " + fim);
+        assertThat(ultima(u3).getLink()).isEqualTo("/meus-emprestimos");
+        semNotificacao(u1, bibC);
     }
 
     @Test
     @DisplayName("Rotina de vencimento/atraso: avisa uma vez cada e é idempotente; só o Admin dispara")
     void rotinaIdempotente() throws Exception {
         Livro a = livro("Vence Logo"), b = livro("Atrasado"), c = livro("Em Dia");
-        emprestimo(exemplar(a, central, EMPRESTADO), bruno, 13);   // vence em 1 dia
-        emprestimo(exemplar(b, central, EMPRESTADO), ana, 17);     // 3 dias de atraso
-        emprestimo(exemplar(c, central, EMPRESTADO), ana, 1);      // vence em 13 dias
+        emprestimo(exemplar(a, central, EMPRESTADO), u2, 13);   // vence em 1 dia
+        emprestimo(exemplar(b, central, EMPRESTADO), u1, 17);     // 3 dias de atraso
+        emprestimo(exemplar(c, central, EMPRESTADO), u1, 1);      // vence em 13 dias
 
-        chamar(HttpMethod.POST, "/api/notificacoes/verificar-vencimentos", tokenAna, null).andExpect(status().isForbidden());
-        chamar(HttpMethod.POST, "/api/notificacoes/verificar-vencimentos", tokenFernanda, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/notificacoes/verificar-vencimentos", tokenU1, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.POST, "/api/notificacoes/verificar-vencimentos", tokenBibC, null).andExpect(status().isForbidden());
         chamar(HttpMethod.POST, "/api/notificacoes/verificar-vencimentos", tokenAdmin, null)
             .andExpect(status().isOk()).andExpect(jsonPath("$.criadas").value(2));
         chamar(HttpMethod.POST, "/api/notificacoes/verificar-vencimentos", tokenAdmin, null)
             .andExpect(status().isOk()).andExpect(jsonPath("$.criadas").value(0));
 
-        assertThat(tipos(bruno)).containsExactly(TIPO_EMPRESTIMO_VENCE);
-        assertThat(ultima(bruno).getMensagem()).contains("\"Vence Logo\"");
-        assertThat(tipos(ana)).containsExactly(TIPO_EMPRESTIMO_ATRASADO);
-        assertThat(ultima(ana).getMensagem()).contains("\"Atrasado\"");
-        semNotificacao(camila);
+        assertThat(tipos(u2)).containsExactly(TIPO_EMPRESTIMO_VENCE);
+        assertThat(ultima(u2).getMensagem()).contains("\"Vence Logo\"");
+        assertThat(tipos(u1)).containsExactly(TIPO_EMPRESTIMO_ATRASADO);
+        assertThat(ultima(u1).getMensagem()).contains("\"Atrasado\"");
+        semNotificacao(u3);
     }
 
     // ───────────────────────── API: isolamento, contagem, marcar ─────────────────────────
@@ -251,11 +251,11 @@ class NotificacoesTest extends ApoioApiTest {
     @DisplayName("U-15: lista só as do token (mais recentes primeiro), contagem, marcar lida e todas; de outro -> 404")
     void u15_api() throws Exception {
         aprovar().andExpect(status().isOk());
-        devolver(empHobbitAna, tokenFernanda);   // Camila: aprovado + a caminho
-        long deRoberto = ultima(roberto).getId();
+        devolver(empHobbitU1, tokenBibC);   // U3: aprovado + a caminho
+        long deAdmin = ultima(admin).getId();
 
         chamar(HttpMethod.GET, "/api/notificacoes", null, null).andExpect(status().isUnauthorized());
-        chamar(HttpMethod.GET, "/api/notificacoes?tamanho=1", tokenCamila, null)
+        chamar(HttpMethod.GET, "/api/notificacoes?tamanho=1", tokenU3, null)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.totalItens").value(2))
             .andExpect(jsonPath("$.totalPaginas").value(2))
@@ -263,28 +263,28 @@ class NotificacoesTest extends ApoioApiTest {
             .andExpect(jsonPath("$.itens[0].lida").value(false))
             .andExpect(jsonPath("$.itens[0].link").value("/minhas-reservas"))
             .andExpect(jsonPath("$.itens[0].usuario").doesNotExist());
-        chamar(HttpMethod.GET, "/api/notificacoes?tamanho=99", tokenCamila, null).andExpect(status().isBadRequest());
-        chamar(HttpMethod.GET, "/api/notificacoes", tokenAna, null)
+        chamar(HttpMethod.GET, "/api/notificacoes?tamanho=99", tokenU3, null).andExpect(status().isBadRequest());
+        chamar(HttpMethod.GET, "/api/notificacoes", tokenU1, null)
             .andExpect(jsonPath("$.totalItens").value(0));
-        contagem(tokenCamila, 2);
+        contagem(tokenU3, 2);
 
         // Não marca a de outro usuário
-        chamar(HttpMethod.PATCH, "/api/notificacoes/" + deRoberto + "/lida", tokenCamila, null)
+        chamar(HttpMethod.PATCH, "/api/notificacoes/" + deAdmin + "/lida", tokenU3, null)
             .andExpect(status().isNotFound());
-        assertThat(notificacaoRepository.findById(deRoberto).orElseThrow().getLida()).isFalse();
-        chamar(HttpMethod.PATCH, "/api/notificacoes/999999/lida", tokenCamila, null).andExpect(status().isNotFound());
+        assertThat(notificacaoRepository.findById(deAdmin).orElseThrow().getLida()).isFalse();
+        chamar(HttpMethod.PATCH, "/api/notificacoes/999999/lida", tokenU3, null).andExpect(status().isNotFound());
 
-        long minha = ultima(camila).getId();
-        chamar(HttpMethod.PATCH, "/api/notificacoes/" + minha + "/lida", tokenCamila, null)
+        long minha = ultima(u3).getId();
+        chamar(HttpMethod.PATCH, "/api/notificacoes/" + minha + "/lida", tokenU3, null)
             .andExpect(status().isOk()).andExpect(jsonPath("$.lida").value(true));
-        contagem(tokenCamila, 1);
+        contagem(tokenU3, 1);
 
-        chamar(HttpMethod.PATCH, "/api/notificacoes/marcar-todas-lidas", tokenCamila, null)
+        chamar(HttpMethod.PATCH, "/api/notificacoes/marcar-todas-lidas", tokenU3, null)
             .andExpect(status().isOk()).andExpect(jsonPath("$.marcadas").value(1));
-        contagem(tokenCamila, 0);
+        contagem(tokenU3, 0);
         // As do Admin continuam não lidas
         contagem(tokenAdmin, 1);
-        chamar(HttpMethod.GET, "/api/notificacoes", tokenFernanda, null)
+        chamar(HttpMethod.GET, "/api/notificacoes", tokenBibC, null)
             .andExpect(jsonPath("$.itens[*].tipo", contains(TIPO_SEPARADO_PARA_ENVIO)));
     }
 

@@ -24,42 +24,42 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TransferenciasTest extends ApoioApiTest {
 
     private Biblioteca central, vilaIsabel, tijuca;
-    private Usuario ana, bruno, camila, diego;
+    private Usuario u1, u2, u3, u4;
     private Livro hobbit, livro1984, domCasmurro, fahrenheit, harry;
-    private Exemplar hobbitAna, hobbitBruno, harryCamila;
-    private Emprestimo empHobbitAna, empHarryCamila;
-    private Reserva r1Camila;
+    private Exemplar hobbitU1, hobbitU2, harryU3;
+    private Emprestimo empHobbitU1, empHarryU3;
+    private Reserva r1U3;
     private SolicitacaoTransferencia t1;
-    private String tokenAdmin, tokenFernanda, tokenCarlos, tokenAna, tokenBruno, tokenCamila, tokenDiego;
+    private String tokenAdmin, tokenBibC, tokenBibVI, tokenU1, tokenU2, tokenU3, tokenU4;
 
     @BeforeEach
     void montar() throws Exception {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
         tijuca = biblioteca("Biblioteca Tijuca"); // sem bibliotecário (RN22)
-        Usuario roberto = usuario("Roberto Dias", "ADMIN", null);
-        Usuario fernanda = usuario("Fernanda Reis", "BIBLIOTECARIO", central);
-        Usuario carlos = usuario("Carlos Lima", "BIBLIOTECARIO", vilaIsabel);
-        ana = usuario("Ana Souza", "COMUM", null);
-        bruno = usuario("Bruno Alves", "COMUM", null);
-        camila = usuario("Camila Duarte", "COMUM", null);
-        diego = usuario("Diego Santos", "COMUM", null);
-        tokenAdmin = login(roberto);
-        tokenFernanda = login(fernanda);
-        tokenCarlos = login(carlos);
-        tokenAna = login(ana);
-        tokenBruno = login(bruno);
-        tokenCamila = login(camila);
-        tokenDiego = login(diego);
+        Usuario admin = usuario("Admin", "ADMIN", null);
+        Usuario bibC = usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central);
+        Usuario bibVI = usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
+        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
+        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        u4 = usuario("UsuÃ¡rio 4", "COMUM", null);
+        tokenAdmin = login(admin);
+        tokenBibC = login(bibC);
+        tokenBibVI = login(bibVI);
+        tokenU1 = login(u1);
+        tokenU2 = login(u2);
+        tokenU3 = login(u3);
+        tokenU4 = login(u4);
 
-        // O Hobbit: 2 emprestados na Central (Ana, Bruno); Camila entra na fila com retirada na VI (R1 + T1)
+        // O Hobbit: 2 emprestados na Central (U1, U2); U3 entra na fila com retirada na VI (R1 + T1)
         hobbit = livro("O Hobbit");
-        hobbitAna = exemplar(hobbit, central, EMPRESTADO);
-        hobbitBruno = exemplar(hobbit, central, EMPRESTADO);
-        empHobbitAna = emprestimo(hobbitAna, ana, 3);
-        emprestimo(hobbitBruno, bruno, 8);
-        r1Camila = reservaPorApi(tokenCamila, hobbit, central, vilaIsabel);
-        t1 = pedidoDa(r1Camila);
+        hobbitU1 = exemplar(hobbit, central, EMPRESTADO);
+        hobbitU2 = exemplar(hobbit, central, EMPRESTADO);
+        empHobbitU1 = emprestimo(hobbitU1, u1, 3);
+        emprestimo(hobbitU2, u2, 8);
+        r1U3 = reservaPorApi(tokenU3, hobbit, central, vilaIsabel);
+        t1 = pedidoDa(r1U3);
 
         // 1984: 2 disponíveis na Central, 1 na VI; Dom Casmurro: 3 na Central, 2 na VI; Fahrenheit: 2 na Central
         livro1984 = livro("1984");
@@ -74,11 +74,11 @@ class TransferenciasTest extends ApoioApiTest {
         exemplar(fahrenheit, central, DISPONIVEL);
         exemplar(fahrenheit, central, DISPONIVEL);
 
-        // Harry Potter na VI: emprestado à Camila, Bruno na fila (retirada na VI)
+        // Harry Potter na VI: emprestado à U3, U2 na fila (retirada na VI)
         harry = livro("Harry Potter e a Pedra Filosofal");
-        harryCamila = exemplar(harry, vilaIsabel, EMPRESTADO);
-        empHarryCamila = emprestimo(harryCamila, camila, 4);
-        reservaPorApi(tokenBruno, harry, vilaIsabel, vilaIsabel);
+        harryU3 = exemplar(harry, vilaIsabel, EMPRESTADO);
+        empHarryU3 = emprestimo(harryU3, u3, 4);
+        reservaPorApi(tokenU2, harry, vilaIsabel, vilaIsabel);
         consistente();
     }
 
@@ -93,7 +93,7 @@ class TransferenciasTest extends ApoioApiTest {
             .andExpect(jsonPath("$[0].titulo").value("O Hobbit"))
             .andExpect(jsonPath("$[0].exemplarId").value(nullValue()))
             .andExpect(jsonPath("$[0].exemplar").value("VINCULADO_NA_DEVOLUCAO"))
-            .andExpect(jsonPath("$[0].solicitante.nome").value("Camila Duarte"))
+            .andExpect(jsonPath("$[0].solicitante.nome").value("UsuÃ¡rio 3"))
             .andExpect(jsonPath("$[0].origem.nome").value("Biblioteca Central"))
             .andExpect(jsonPath("$[0].destino.nome").value("Biblioteca Vila Isabel"))
             .andExpect(jsonPath("$[0].rn15.permitido").value(true))
@@ -102,11 +102,11 @@ class TransferenciasTest extends ApoioApiTest {
 
         aprovar(t1, tokenAdmin).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APROVADA"));
         assertThat(t(t1).getExemplar()).isNull();
-        assertThat(r(r1Camila).getStatus()).isEqualTo("PENDENTE");
+        assertThat(r(r1U3).getStatus()).isEqualTo("PENDENTE");
         chamar(HttpMethod.GET, "/api/transferencias/acompanhamento?status=APROVADA_AGUARDANDO_EXEMPLAR", tokenAdmin, null)
             .andExpect(jsonPath("$.totalItens").value(1))
             .andExpect(jsonPath("$.itens[0].etapa").value("APROVADA_AGUARDANDO_EXEMPLAR"))
-            .andExpect(jsonPath("$.itens[0].reservadoPara").value("Camila Duarte"));
+            .andExpect(jsonPath("$.itens[0].reservadoPara").value("UsuÃ¡rio 3"));
         consistente();
     }
 
@@ -115,63 +115,63 @@ class TransferenciasTest extends ApoioApiTest {
     void a04_rejeitarSemExemplar() throws Exception {
         chamar(HttpMethod.PATCH, "/api/transferencias/" + t1.getId() + "/rejeitar?motivo=Sem%20malote", tokenAdmin, null)
             .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REJEITADA"));
-        Reserva r = r(r1Camila);
+        Reserva r = r(r1U3);
         assertThat(r.getStatus()).isEqualTo("PENDENTE");
         assertThat(r.getBibliotecaDestino().getId()).isEqualTo(central.getId());
-        assertThat(situacao(hobbitBruno)).isEqualTo(EMPRESTADO_RESERVADO);
+        assertThat(situacao(hobbitU2)).isEqualTo(EMPRESTADO_RESERVADO);
         consistente();
     }
 
     @Test
     @DisplayName("ES-06 / A-05: devolução com pedido PENDENTE retém o exemplar; aprovar envia direto (T9)")
     void es06_a05_retidoEAprovado() throws Exception {
-        devolver(empHobbitAna, tokenFernanda);
-        assertThat(situacao(hobbitAna)).isEqualTo(RESERVADO);                         // T4, retido
-        assertThat(t(t1).getExemplar().getId()).isEqualTo(hobbitAna.getId());
+        devolver(empHobbitU1, tokenBibC);
+        assertThat(situacao(hobbitU1)).isEqualTo(RESERVADO);                         // T4, retido
+        assertThat(t(t1).getExemplar().getId()).isEqualTo(hobbitU1.getId());
         assertThat(t(t1).getStatus()).isEqualTo("PENDENTE");
-        assertThat(r(r1Camila).getStatus()).isEqualTo("AGUARDANDO_TRANSFERENCIA");
-        assertThat(situacao(hobbitBruno)).isEqualTo(EMPRESTADO);                      // fila PENDENTE vazia
+        assertThat(r(r1U3).getStatus()).isEqualTo("AGUARDANDO_TRANSFERENCIA");
+        assertThat(situacao(hobbitU2)).isEqualTo(EMPRESTADO);                      // fila PENDENTE vazia
         consistente();
         chamar(HttpMethod.GET, "/api/transferencias/pedidos-pendentes", tokenAdmin, null)
             .andExpect(jsonPath("$[0].exemplar").value("RETIDO"))
-            .andExpect(jsonPath("$[0].exemplarId").value(hobbitAna.getId()));
-        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/saindo", tokenFernanda, null)
+            .andExpect(jsonPath("$[0].exemplarId").value(hobbitU1.getId()));
+        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/saindo", tokenBibC, null)
             .andExpect(jsonPath("$[0].status").value("PENDENTE"))
-            .andExpect(jsonPath("$[0].exemplarId").value(hobbitAna.getId()));
+            .andExpect(jsonPath("$[0].exemplarId").value(hobbitU1.getId()));
 
         // ES-14: exemplar retido não sai em avulsa
-        avulsa(tokenAdmin, List.of(hobbitAna.getId()), vilaIsabel)
+        avulsa(tokenAdmin, List.of(hobbitU1.getId()), vilaIsabel)
             .andExpect(status().isBadRequest())
-            .andExpect(content().string(containsString("Exemplar nº " + hobbitAna.getId())));
+            .andExpect(content().string(containsString("Exemplar nº " + hobbitU1.getId())));
 
         aprovar(t1, tokenAdmin).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("EM_TRANSITO"));
-        assertThat(situacao(hobbitAna)).isEqualTo(EM_TRANSFERENCIA);                  // T9
-        assertThat(r(r1Camila).getStatus()).isEqualTo("AGUARDANDO_TRANSFERENCIA");
+        assertThat(situacao(hobbitU1)).isEqualTo(EM_TRANSFERENCIA);                  // T9
+        assertThat(r(r1U3).getStatus()).isEqualTo("AGUARDANDO_TRANSFERENCIA");
         consistente();
     }
 
     @Test
     @DisplayName("Rejeitar com exemplar retido: ele atende a reserva na origem por 3 dias")
     void rejeitarComExemplarRetido() throws Exception {
-        devolver(empHobbitAna, tokenFernanda);
+        devolver(empHobbitU1, tokenBibC);
         chamar(HttpMethod.PATCH, "/api/transferencias/" + t1.getId() + "/rejeitar", tokenAdmin, null)
             .andExpect(status().isOk());
-        Reserva r = r(r1Camila);
+        Reserva r = r(r1U3);
         assertThat(r.getStatus()).isEqualTo("DISPONIVEL");
         assertThat(r.getBibliotecaDestino().getId()).isEqualTo(central.getId());
-        assertThat(r.getExemplar().getId()).isEqualTo(hobbitAna.getId());
+        assertThat(r.getExemplar().getId()).isEqualTo(hobbitU1.getId());
         assertThat(Duration.between(LocalDateTime.now(), r.getDataExpiracao()).toHours()).isBetween(71L, 72L);
-        assertThat(situacao(hobbitAna)).isEqualTo(RESERVADO);
+        assertThat(situacao(hobbitU1)).isEqualTo(RESERVADO);
         consistente();
     }
 
     @Test
     @DisplayName("A-06: pedido já processado -> 'já foi processada'; perfis errados -> 403")
     void a06_jaProcessadaEPerfis() throws Exception {
-        aprovar(t1, tokenCarlos).andExpect(status().isForbidden());
-        aprovar(t1, tokenFernanda).andExpect(status().isForbidden());
-        aprovar(t1, tokenCamila).andExpect(status().isForbidden());
-        chamar(HttpMethod.PATCH, "/api/transferencias/" + t1.getId() + "/rejeitar", tokenAna, null)
+        aprovar(t1, tokenBibVI).andExpect(status().isForbidden());
+        aprovar(t1, tokenBibC).andExpect(status().isForbidden());
+        aprovar(t1, tokenU3).andExpect(status().isForbidden());
+        chamar(HttpMethod.PATCH, "/api/transferencias/" + t1.getId() + "/rejeitar", tokenU1, null)
             .andExpect(status().isForbidden());
         aprovar(t1, tokenAdmin).andExpect(status().isOk());
         aprovar(t1, tokenAdmin).andExpect(status().isBadRequest())
@@ -181,24 +181,24 @@ class TransferenciasTest extends ApoioApiTest {
             .andExpect(content().string(containsString("já foi processada")));
 
         for (String url : List.of("/api/transferencias/pedidos-pendentes", "/api/transferencias/acompanhamento")) {
-            chamar(HttpMethod.GET, url, tokenCarlos, null).andExpect(status().isForbidden());
-            chamar(HttpMethod.GET, url, tokenAna, null).andExpect(status().isForbidden());
+            chamar(HttpMethod.GET, url, tokenBibVI, null).andExpect(status().isForbidden());
+            chamar(HttpMethod.GET, url, tokenU1, null).andExpect(status().isForbidden());
             chamar(HttpMethod.GET, url, null, null).andExpect(status().isUnauthorized());
         }
         for (String url : List.of("/api/transferencias/biblioteca/a-receber", "/api/transferencias/biblioteca/saindo",
                                   "/api/reservas/biblioteca")) {
             chamar(HttpMethod.GET, url, tokenAdmin, null).andExpect(status().isForbidden());
-            chamar(HttpMethod.GET, url, tokenAna, null).andExpect(status().isForbidden());
+            chamar(HttpMethod.GET, url, tokenU1, null).andExpect(status().isForbidden());
         }
-        avulsa(tokenFernanda, List.of(1L), vilaIsabel).andExpect(status().isForbidden());
-        avulsa(tokenAna, List.of(1L), vilaIsabel).andExpect(status().isForbidden());
+        avulsa(tokenBibC, List.of(1L), vilaIsabel).andExpect(status().isForbidden());
+        avulsa(tokenU1, List.of(1L), vilaIsabel).andExpect(status().isForbidden());
     }
 
     @Test
     @DisplayName("A-07: RN15 recusa segundo pedido na reserva e na aprovação acima da capacidade")
     void a07_rn15() throws Exception {
         // Na reserva: Central tem 2 Hobbit e já há 1 pedido aberto
-        reservar(tokenDiego, hobbit, central, vilaIsabel)
+        reservar(tokenU4, hobbit, central, vilaIsabel)
             .andExpect(status().isBadRequest())
             .andExpect(content().string(containsString("deixaria sem o livro")));
 
@@ -217,9 +217,9 @@ class TransferenciasTest extends ApoioApiTest {
     @Test
     @DisplayName("RN22 na aprovação: destino sem bibliotecário ativo é recusado")
     void rn22NaAprovacao() throws Exception {
-        Usuario carlos = usuarioRepository.findByEmailIgnoreCase("carlos.lima@teste.com").orElseThrow();
-        carlos.setAtivo(false);
-        usuarioRepository.save(carlos);
+        Usuario bibVI = usuarioRepository.findByEmailIgnoreCase("bibliotecÃ¡rio.vila.isabel@teste.com").orElseThrow();
+        bibVI.setAtivo(false);
+        usuarioRepository.save(bibVI);
         aprovar(t1, tokenAdmin)
             .andExpect(status().isBadRequest())
             .andExpect(content().string(containsString("bibliotecário ativo")));
@@ -232,15 +232,15 @@ class TransferenciasTest extends ApoioApiTest {
     void despachoComRn15Violada() throws Exception {
         aprovar(t1, tokenAdmin).andExpect(status().isOk());
         transferenciaAberta(hobbit, central, vilaIsabel, "EM_TRANSITO", null); // capacidade estourada
-        devolver(empHobbitAna, tokenFernanda);
+        devolver(empHobbitU1, tokenBibC);
 
         SolicitacaoTransferencia t = t(t1);
         assertThat(t.getStatus()).isEqualTo("CANCELADA");
         assertThat(t.getObservacoes()).contains("Cancelada no despacho").contains("retirada na Biblioteca Central");
-        Reserva r = r(r1Camila);
+        Reserva r = r(r1U3);
         assertThat(r.getStatus()).isEqualTo("DISPONIVEL");
         assertThat(r.getBibliotecaDestino().getId()).isEqualTo(central.getId());
-        assertThat(situacao(hobbitAna)).isEqualTo(RESERVADO);
+        assertThat(situacao(hobbitU1)).isEqualTo(RESERVADO);
         consistente();
     }
 
@@ -250,69 +250,69 @@ class TransferenciasTest extends ApoioApiTest {
     @DisplayName("ES-10 / B-12 / B-13: ciclo do Hobbit — aprova, devolução despacha, só o destino confirma, empréstimo")
     void es10_b12_cicloHobbit() throws Exception {
         aprovar(t1, tokenAdmin).andExpect(status().isOk());
-        devolver(empHobbitAna, tokenFernanda);
-        assertThat(situacao(hobbitAna)).isEqualTo(EM_TRANSFERENCIA);                  // direto, sem parar em RESERVADO
+        devolver(empHobbitU1, tokenBibC);
+        assertThat(situacao(hobbitU1)).isEqualTo(EM_TRANSFERENCIA);                  // direto, sem parar em RESERVADO
         assertThat(t(t1).getStatus()).isEqualTo("EM_TRANSITO");
-        assertThat(r(r1Camila).getStatus()).isEqualTo("AGUARDANDO_TRANSFERENCIA");
-        assertThat(situacao(hobbitBruno)).isEqualTo(EMPRESTADO);
+        assertThat(r(r1U3).getStatus()).isEqualTo("AGUARDANDO_TRANSFERENCIA");
+        assertThat(situacao(hobbitU2)).isEqualTo(EMPRESTADO);
         consistente();
 
-        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/a-receber", tokenCarlos, null)
+        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/a-receber", tokenBibVI, null)
             .andExpect(jsonPath("$.length()").value(1))
             .andExpect(jsonPath("$[0].titulo").value("O Hobbit"))
-            .andExpect(jsonPath("$[0].exemplarId").value(hobbitAna.getId()))
+            .andExpect(jsonPath("$[0].exemplarId").value(hobbitU1.getId()))
             .andExpect(jsonPath("$[0].origem.nome").value("Biblioteca Central"))
-            .andExpect(jsonPath("$[0].reservadoPara").value("Camila Duarte"));
-        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/a-receber", tokenFernanda, null)
+            .andExpect(jsonPath("$[0].reservadoPara").value("UsuÃ¡rio 3"));
+        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/a-receber", tokenBibC, null)
             .andExpect(jsonPath("$.length()").value(0));
 
         // B-13 / RN16: só o bibliotecário do destino confirma
-        confirmar(t1, tokenFernanda, null).andExpect(status().isForbidden());
+        confirmar(t1, tokenBibC, null).andExpect(status().isForbidden());
         confirmar(t1, tokenAdmin, null).andExpect(status().isForbidden());
-        confirmar(t1, tokenCamila, null).andExpect(status().isForbidden());
+        confirmar(t1, tokenU3, null).andExpect(status().isForbidden());
 
-        confirmar(t1, tokenCarlos, null).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CONCLUIDA"));
-        Exemplar ex = exemplarRepository.findById(hobbitAna.getId()).orElseThrow();
+        confirmar(t1, tokenBibVI, null).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CONCLUIDA"));
+        Exemplar ex = exemplarRepository.findById(hobbitU1.getId()).orElseThrow();
         assertThat(ex.getStatus()).isEqualTo(RESERVADO);                               // T10
         assertThat(ex.getBiblioteca().getId()).isEqualTo(vilaIsabel.getId());
-        assertThat(r(r1Camila).getStatus()).isEqualTo("DISPONIVEL");
+        assertThat(r(r1U3).getStatus()).isEqualTo("DISPONIVEL");
         consistente();
-        confirmar(t1, tokenCarlos, null).andExpect(status().isBadRequest());
+        confirmar(t1, tokenBibVI, null).andExpect(status().isBadRequest());
 
         // B6: a reserva aparece no painel da VI
-        chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenCarlos, null)
-            .andExpect(jsonPath("$.aguardandoRetirada[0].usuario").value("Camila Duarte"))
+        chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenBibVI, null)
+            .andExpect(jsonPath("$.aguardandoRetirada[0].usuario").value("UsuÃ¡rio 3"))
             .andExpect(jsonPath("$.aguardandoRetirada[0].titulo").value("O Hobbit"))
-            .andExpect(jsonPath("$.aguardandoRetirada[0].exemplarId").value(hobbitAna.getId()))
+            .andExpect(jsonPath("$.aguardandoRetirada[0].exemplarId").value(hobbitU1.getId()))
             .andExpect(jsonPath("$.aguardandoRetirada[0].retireAte").isNotEmpty());
 
-        chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenCarlos,
-               "{\"exemplarId\":" + hobbitAna.getId() + ",\"usuarioId\":" + camila.getId() + "}")
+        chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenBibVI,
+               "{\"exemplarId\":" + hobbitU1.getId() + ",\"usuarioId\":" + u3.getId() + "}")
             .andExpect(status().isOk());
-        assertThat(situacao(hobbitAna)).isEqualTo(EMPRESTADO);
-        assertThat(r(r1Camila).getStatus()).isEqualTo("RETIRADA");
+        assertThat(situacao(hobbitU1)).isEqualTo(EMPRESTADO);
+        assertThat(r(r1U3).getStatus()).isEqualTo("RETIRADA");
         consistente();
     }
 
     @Test
     @DisplayName("Chegada danificada: INDISPONIVEL no destino, CONCLUIDA, reserva volta à fila da origem (§4.4)")
     void chegadaDanificada() throws Exception {
-        LocalDateTime dataOriginal = r(r1Camila).getDataReserva();
+        LocalDateTime dataOriginal = r(r1U3).getDataReserva();
         aprovar(t1, tokenAdmin).andExpect(status().isOk());
-        devolver(empHobbitAna, tokenFernanda);
-        confirmar(t1, tokenCarlos, "{\"danificado\":true,\"observacao\":\"capa rasgada\"}")
+        devolver(empHobbitU1, tokenBibC);
+        confirmar(t1, tokenBibVI, "{\"danificado\":true,\"observacao\":\"capa rasgada\"}")
             .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CONCLUIDA"));
 
-        Exemplar ex = exemplarRepository.findById(hobbitAna.getId()).orElseThrow();
+        Exemplar ex = exemplarRepository.findById(hobbitU1.getId()).orElseThrow();
         assertThat(ex.getStatus()).isEqualTo(INDISPONIVEL);
         assertThat(ex.getBiblioteca().getId()).isEqualTo(vilaIsabel.getId());
-        Reserva r = r(r1Camila);
+        Reserva r = r(r1U3);
         assertThat(r.getStatus()).isEqualTo("PENDENTE");
         assertThat(r.getBibliotecaFila().getId()).isEqualTo(central.getId());
         assertThat(r.getBibliotecaDestino().getId()).isEqualTo(central.getId());
         assertThat(r.getExemplar()).isNull();
         assertThat(r.getDataReserva()).isEqualTo(dataOriginal);
-        assertThat(situacao(hobbitBruno)).isEqualTo(EMPRESTADO_RESERVADO);           // fila da origem voltou
+        assertThat(situacao(hobbitU2)).isEqualTo(EMPRESTADO_RESERVADO);           // fila da origem voltou
         consistente();
     }
 
@@ -320,16 +320,16 @@ class TransferenciasTest extends ApoioApiTest {
     @DisplayName("U-12 completa: reserva cancelada durante a viagem; a chegada deixa o exemplar DISPONIVEL")
     void u12_canceladaEmTransito() throws Exception {
         aprovar(t1, tokenAdmin).andExpect(status().isOk());
-        devolver(empHobbitAna, tokenFernanda);
-        chamar(HttpMethod.PATCH, "/api/reservas/" + r1Camila.getId() + "/cancelar", tokenCamila, null)
+        devolver(empHobbitU1, tokenBibC);
+        chamar(HttpMethod.PATCH, "/api/reservas/" + r1U3.getId() + "/cancelar", tokenU3, null)
             .andExpect(status().isOk());
         assertThat(t(t1).getStatus()).isEqualTo("EM_TRANSITO");
-        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/a-receber", tokenCarlos, null)
+        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/a-receber", tokenBibVI, null)
             .andExpect(jsonPath("$[0].reservadoPara").value(nullValue()));
         consistente();
 
-        confirmar(t1, tokenCarlos, null).andExpect(status().isOk());
-        Exemplar ex = exemplarRepository.findById(hobbitAna.getId()).orElseThrow();
+        confirmar(t1, tokenBibVI, null).andExpect(status().isOk());
+        Exemplar ex = exemplarRepository.findById(hobbitU1.getId()).orElseThrow();
         assertThat(ex.getStatus()).isEqualTo(DISPONIVEL);                             // T11
         assertThat(ex.getBiblioteca().getId()).isEqualTo(vilaIsabel.getId());
         consistente();
@@ -341,24 +341,24 @@ class TransferenciasTest extends ApoioApiTest {
         Livro cortico = livro("O Cortiço");
         exemplar(cortico, central, DISPONIVEL);
         Exemplar viajante = exemplar(cortico, central, DISPONIVEL);
-        emprestimo(exemplar(cortico, vilaIsabel, EMPRESTADO), bruno, 2);
-        reservaPorApi(tokenDiego, cortico, vilaIsabel, vilaIsabel);
+        emprestimo(exemplar(cortico, vilaIsabel, EMPRESTADO), u2, 2);
+        reservaPorApi(tokenU4, cortico, vilaIsabel, vilaIsabel);
         consistente();
 
         long tId = idDoArray(avulsa(tokenAdmin, List.of(viajante.getId()), vilaIsabel)
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        confirmar(transferenciaRepository.findById(tId).orElseThrow(), tokenCarlos, null).andExpect(status().isOk());
+        confirmar(transferenciaRepository.findById(tId).orElseThrow(), tokenBibVI, null).andExpect(status().isOk());
         assertThat(situacao(viajante)).isEqualTo(RESERVADO);
-        Reserva rDiego = reservaRepository.findByUsuario(diego).get(0);
-        assertThat(rDiego.getStatus()).isEqualTo("DISPONIVEL");
-        assertThat(rDiego.getExemplar().getId()).isEqualTo(viajante.getId());
+        Reserva rU4 = reservaRepository.findByUsuario(u4).get(0);
+        assertThat(rU4.getStatus()).isEqualTo("DISPONIVEL");
+        assertThat(rU4.getExemplar().getId()).isEqualTo(viajante.getId());
         consistente();
     }
 
     // ───────────────────────── Avulsa em lote ─────────────────────────
 
     @Test
-    @DisplayName("ES-09: avulsa de Fahrenheit em trânsito; Carlos confirma -> DISPONIVEL na VI (T8, T11)")
+    @DisplayName("ES-09: avulsa de Fahrenheit em trânsito; BibVI confirma -> DISPONIVEL na VI (T8, T11)")
     void es09_avulsaChegada() throws Exception {
         Exemplar f = exemplarRepository.findByLivroAndBiblioteca(fahrenheit, central).get(0);
         String json = avulsa(tokenAdmin, List.of(f.getId()), vilaIsabel)
@@ -367,9 +367,9 @@ class TransferenciasTest extends ApoioApiTest {
             .andReturn().getResponse().getContentAsString();
         assertThat(situacao(f)).isEqualTo(EM_TRANSFERENCIA);                          // T8
         SolicitacaoTransferencia t = transferenciaRepository.findById(idDoArray(json)).orElseThrow();
-        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/a-receber", tokenCarlos, null)
+        chamar(HttpMethod.GET, "/api/transferencias/biblioteca/a-receber", tokenBibVI, null)
             .andExpect(jsonPath("$[?(@.titulo == 'Fahrenheit 451')].tipo").value(contains("AVULSA")));
-        confirmar(t, tokenCarlos, null).andExpect(status().isOk());
+        confirmar(t, tokenBibVI, null).andExpect(status().isOk());
         assertThat(t(t).getStatus()).isEqualTo("CONCLUIDA");
         assertThat(situacao(f)).isEqualTo(DISPONIVEL);                                // T11
         assertThat(exemplarRepository.findById(f.getId()).orElseThrow().getBiblioteca().getId())
@@ -414,9 +414,9 @@ class TransferenciasTest extends ApoioApiTest {
     void a10_es14_loteComInvalido() throws Exception {
         long antes = transferenciaRepository.count();
         long valido = exemplarRepository.findByLivroAndBiblioteca(domCasmurro, central).get(0).getId();
-        avulsa(tokenAdmin, List.of(valido, hobbitBruno.getId()), vilaIsabel)
+        avulsa(tokenAdmin, List.of(valido, hobbitU2.getId()), vilaIsabel)
             .andExpect(status().isBadRequest())
-            .andExpect(content().string(containsString("Exemplar nº " + hobbitBruno.getId() + " (O Hobbit) está emprestado")));
+            .andExpect(content().string(containsString("Exemplar nº " + hobbitU2.getId() + " (O Hobbit) está emprestado")));
         assertThat(transferenciaRepository.count()).isEqualTo(antes);
         assertThat(exemplarRepository.findById(valido).orElseThrow().getStatus()).isEqualTo(DISPONIVEL);
 
@@ -439,8 +439,8 @@ class TransferenciasTest extends ApoioApiTest {
             .andExpect(jsonPath("$[?(@.nome == 'Biblioteca Tijuca')].permitido").value(contains(false)))
             .andExpect(jsonPath("$[?(@.nome == 'Biblioteca Tijuca')].motivo")
                 .value(contains(containsString("bibliotecário ativo"))));
-        chamar(HttpMethod.GET, "/api/transferencias/destinos-avulsa", tokenCarlos, null).andExpect(status().isForbidden());
-        chamar(HttpMethod.GET, "/api/transferencias/destinos-avulsa", tokenAna, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.GET, "/api/transferencias/destinos-avulsa", tokenBibVI, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.GET, "/api/transferencias/destinos-avulsa", tokenU1, null).andExpect(status().isForbidden());
     }
 
     // ───────────────────────── Bibliotecário: reservas ─────────────────────────
@@ -448,22 +448,22 @@ class TransferenciasTest extends ApoioApiTest {
     @Test
     @DisplayName("B-10 / B6: devolução com fila sem transferência -> RESERVADO para o 1º; painel mostra prazo e filas")
     void b10_painelReservas() throws Exception {
-        chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenCarlos, null)
+        chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenBibVI, null)
             .andExpect(jsonPath("$.aguardandoRetirada.length()").value(0))
             .andExpect(jsonPath("$.filas[0].titulo").value("Harry Potter e a Pedra Filosofal"))
-            .andExpect(jsonPath("$.filas[0].fila[0].usuario").value("Bruno Alves"))
+            .andExpect(jsonPath("$.filas[0].fila[0].usuario").value("UsuÃ¡rio 2"))
             .andExpect(jsonPath("$.filas[0].fila[0].posicao").value(1));
-        chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenFernanda, null)
+        chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenBibC, null)
             .andExpect(jsonPath("$.filas[*].titulo", not(hasItem("Harry Potter e a Pedra Filosofal"))));
 
-        devolver(empHarryCamila, tokenCarlos);
-        assertThat(situacao(harryCamila)).isEqualTo(RESERVADO);                       // T4
-        Reserva rBruno = reservaRepository.findByUsuario(bruno).get(0);
-        assertThat(rBruno.getStatus()).isEqualTo("DISPONIVEL");
-        assertThat(Duration.between(LocalDateTime.now(), rBruno.getDataExpiracao()).toHours()).isBetween(71L, 72L);
-        chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenCarlos, null)
-            .andExpect(jsonPath("$.aguardandoRetirada[0].usuario").value("Bruno Alves"))
-            .andExpect(jsonPath("$.aguardandoRetirada[0].exemplarId").value(harryCamila.getId()))
+        devolver(empHarryU3, tokenBibVI);
+        assertThat(situacao(harryU3)).isEqualTo(RESERVADO);                       // T4
+        Reserva rU2 = reservaRepository.findByUsuario(u2).get(0);
+        assertThat(rU2.getStatus()).isEqualTo("DISPONIVEL");
+        assertThat(Duration.between(LocalDateTime.now(), rU2.getDataExpiracao()).toHours()).isBetween(71L, 72L);
+        chamar(HttpMethod.GET, "/api/reservas/biblioteca", tokenBibVI, null)
+            .andExpect(jsonPath("$.aguardandoRetirada[0].usuario").value("UsuÃ¡rio 2"))
+            .andExpect(jsonPath("$.aguardandoRetirada[0].exemplarId").value(harryU3.getId()))
             .andExpect(jsonPath("$.filas.length()").value(0));
         consistente();
     }
@@ -508,7 +508,7 @@ class TransferenciasTest extends ApoioApiTest {
         s.setExemplar(ex);
         s.setBibliotecaOrigem(origem);
         s.setBibliotecaDestino(destino);
-        s.setSolicitante(ana);
+        s.setSolicitante(u1);
         s.setStatus(status);
         s.setDataSolicitacao(LocalDateTime.now().minusDays(5));
         transferenciaRepository.save(s);

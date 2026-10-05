@@ -45,17 +45,17 @@ class MaquinaEstadosExemplarTest {
     @Autowired private VerificadorConsistencia verificador;
 
     private Biblioteca central, vilaIsabel;
-    private Usuario ana, bruno, camila, diego, carlos;
+    private Usuario u1, u2, u3, u4, bibVI;
 
     @BeforeEach
     void montarRede() {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
-        ana = usuario("Ana Souza", "COMUM", null);
-        bruno = usuario("Bruno Alves", "COMUM", null);
-        camila = usuario("Camila Duarte", "COMUM", null);
-        diego = usuario("Diego Santos", "COMUM", null);
-        carlos = usuario("Carlos Lima", "BIBLIOTECARIO", vilaIsabel);
+        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
+        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        u4 = usuario("UsuÃ¡rio 4", "COMUM", null);
+        bibVI = usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel);
     }
 
     // ───────────────────────── Tabela de transições (§4.3) ─────────────────────────
@@ -129,7 +129,7 @@ class MaquinaEstadosExemplarTest {
     @DisplayName("T1 empréstimo e T2 devolução BOM sem fila")
     void t1T2() {
         Exemplar e = exemplar(livro("Dom Casmurro"), central, DISPONIVEL);
-        Emprestimo emp = emprestimoService.registrar(e.getId(), ana.getId());
+        Emprestimo emp = emprestimoService.registrar(e.getId(), u1.getId());
         assertThat(status(e)).isEqualTo(EMPRESTADO);
         consistente();
 
@@ -144,9 +144,9 @@ class MaquinaEstadosExemplarTest {
         Livro livro = livro("O Hobbit");
         Exemplar x1 = exemplar(livro, vilaIsabel, EMPRESTADO_RESERVADO);
         Exemplar x2 = exemplar(livro, vilaIsabel, EMPRESTADO_RESERVADO);
-        Emprestimo emp1 = emprestimoAtivo(x1, camila);
-        emprestimoAtivo(x2, diego);
-        Reserva r = reserva(livro, ana, vilaIsabel, "PENDENTE", null, dias(-2));
+        Emprestimo emp1 = emprestimoAtivo(x1, u3);
+        emprestimoAtivo(x2, u4);
+        Reserva r = reserva(livro, u1, vilaIsabel, "PENDENTE", null, dias(-2));
         consistente();
 
         emprestimoService.devolver(emp1.getId(), "BOM");
@@ -164,9 +164,9 @@ class MaquinaEstadosExemplarTest {
         Livro livro = livro("O Hobbit");
         Exemplar x1 = exemplar(livro, vilaIsabel, EMPRESTADO_RESERVADO);
         Exemplar x2 = exemplar(livro, vilaIsabel, EMPRESTADO_RESERVADO);
-        Emprestimo emp1 = emprestimoAtivo(x1, camila);
-        emprestimoAtivo(x2, diego);
-        Reserva r = reserva(livro, ana, vilaIsabel, "PENDENTE", null, dias(-2));
+        Emprestimo emp1 = emprestimoAtivo(x1, u3);
+        emprestimoAtivo(x2, u4);
+        Reserva r = reserva(livro, u1, vilaIsabel, "PENDENTE", null, dias(-2));
 
         emprestimoService.devolver(emp1.getId(), "DANIFICADO");
 
@@ -184,7 +184,7 @@ class MaquinaEstadosExemplarTest {
     @DisplayName("Devolução só aceita BOM ou DANIFICADO")
     void devolucaoCondicaoInvalida() {
         Exemplar e = exemplar(livro("Dom Casmurro"), central, EMPRESTADO);
-        Emprestimo emp = emprestimoAtivo(e, ana);
+        Emprestimo emp = emprestimoAtivo(e, u1);
         assertThatThrownBy(() -> emprestimoService.devolver(emp.getId(), "PERDIDO"))
             .hasMessageContaining("Bom ou Danificado");
         assertThat(status(e)).isEqualTo(EMPRESTADO);
@@ -198,11 +198,11 @@ class MaquinaEstadosExemplarTest {
         Livro duna = livro("Duna");
         Exemplar d1 = exemplar(duna, central, EMPRESTADO);
         Exemplar d2 = exemplar(duna, central, EMPRESTADO);
-        emprestimoAtivo(d1, bruno);
-        emprestimoAtivo(d2, camila);
+        emprestimoAtivo(d1, u2);
+        emprestimoAtivo(d2, u3);
         consistente();
 
-        Reserva r = reservaService.criar(duna.getId(), ana.getId(), central.getId(), central.getId());
+        Reserva r = reservaService.criar(duna.getId(), u1.getId(), central.getId(), central.getId());
         assertThat(status(d1)).isEqualTo(EMPRESTADO_RESERVADO);
         assertThat(status(d2)).isEqualTo(EMPRESTADO_RESERVADO);
         consistente();
@@ -214,11 +214,11 @@ class MaquinaEstadosExemplarTest {
     }
 
     @Test
-    @DisplayName("ES-03 (T5) e ES-04 (T12): Ana retira o Harry com Bruno na fila; depois Bruno cancela")
+    @DisplayName("ES-03 (T5) e ES-04 (T12): U1 retira o Harry com U2 na fila; depois U2 cancela")
     void es03Es04() {
         CenarioHarry h = cenarioHarry();
 
-        emprestimoService.registrar(h.h1.getId(), ana.getId());
+        emprestimoService.registrar(h.h1.getId(), u1.getId());
         assertThat(status(h.h1)).isEqualTo(EMPRESTADO_RESERVADO);
         assertThat(h.r2.getStatus()).isEqualTo("RETIRADA");
         assertThat(status(h.h2)).isEqualTo(EMPRESTADO_RESERVADO);
@@ -231,7 +231,7 @@ class MaquinaEstadosExemplarTest {
     }
 
     @Test
-    @DisplayName("ES-05 (T6): Bruno cancela antes e Ana retira com a fila vazia")
+    @DisplayName("ES-05 (T6): U2 cancela antes e U1 retira com a fila vazia")
     void es05() {
         CenarioHarry h = cenarioHarry();
 
@@ -240,7 +240,7 @@ class MaquinaEstadosExemplarTest {
         assertThat(status(h.h1)).isEqualTo(RESERVADO);
         consistente();
 
-        emprestimoService.registrar(h.h1.getId(), ana.getId());
+        emprestimoService.registrar(h.h1.getId(), u1.getId());
         assertThat(status(h.h1)).isEqualTo(EMPRESTADO);
         consistente();
     }
@@ -271,7 +271,7 @@ class MaquinaEstadosExemplarTest {
     @DisplayName("ES-11 (T14): reativar sem fila deixa DISPONIVEL")
     void es11T14() {
         Exemplar s1 = exemplar(livro("Steve Jobs"), vilaIsabel, INDISPONIVEL);
-        exemplarService.reativar(s1.getId(), carlos.getId());
+        exemplarService.reativar(s1.getId(), bibVI.getId());
         assertThat(status(s1)).isEqualTo(DISPONIVEL);
         consistente();
     }
@@ -282,11 +282,11 @@ class MaquinaEstadosExemplarTest {
         Livro jobs = livro("Steve Jobs");
         Exemplar s1 = exemplar(jobs, vilaIsabel, INDISPONIVEL);
         Exemplar s2 = exemplar(jobs, vilaIsabel, EMPRESTADO_RESERVADO);
-        emprestimoAtivo(s2, camila);
-        Reserva r = reserva(jobs, ana, vilaIsabel, "PENDENTE", null, dias(-1));
+        emprestimoAtivo(s2, u3);
+        Reserva r = reserva(jobs, u1, vilaIsabel, "PENDENTE", null, dias(-1));
         consistente();
 
-        exemplarService.reativar(s1.getId(), carlos.getId());
+        exemplarService.reativar(s1.getId(), bibVI.getId());
         assertThat(status(s1)).isEqualTo(RESERVADO);
         assertThat(r.getStatus()).isEqualTo("DISPONIVEL");
         assertThat(r.getExemplar().getId()).isEqualTo(s1.getId());
@@ -298,9 +298,9 @@ class MaquinaEstadosExemplarTest {
     @DisplayName("ES-12 (T13): DISPONIVEL marcado indisponível sai da lista de empréstimo")
     void es12() {
         Exemplar e = exemplar(livro("Dom Casmurro"), vilaIsabel, DISPONIVEL);
-        exemplarService.marcarIndisponivel(e.getId(), carlos.getId(), "Capa rasgada");
+        exemplarService.marcarIndisponivel(e.getId(), bibVI.getId(), "Capa rasgada");
         assertThat(status(e)).isEqualTo(INDISPONIVEL);
-        assertThatThrownBy(() -> emprestimoService.registrar(e.getId(), ana.getId()))
+        assertThatThrownBy(() -> emprestimoService.registrar(e.getId(), u1.getId()))
             .hasMessageContaining("não pode ser emprestado");
         consistente();
     }
@@ -311,7 +311,7 @@ class MaquinaEstadosExemplarTest {
         CenarioHarry h = cenarioHarry();
         LocalDateTime dataOriginal = h.r2.getDataReserva();
 
-        exemplarService.marcarIndisponivel(h.h1.getId(), carlos.getId(), null);
+        exemplarService.marcarIndisponivel(h.h1.getId(), bibVI.getId(), null);
 
         assertThat(status(h.h1)).isEqualTo(INDISPONIVEL);
         assertThat(h.r2.getStatus()).isEqualTo("PENDENTE");
@@ -329,17 +329,17 @@ class MaquinaEstadosExemplarTest {
     void t15Cadastro() {
         Livro livro = livro("Fahrenheit 451");
         Exemplar x = exemplar(livro, vilaIsabel, EMPRESTADO_RESERVADO);
-        emprestimoAtivo(x, camila);
-        Reserva r = reserva(livro, ana, vilaIsabel, "PENDENTE", null, dias(-1));
+        emprestimoAtivo(x, u3);
+        Reserva r = reserva(livro, u1, vilaIsabel, "PENDENTE", null, dias(-1));
 
-        Exemplar novo = exemplarService.cadastrar(dto(livro, vilaIsabel), carlos.getId()).get(0);
+        Exemplar novo = exemplarService.cadastrar(dto(livro, vilaIsabel), bibVI.getId()).get(0);
         assertThat(status(novo)).isEqualTo(RESERVADO);
         assertThat(r.getStatus()).isEqualTo("DISPONIVEL");
         assertThat(r.getExemplar().getId()).isEqualTo(novo.getId());
         assertThat(status(x)).isEqualTo(EMPRESTADO);
         consistente();
 
-        Exemplar outro = exemplarService.cadastrar(dto(livro, vilaIsabel), carlos.getId()).get(0);
+        Exemplar outro = exemplarService.cadastrar(dto(livro, vilaIsabel), bibVI.getId()).get(0);
         assertThat(status(outro)).isEqualTo(DISPONIVEL);
         consistente();
     }
@@ -349,15 +349,15 @@ class MaquinaEstadosExemplarTest {
     void operacoesInvalidas() {
         Livro livro = livro("Memórias Póstumas");
         Exemplar emprestado = exemplar(livro, vilaIsabel, EMPRESTADO);
-        emprestimoAtivo(emprestado, camila);
+        emprestimoAtivo(emprestado, u3);
         Exemplar disponivel = exemplar(livro, vilaIsabel, DISPONIVEL);
         Exemplar indisponivel = exemplar(livro, vilaIsabel, INDISPONIVEL);
 
-        assertThatThrownBy(() -> exemplarService.marcarIndisponivel(emprestado.getId(), carlos.getId(), null))
+        assertThatThrownBy(() -> exemplarService.marcarIndisponivel(emprestado.getId(), bibVI.getId(), null))
             .hasMessageContaining("disponível ou reservado");
-        assertThatThrownBy(() -> exemplarService.reativar(disponivel.getId(), carlos.getId()))
+        assertThatThrownBy(() -> exemplarService.reativar(disponivel.getId(), bibVI.getId()))
             .hasMessageContaining("Só um exemplar indisponível");
-        assertThatThrownBy(() -> emprestimoService.registrar(indisponivel.getId(), ana.getId()))
+        assertThatThrownBy(() -> emprestimoService.registrar(indisponivel.getId(), u1.getId()))
             .hasMessageContaining("não pode ser emprestado");
         assertThat(status(emprestado)).isEqualTo(EMPRESTADO);
         assertThat(status(disponivel)).isEqualTo(DISPONIVEL);
@@ -376,17 +376,17 @@ class MaquinaEstadosExemplarTest {
 
     // ───────────────────────── Montagem dos cenários ─────────────────────────
 
-    /** Harry Potter na VI: H1 separado para Ana (R2), H2 emprestado à Camila, Bruno (R3) na fila. */
+    /** Harry Potter na VI: H1 separado para U1 (R2), H2 emprestado à U3, U2 (R3) na fila. */
     private record CenarioHarry(Livro harry, Exemplar h1, Exemplar h2, Reserva r2, Reserva r3) {}
 
     private CenarioHarry cenarioHarry() {
         Livro harry = livro("Harry Potter e a Pedra Filosofal");
         Exemplar h1 = exemplar(harry, vilaIsabel, RESERVADO);
         Exemplar h2 = exemplar(harry, vilaIsabel, EMPRESTADO_RESERVADO);
-        emprestimoAtivo(h2, camila);
-        Reserva r2 = reserva(harry, ana, vilaIsabel, "DISPONIVEL", h1, dias(-4));
+        emprestimoAtivo(h2, u3);
+        Reserva r2 = reserva(harry, u1, vilaIsabel, "DISPONIVEL", h1, dias(-4));
         r2.setDataExpiracao(LocalDateTime.now().plusDays(2));
-        Reserva r3 = reserva(harry, bruno, vilaIsabel, "PENDENTE", null, dias(-1));
+        Reserva r3 = reserva(harry, u2, vilaIsabel, "PENDENTE", null, dias(-1));
         consistente();
         return new CenarioHarry(harry, h1, h2, r2, r3);
     }

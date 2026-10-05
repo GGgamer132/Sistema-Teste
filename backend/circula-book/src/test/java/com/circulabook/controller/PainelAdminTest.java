@@ -22,25 +22,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PainelAdminTest extends ApoioApiTest {
 
     private Biblioteca central, vilaIsabel;
-    private Usuario ana, bruno, camila;
-    private String tokenAdmin, tokenFernanda, tokenCarlos, tokenAna, tokenCamila;
+    private Usuario u1, u2, u3;
+    private String tokenAdmin, tokenBibC, tokenBibVI, tokenU1, tokenU3;
 
     @BeforeEach
     void montar() throws Exception {
         central = biblioteca("Biblioteca Central");
         vilaIsabel = biblioteca("Biblioteca Vila Isabel");
-        tokenAdmin = login(usuario("Roberto Dias", "ADMIN", null));
-        tokenFernanda = login(usuario("Fernanda Reis", "BIBLIOTECARIO", central));
-        tokenCarlos = login(usuario("Carlos Lima", "BIBLIOTECARIO", vilaIsabel));
-        ana = usuario("Ana Souza", "COMUM", null);
-        bruno = usuario("Bruno Alves", "COMUM", null);
-        camila = usuario("Camila Duarte", "COMUM", null);
-        tokenAna = login(ana);
-        tokenCamila = login(camila);
+        tokenAdmin = login(usuario("Admin", "ADMIN", null));
+        tokenBibC = login(usuario("BibliotecÃ¡rio Central", "BIBLIOTECARIO", central));
+        tokenBibVI = login(usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", vilaIsabel));
+        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
+        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        tokenU1 = login(u1);
+        tokenU3 = login(u3);
         // "Seed" qualquer: o teste só olha diferenças
         Livro outro = livro("Livro do seed");
         exemplar(outro, vilaIsabel, DISPONIVEL);
-        emprestimo(exemplar(outro, vilaIsabel, EMPRESTADO), bruno, 3);
+        emprestimo(exemplar(outro, vilaIsabel, EMPRESTADO), u2, 3);
     }
 
     @Test
@@ -57,9 +57,9 @@ class PainelAdminTest extends ApoioApiTest {
 
         Livro hobbit = livro("O Hobbit");
         List<Long> ex = cadastrar(hobbit, 3);
-        long emp1 = emprestar(ex.get(0), ana);
-        emprestar(ex.get(1), bruno);
-        emprestimo(exemplar(livro("Atrasado"), central, EMPRESTADO), camila, 20);  // 6 dias de atraso
+        long emp1 = emprestar(ex.get(0), u1);
+        emprestar(ex.get(1), u2);
+        emprestimo(exemplar(livro("Atrasado"), central, EMPRESTADO), u3, 20);  // 6 dias de atraso
         Map<String, Long> d2 = dashboard();
         assertThat(delta(d1, d2)).containsExactlyInAnyOrderEntriesOf(Map.of(
             "exemplaresTotal", 4L, "DISPONIVEL", 1L, "EMPRESTADO", 3L,
@@ -75,7 +75,7 @@ class PainelAdminTest extends ApoioApiTest {
         assertThat(delta(d2, d3)).containsExactlyInAnyOrderEntriesOf(Map.of(
             "DISPONIVEL", -1L, "EM_TRANSFERENCIA", 1L, "transferenciasEmTransito", 1L));
 
-        long reserva = id(chamar(HttpMethod.POST, "/api/reservas", tokenCamila,
+        long reserva = id(chamar(HttpMethod.POST, "/api/reservas", tokenU3,
             "{\"livroId\":" + hobbit.getId() + ",\"bibliotecaFilaId\":" + central.getId()
             + ",\"bibliotecaDestinoId\":" + vilaIsabel.getId() + "}")
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
@@ -100,13 +100,13 @@ class PainelAdminTest extends ApoioApiTest {
             "transferenciasAguardandoExemplar", -1L, "transferenciasEmTransito", 1L,
             "EMPRESTADO_RESERVADO", -2L, "EMPRESTADO", 1L, "EM_TRANSFERENCIA", 1L));
 
-        chamar(HttpMethod.PATCH, "/api/transferencias/" + pedido + "/confirmar-chegada", tokenCarlos, null)
+        chamar(HttpMethod.PATCH, "/api/transferencias/" + pedido + "/confirmar-chegada", tokenBibVI, null)
             .andExpect(status().isOk());
         Map<String, Long> d7 = dashboard();
         assertThat(delta(d6, d7)).containsExactlyInAnyOrderEntriesOf(Map.of(
             "transferenciasEmTransito", -1L, "EM_TRANSFERENCIA", -1L, "RESERVADO", 1L, "reservasProntas", 1L));
 
-        String dem = chamar(HttpMethod.POST, "/api/demandas", tokenAna, "{\"titulo\":\"Torto Arado\",\"autor\":\"Itamar\"}")
+        String dem = chamar(HttpMethod.POST, "/api/demandas", tokenU1, "{\"titulo\":\"Torto Arado\",\"autor\":\"Itamar\"}")
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         Map<String, Long> d8 = dashboard();
         assertThat(delta(d7, d8)).containsExactlyInAnyOrderEntriesOf(Map.of("demandasAbertas", 1L));
@@ -123,16 +123,16 @@ class PainelAdminTest extends ApoioApiTest {
         String r0 = relatorios("");
         Livro hobbit = livro("O Hobbit");
         List<Long> ex = cadastrar(hobbit, 2);
-        long emp = emprestar(ex.get(0), ana);
+        long emp = emprestar(ex.get(0), u1);
         devolver(emp);
-        emprestar(ex.get(0), camila);
-        Emprestimo atrasado = emprestimo(exemplar(livro("Duna"), central, EMPRESTADO), bruno, 20);    // 6 dias
-        Emprestimo devolveTarde = emprestimo(exemplar(livro("Sapiens"), central, EMPRESTADO), ana, 18);
+        emprestar(ex.get(0), u3);
+        Emprestimo atrasado = emprestimo(exemplar(livro("Duna"), central, EMPRESTADO), u2, 20);    // 6 dias
+        Emprestimo devolveTarde = emprestimo(exemplar(livro("Sapiens"), central, EMPRESTADO), u1, 18);
         devolver(devolveTarde.getId());                                                            // 4 dias
         chamar(HttpMethod.POST, "/api/transferencias/avulsa", tokenAdmin,
             "{\"exemplarIds\":[" + ex.get(1) + "],\"bibliotecaDestinoId\":" + vilaIsabel.getId() + "}")
             .andExpect(status().isOk());
-        chamar(HttpMethod.POST, "/api/demandas", tokenAna, "{\"titulo\":\"Torto Arado\",\"autor\":\"Itamar\"}")
+        chamar(HttpMethod.POST, "/api/demandas", tokenU1, "{\"titulo\":\"Torto Arado\",\"autor\":\"Itamar\"}")
             .andExpect(status().isOk());
         String r1 = relatorios("");
 
@@ -198,8 +198,8 @@ class PainelAdminTest extends ApoioApiTest {
     @DisplayName("Dashboard e relatórios só para o Admin")
     void permissoes() throws Exception {
         for (String url : List.of("/api/admin/dashboard", "/api/admin/relatorios")) {
-            chamar(HttpMethod.GET, url, tokenFernanda, null).andExpect(status().isForbidden());
-            chamar(HttpMethod.GET, url, tokenAna, null).andExpect(status().isForbidden());
+            chamar(HttpMethod.GET, url, tokenBibC, null).andExpect(status().isForbidden());
+            chamar(HttpMethod.GET, url, tokenU1, null).andExpect(status().isForbidden());
             chamar(HttpMethod.GET, url, null, null).andExpect(status().isUnauthorized());
         }
     }
@@ -252,7 +252,7 @@ class PainelAdminTest extends ApoioApiTest {
     }
 
     private List<Long> cadastrar(Livro livro, int quantidade) throws Exception {
-        String json = chamar(HttpMethod.POST, "/api/exemplares", tokenFernanda,
+        String json = chamar(HttpMethod.POST, "/api/exemplares", tokenBibC,
             "{\"livroId\":" + livro.getId() + ",\"conservacao\":\"BOM\",\"quantidade\":" + quantidade + "}")
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         List<Integer> ids = JsonPath.read(json, "$[*].id");
@@ -260,13 +260,13 @@ class PainelAdminTest extends ApoioApiTest {
     }
 
     private long emprestar(long exemplarId, Usuario u) throws Exception {
-        return id(chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenFernanda,
+        return id(chamar(HttpMethod.POST, "/api/emprestimos/registrar", tokenBibC,
             "{\"exemplarId\":" + exemplarId + ",\"usuarioId\":" + u.getId() + "}")
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
     }
 
     private void devolver(long emprestimoId) throws Exception {
-        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenFernanda,
+        chamar(HttpMethod.POST, "/api/emprestimos/devolver", tokenBibC,
                "{\"emprestimoId\":" + emprestimoId + ",\"condicaoExemplar\":\"BOM\"}")
             .andExpect(status().isOk());
     }

@@ -25,42 +25,42 @@ class DemandasTest extends ApoioApiTest {
     @Autowired private DemandaAquisicaoRepository demandaRepository;
     @Autowired private NotificacaoRepository notificacaoRepository;
 
-    private Usuario roberto, rita, ana, bruno, camila;
-    private String tokenAdmin, tokenCarlos, tokenAna, tokenBruno, tokenCamila;
+    private Usuario admin, rita, u1, u2, u3;
+    private String tokenAdmin, tokenBibVI, tokenU1, tokenU2, tokenU3;
 
     @BeforeEach
     void montar() throws Exception {
-        roberto = usuario("Roberto Dias", "ADMIN", null);
+        admin = usuario("Admin", "ADMIN", null);
         rita = usuario("Rita Admin", "ADMIN", null);
-        Usuario carlos = usuario("Carlos Lima", "BIBLIOTECARIO", biblioteca("Biblioteca Vila Isabel"));
-        ana = usuario("Ana Souza", "COMUM", null);
-        bruno = usuario("Bruno Alves", "COMUM", null);
-        camila = usuario("Camila Duarte", "COMUM", null);
-        tokenAdmin = login(roberto);
-        tokenCarlos = login(carlos);
-        tokenAna = login(ana);
-        tokenBruno = login(bruno);
-        tokenCamila = login(camila);
+        Usuario bibVI = usuario("BibliotecÃ¡rio Vila Isabel", "BIBLIOTECARIO", biblioteca("Biblioteca Vila Isabel"));
+        u1 = usuario("UsuÃ¡rio 1", "COMUM", null);
+        u2 = usuario("UsuÃ¡rio 2", "COMUM", null);
+        u3 = usuario("UsuÃ¡rio 3", "COMUM", null);
+        tokenAdmin = login(admin);
+        tokenBibVI = login(bibVI);
+        tokenU1 = login(u1);
+        tokenU2 = login(u2);
+        tokenU3 = login(u3);
     }
 
     @Test
     @DisplayName("U-14: cria ABERTA com 1; outro usuário incrementa (caixa/acento/espaço); mesmo usuário barrado")
     void u14_consolidacao() throws Exception {
-        interesse(tokenAna, "Torto Arado", "Itamar Vieira Junior")
+        interesse(tokenU1, "Torto Arado", "Itamar Vieira Junior")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.nova").value(true))
             .andExpect(jsonPath("$.demanda.status").value("ABERTA"))
             .andExpect(jsonPath("$.demanda.totalSolicitacoes").value(1));
 
-        // Bruno escreve diferente: caixa, acento e espaços extras
-        interesse(tokenBruno, "  TORTO   árado ", "itamar  vieira júnior")
+        // U2 escreve diferente: caixa, acento e espaços extras
+        interesse(tokenU2, "  TORTO   árado ", "itamar  vieira júnior")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.nova").value(false))
             .andExpect(jsonPath("$.demanda.totalSolicitacoes").value(2))
             .andExpect(jsonPath("$.mensagem").value(containsString("2 pessoas")));
 
-        // Ana de novo (também escrito diferente): barrada, contador não muda
-        interesse(tokenAna, "torto arado", "ITAMAR VIEIRA JUNIOR")
+        // U1 de novo (também escrito diferente): barrada, contador não muda
+        interesse(tokenU1, "torto arado", "ITAMAR VIEIRA JUNIOR")
             .andExpect(status().isBadRequest())
             .andExpect(content().string("Você já registrou interesse neste livro."));
 
@@ -69,19 +69,19 @@ class DemandasTest extends ApoioApiTest {
         assertThat(todas.get(0).getTotalSolicitacoes()).isEqualTo(2);
         assertThat(todas.get(0).getTitulo()).isEqualTo("Torto Arado");
 
-        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenBruno, null)
+        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenU2, null)
             .andExpect(jsonPath("$[0].titulo").value("Torto Arado"))
             .andExpect(jsonPath("$[0].statusRotulo").value("Aberta"));
-        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenCamila, null).andExpect(jsonPath("$.length()").value(0));
+        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenU3, null).andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
     @DisplayName("Incremento vale em qualquer situação e não muda a situação")
     void incrementoEmOutraSituacao() throws Exception {
-        long id = demandaId(interesse(tokenAna, "Vidas Secas", "Graciliano Ramos"));
+        long id = demandaId(interesse(tokenU1, "Vidas Secas", "Graciliano Ramos"));
         mudarStatus(id, "EM_ANALISE").andExpect(status().isOk());
         mudarStatus(id, "APROVADA").andExpect(status().isOk());
-        interesse(tokenBruno, "vidas secas", "graciliano ramos")
+        interesse(tokenU2, "vidas secas", "graciliano ramos")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.demanda.status").value("APROVADA"))
             .andExpect(jsonPath("$.demanda.totalSolicitacoes").value(2));
@@ -90,9 +90,9 @@ class DemandasTest extends ApoioApiTest {
     @Test
     @DisplayName("Campos obrigatórios")
     void validacao() throws Exception {
-        interesse(tokenAna, "  ", "Autor").andExpect(status().isBadRequest())
+        interesse(tokenU1, "  ", "Autor").andExpect(status().isBadRequest())
             .andExpect(content().string("Informe o título do livro."));
-        interesse(tokenAna, "Título", null).andExpect(status().isBadRequest())
+        interesse(tokenU1, "Título", null).andExpect(status().isBadRequest())
             .andExpect(content().string("Informe o autor do livro."));
         assertThat(demandaRepository.count()).isZero();
     }
@@ -100,10 +100,10 @@ class DemandasTest extends ApoioApiTest {
     @Test
     @DisplayName("A-17: transições válidas e inválidas, listagem por mais pedidas com filtro")
     void a17_transicoes() throws Exception {
-        long a = demandaId(interesse(tokenAna, "A Hora da Estrela", "Clarice Lispector"));
-        long b = demandaId(interesse(tokenAna, "Ensaio sobre a Cegueira", "José Saramago"));
-        interesse(tokenBruno, "Ensaio sobre a cegueira", "Jose Saramago").andExpect(status().isOk());
-        interesse(tokenCamila, "ENSAIO SOBRE A CEGUEIRA", "josé saramago").andExpect(status().isOk());
+        long a = demandaId(interesse(tokenU1, "A Hora da Estrela", "Clarice Lispector"));
+        long b = demandaId(interesse(tokenU1, "Ensaio sobre a Cegueira", "José Saramago"));
+        interesse(tokenU2, "Ensaio sobre a cegueira", "Jose Saramago").andExpect(status().isOk());
+        interesse(tokenU3, "ENSAIO SOBRE A CEGUEIRA", "josé saramago").andExpect(status().isOk());
 
         chamar(HttpMethod.GET, "/api/demandas", tokenAdmin, null)
             .andExpect(status().isOk())
@@ -136,15 +136,15 @@ class DemandasTest extends ApoioApiTest {
     @DisplayName("Permissões: só COMUM registra; só ADMIN lista e decide")
     void permissoes() throws Exception {
         interesse(tokenAdmin, "X", "Y").andExpect(status().isForbidden());
-        interesse(tokenCarlos, "X", "Y").andExpect(status().isForbidden());
+        interesse(tokenBibVI, "X", "Y").andExpect(status().isForbidden());
         interesse(null, "X", "Y").andExpect(status().isUnauthorized());
-        long id = demandaId(interesse(tokenAna, "X", "Y"));
-        for (String t : new String[]{tokenAna, tokenCarlos}) {
+        long id = demandaId(interesse(tokenU1, "X", "Y"));
+        for (String t : new String[]{tokenU1, tokenBibVI}) {
             chamar(HttpMethod.GET, "/api/demandas", t, null).andExpect(status().isForbidden());
             mudarStatus(id, "EM_ANALISE", t).andExpect(status().isForbidden());
         }
         chamar(HttpMethod.GET, "/api/demandas/minhas", tokenAdmin, null).andExpect(status().isForbidden());
-        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenCarlos, null).andExpect(status().isForbidden());
+        chamar(HttpMethod.GET, "/api/demandas/minhas", tokenBibVI, null).andExpect(status().isForbidden());
     }
 
     @Test
@@ -152,16 +152,16 @@ class DemandasTest extends ApoioApiTest {
     void notificacaoSoNaCriacao() throws Exception {
         rita.setAtivo(false);
         usuarioRepository.save(rita);
-        interesse(tokenAna, "Torto Arado", "Itamar Vieira Junior").andExpect(status().isOk());
-        interesse(tokenBruno, "Torto Arado", "Itamar Vieira Junior").andExpect(status().isOk());
-        interesse(tokenCamila, "torto arado", "itamar vieira junior").andExpect(status().isOk());
+        interesse(tokenU1, "Torto Arado", "Itamar Vieira Junior").andExpect(status().isOk());
+        interesse(tokenU2, "Torto Arado", "Itamar Vieira Junior").andExpect(status().isOk());
+        interesse(tokenU3, "torto arado", "itamar vieira junior").andExpect(status().isOk());
 
-        List<Notificacao> doRoberto = notificacaoRepository.findByUsuarioIdOrderByIdAsc(roberto.getId());
-        assertThat(doRoberto).extracting(Notificacao::getTipo).containsExactly(TIPO_NOVA_DEMANDA);
-        assertThat(doRoberto.get(0).getMensagem()).contains("Ana Souza", "Torto Arado", "Itamar Vieira Junior");
-        assertThat(doRoberto.get(0).getLink()).isEqualTo("/admin/demandas");
+        List<Notificacao> doAdmin = notificacaoRepository.findByUsuarioIdOrderByIdAsc(admin.getId());
+        assertThat(doAdmin).extracting(Notificacao::getTipo).containsExactly(TIPO_NOVA_DEMANDA);
+        assertThat(doAdmin.get(0).getMensagem()).contains("UsuÃ¡rio 1", "Torto Arado", "Itamar Vieira Junior");
+        assertThat(doAdmin.get(0).getLink()).isEqualTo("/admin/demandas");
         assertThat(notificacaoRepository.findByUsuarioIdOrderByIdAsc(rita.getId())).isEmpty();
-        assertThat(notificacaoRepository.findByUsuarioIdOrderByIdAsc(ana.getId())).isEmpty();
+        assertThat(notificacaoRepository.findByUsuarioIdOrderByIdAsc(u1.getId())).isEmpty();
     }
 
     // ───────────────────────── Apoio ─────────────────────────
