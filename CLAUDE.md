@@ -6,11 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Circula Book: a system for managing a network of community libraries (CEFET/RJ course project).
 
-**This branch (`dev`) is a REDUCED version** built for an evaluator. It contains only six flows:
-login (seeded users only), book search, book details, reservation, loan and return. Two profiles:
-`COMUM` (menu: "Buscar livros") and `BIBLIOTECARIO` (menu: "Empréstimo", "Devolução").
+**This branch (`dev`) is a REDUCED version** built for an evaluator. It contains only these flows:
+login (seeded users only), book search, book details, reservation, "Minhas reservas" (list and
+cancel own reservations), loan and return. Two profiles:
+`COMUM` (menu: "Buscar livros", "Minhas reservas") and `BIBLIOTECARIO` (menu: "Empréstimo", "Devolução").
 There is no Admin, no self sign-up, no transfers, notifications, acquisition demands, circulation
-history, dashboard, reports, "my loans/reservations/history" screens, or catalog/copy registration.
+history, dashboard, reports, "my loans/history" screens, or catalog/copy registration.
 
 `CONTEXTO_SISTEMA_CIRCULA_BOOK_v2.md` describes the **complete system** that lives in branch
 `sistema-final`. Use it only to understand intent (§3 rules, §4 copy state machine, §5.1 reservation);
@@ -47,14 +48,14 @@ npm run lint
 
 ## Architecture
 
-**Blackboard pattern.** The database is the shared "blackboard", and the `exemplar` table's `status` column is the central state. Services in `service/` act as knowledge sources. `FilaEsperaService` is called **synchronously, inside the same transaction**, whenever a copy becomes free (return or expiry of a ready reservation): no queue → `DISPONIVEL`; queue → `RESERVADO` and the first reservation becomes `DISPONIVEL` with 3 days to pick up. A `@Scheduled` job expires overdue ready reservations. No DB triggers or `LISTEN`/`NOTIFY`.
+**Blackboard pattern.** The database is the shared "blackboard", and the `exemplar` table's `status` column is the central state. Services in `service/` act as knowledge sources. `FilaEsperaService` is called **synchronously, inside the same transaction**, whenever a copy becomes free (return, expiry or cancellation of a ready reservation): no queue → `DISPONIVEL`; queue → `RESERVADO` and the first reservation becomes `DISPONIVEL` with 3 days to pick up. A `@Scheduled` job expires overdue ready reservations. No DB triggers or `LISTEN`/`NOTIFY`.
 
 Backend layout (`com.circulabook`): `controller/` (REST under `/api/...`), `service/` (domain logic and state transitions), `repository/` (Spring Data JPA, derived queries), `model/` (JPA entities with Lombok), `dto/`. Statuses are plain `String`s compared by literal. Errors go back as `badRequest()` with a plain-text body, which the frontend shows directly.
 
 State machines (this branch):
 
 - Copy: `DISPONIVEL`, `EMPRESTADO`, `EMPRESTADO_RESERVADO`, `RESERVADO`. Only `EstadoExemplarService.mudarStatus` changes it, validated by `StatusExemplar`.
-- Reservation: `PENDENTE` → `DISPONIVEL` → `RETIRADA` | `EXPIRADA`. Pickup is always at the queue library (`bibliotecaFila`).
+- Reservation: `PENDENTE` → `DISPONIVEL` → `RETIRADA` | `EXPIRADA`; `PENDENTE`/`DISPONIVEL` → `CANCELADA` by the owner (cancelling a ready one frees the copy via `FilaEsperaService`). Pickup is always at the queue library (`bibliotecaFila`).
 - Loan: `ATIVO`/`ATRASADO` → `DEVOLVIDO`. 14-day fixed term, max 3, no two copies of the same title, 2 blocked days per late day.
 - Invariant: for each (book, library), every borrowed copy is `EMPRESTADO_RESERVADO` iff there is a `PENDENTE` reservation there (`sincronizarMarcaDeFila` after every queue/loan change).
 

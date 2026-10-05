@@ -6,14 +6,15 @@ projeto da disciplina de Projeto e Construção de Sistemas — CEFET/RJ 2026.2.
 ## Sobre esta versão
 
 Esta é a **versão reduzida** do Circula Book, preparada para avaliação. Ela contém
-apenas seis fluxos:
+apenas estes fluxos:
 
 1. **Login** com os usuários já cadastrados na base;
 2. **Busca de livros** em todo o acervo da rede;
 3. **Detalhes do livro**, com a disponibilidade em cada biblioteca;
 4. **Reserva** (fila de espera por biblioteca, com retirada na mesma biblioteca);
-5. **Empréstimo** registrado pelo bibliotecário;
-6. **Devolução** registrada pelo bibliotecário, que atende automaticamente o 1º da fila.
+5. **Minhas reservas**, onde o usuário acompanha e cancela as próprias reservas;
+6. **Empréstimo** registrado pelo bibliotecário;
+7. **Devolução** registrada pelo bibliotecário, que atende automaticamente o 1º da fila.
 
 ## Documentação
 
@@ -24,7 +25,7 @@ apenas seis fluxos:
 
 | Perfil            | O que faz                                                      |
 | ----------------- | -------------------------------------------------------------- |
-| **Usuário comum** | Busca livros, vê os detalhes e reserva quando não há exemplar livre |
+| **Usuário comum** | Busca livros, vê os detalhes, reserva quando não há exemplar livre e acompanha/cancela as próprias reservas |
 | **Bibliotecário** | Registra empréstimos e devoluções na própria biblioteca        |
 
 ## Tecnologias utilizadas

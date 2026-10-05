@@ -40,7 +40,7 @@ O sistema é reiniciado com estes dados sempre que o servidor sobe.
 
 ## 2. Funcionalidades por perfil
 
-### 2.1 Usuário comum (menu: **Buscar livros**)
+### 2.1 Usuário comum (menu: **Buscar livros** e **Minhas reservas**)
 
 - **Buscar livros:** digite título, autor ou ISBN, ou use os filtros (categoria, autor, ano, ISBN)
   e os atalhos de categoria. O resultado mostra cada título com a situação na rede
@@ -53,7 +53,16 @@ O sistema é reiniciado com estes dados sempre que o servidor sobe.
 - **Reservar:** escolha a biblioteca (só aparecem as que têm o título e estão com todos os
   exemplares emprestados), confira a posição na fila e clique em **Entrar na fila** e depois
   em **Entrar na fila** na janela de confirmação. A tela mostra a confirmação com o livro, a
-  biblioteca e a sua posição na fila. A retirada é sempre nessa mesma biblioteca.
+  biblioteca e a sua posição na fila, com o link **Ver minhas reservas**. A retirada é sempre
+  nessa mesma biblioteca.
+- **Minhas reservas:** lista as suas reservas em andamento. Cada uma mostra o livro, a
+  biblioteca e a situação:
+  - **NA FILA**, com a sua posição atual (ela sobe quando alguém à frente é atendido ou cancela);
+  - **PRONTA PARA RETIRADA**, com a data limite ("Retire na … até dd/mm/aaaa").
+
+  Para desistir, clique em **Cancelar reserva** e confirme (ou **Manter reserva** para voltar).
+  Ao cancelar uma reserva pronta, o exemplar separado passa para o próximo da fila ou volta a
+  ficar disponível. Reservas já retiradas, expiradas ou canceladas não aparecem na lista.
 
 ### 2.2 Bibliotecário (menu: **Empréstimo** e **Devolução**)
 
@@ -87,6 +96,8 @@ volta para a sua tela inicial.
 - **Reserva pronta:** quando um exemplar é devolvido e há fila, ele fica separado para o 1º da
   fila, que tem **3 dias** para retirá-lo na mesma biblioteca. Se não retirar, a reserva expira
   automaticamente e o exemplar passa para o próximo da fila (ou volta a ficar disponível).
+- **Cancelamento:** você pode cancelar a sua reserva a qualquer momento enquanto ela estiver na
+  fila ou pronta para retirada; quem estava atrás na fila sobe uma posição.
 - **Exemplar reservado** só pode ser emprestado para quem o reservou; o empréstimo encerra a
   reserva.
 - O bibliotecário só registra empréstimos e devoluções da **própria biblioteca**.
@@ -103,6 +114,8 @@ volta para a sua tela inicial.
 3. Clique em **Entrar na fila**. A tela de reserva já vem com a Biblioteca Central e mostra
    "1º lugar".
 4. Clique em **Entrar na fila** e confirme. A tela mostra: Duna, Biblioteca Central, 1º lugar.
+5. Clique em **Ver minhas reservas** (ou no menu **Minhas reservas**): Duna aparece como
+   **NA FILA**, 1º na fila, na Biblioteca Central.
 
 ### 4.2 Bibliotecário devolve Duna com atraso
 
@@ -129,6 +142,9 @@ volta para a sua tela inicial.
   Filosofal**.
 - **Devolução que atende a fila:** como Bibliotecário Central, devolva **O Hobbit — Usuário 2**:
   o exemplar fica reservado para o Usuário 3, que estava na fila.
+- **Acompanhar e cancelar reservas:** entre como `usuario3@circulabook.com` e abra **Minhas
+  reservas**: Harry Potter aparece **PRONTA PARA RETIRADA** na Vila Isabel e O Hobbit **NA FILA**
+  (1º) na Central. Cancele o Harry Potter: o exemplar volta a ficar disponível na Vila Isabel.
 - **Devolução sem fila:** devolva **Grande Sertão: Veredas — Usuário 2**: o exemplar volta a ficar
   disponível.
 
@@ -152,4 +168,5 @@ volta para a sua tela inicial.
 | Usuário bloqueado para novos empréstimos até dd/mm/aaaa. | Bloqueio por devolução em atraso. |
 | O usuário já possui um exemplar de "…" emprestado. | Não é permitido ter dois exemplares do mesmo título. |
 | Este exemplar está reservado para … | O exemplar está separado para outra pessoa da fila. |
+| Esta reserva não pode mais ser cancelada. | A reserva já foi retirada, expirou ou foi cancelada. |
 | Só é possível registrar empréstimos/devoluções … da sua biblioteca. | O exemplar ou empréstimo é de outra biblioteca. |

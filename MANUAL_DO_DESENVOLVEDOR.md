@@ -1,7 +1,7 @@
 # Manual do Desenvolvedor — Circula Book (versão reduzida)
 
-Esta versão contém só seis fluxos: login, busca de livros, detalhes do livro, reserva,
-empréstimo e devolução, com dois perfis (COMUM e BIBLIOTECARIO).
+Esta versão contém só estes fluxos: login, busca de livros, detalhes do livro, reserva,
+minhas reservas (acompanhar e cancelar), empréstimo e devolução, com dois perfis (COMUM e BIBLIOTECARIO).
 
 ## Sumário
 
@@ -31,10 +31,10 @@ central. Os services são especialistas que leem e escrevem esse estado:
 - `EstadoExemplarService` é o único que muda `exemplar.status`, validando a transição na tabela de
   `StatusExemplar`, e mantém a marca de fila (`sincronizarMarcaDeFila`).
 - `FilaEsperaService` é chamado de forma síncrona, na mesma transação, sempre que um exemplar fica
-  livre (devolução ou expiração de reserva): sem fila o exemplar fica `DISPONIVEL`; com fila fica
+  livre (devolução, expiração ou cancelamento de reserva pronta): sem fila o exemplar fica `DISPONIVEL`; com fila fica
   `RESERVADO` e a reserva do 1º passa a `DISPONIVEL` com 3 dias para retirada. Um `@Scheduled`
   (a cada minuto) expira as reservas prontas vencidas.
-- `ReservaService` (entrar na fila), `EmprestimoService` (empréstimo, devolução, atraso e bloqueio) e
+- `ReservaService` (entrar na fila, listar e cancelar as próprias reservas), `EmprestimoService` (empréstimo, devolução, atraso e bloqueio) e
   `LivroService` (busca e disponibilidade por biblioteca).
 
 Convenções: código, mensagens e telas em português; status são `String` comparadas por literal;
@@ -118,7 +118,7 @@ frontend/src/
   api/client.ts   cliente HTTP único (token, 401 -> login, qs(), datas)
   auth/           AuthContext, RotaProtegida, TELA_INICIAL por perfil
   components/     Layout, Header (menu por perfil), TabelaPaginada, ModalConfirmacao, ui.tsx
-  pages/          Login, BuscaLivros, ResultadosBusca, DetalhesLivro, ReservarLivro,
+  pages/          Login, BuscaLivros, ResultadosBusca, DetalhesLivro, ReservarLivro, MinhasReservas,
                   RegistrarEmprestimo, RegistrarDevolucao
   App.tsx         rotas agrupadas por perfil
   types.ts        espelho do JSON do backend
@@ -157,6 +157,8 @@ Qualquer rota fora desta tabela é negada (`401` sem token, `403` com token).
 | `GET /categorias` | COMUM | Categorias (filtro e atalhos da busca) |
 | `GET /reservas/posicao/{livroId}?bibliotecaId` | COMUM | Posição que o usuário ocuparia na fila |
 | `POST /reservas` | COMUM | `{livroId, bibliotecaId}`; o usuário vem do token; devolve a reserva com `posicaoFila` |
+| `GET /reservas/minhas` | COMUM | Reservas ativas do usuário do token: `{id, livroId, titulo, autor, bibliotecaId, biblioteca, posicao, status, dataReserva, retireAte}` |
+| `PATCH /reservas/{id}/cancelar` | COMUM | Cancela a própria reserva `PENDENTE` ou `DISPONIVEL` (`403` se for de outro usuário, `400` se já encerrada) |
 | `GET /usuarios/comuns` | BIBLIOTECARIO | Usuários COMUM, para localizar o leitor |
 | `GET /exemplares/biblioteca/{id}` | BIBLIOTECARIO | Acervo da própria biblioteca (`403` para outra) |
 | `GET /emprestimos/situacao/{usuarioId}` | BIBLIOTECARIO | `{apto, motivo, emprestimosAtivos, limite, bloqueado, bloqueadoAte}` |
@@ -178,7 +180,7 @@ Qualquer rota fora desta tabela é negada (`401` sem token, `403` com token).
 | `EMPRESTADO_RESERVADO` | `RESERVADO` | Devolução com fila: separado para o 1º |
 | `EMPRESTADO_RESERVADO` | `EMPRESTADO` | A fila esvaziou |
 | `RESERVADO` | `EMPRESTADO` / `EMPRESTADO_RESERVADO` | Retirada pelo reservante (sem / com fila restante) |
-| `RESERVADO` | `DISPONIVEL` / `RESERVADO` | Reserva pronta expirou (fila vazia / passa ao próximo) |
+| `RESERVADO` | `DISPONIVEL` / `RESERVADO` | Reserva pronta expirou ou foi cancelada (fila vazia / passa ao próximo) |
 
 **Invariante da fila:** para cada (livro, biblioteca), todo exemplar emprestado fica
 `EMPRESTADO_RESERVADO` se e somente se há reserva `PENDENTE` naquela fila; é ressincronizada ao
@@ -188,7 +190,9 @@ fim de toda operação que mexe em fila ou empréstimo. Todo `RESERVADO` está l
 ### 7.2 Reserva
 
 `PENDENTE` (na fila) → `DISPONIVEL` (exemplar separado, 3 dias para retirar) → `RETIRADA`
-(virou empréstimo) ou `EXPIRADA` (prazo vencido). Regras ao criar: só COMUM; biblioteca precisa
+(virou empréstimo) ou `EXPIRADA` (prazo vencido). `PENDENTE` e `DISPONIVEL` podem virar
+`CANCELADA` pelo próprio usuário; cancelar uma reserva pronta chama `FilaEsperaService.liberar`
+para o exemplar separado, e a marca de fila é ressincronizada. Regras ao criar: só COMUM; biblioteca precisa
 ter o título e nenhum exemplar `DISPONIVEL`; sem reserva ativa do mesmo título; sem o título
 emprestado. A retirada é sempre na biblioteca da fila.
 
@@ -209,7 +213,7 @@ de bloqueio (somados a um bloqueio ainda vigente).
 - O token só é aceito se a assinatura e a validade conferem e o usuário ainda existe na base.
 - O claim `perfil` vira a role (`ROLE_COMUM`, `ROLE_BIBLIOTECARIO`), aplicada por rota no
   `SecurityConfig` (seção 6). O ator vem sempre do token (`Ator.de(jwt)`), nunca de parâmetros:
-  a reserva usa o id do token e o bibliotecário fica restrito à sua biblioteca nos controllers.
+  a reserva e o cancelamento usam o id do token (só o dono cancela) e o bibliotecário fica restrito à sua biblioteca nos controllers.
 - Respostas: `401` "Sessão inválida ou expirada. Faça login novamente." e `403` "Acesso negado
   para o seu perfil.". O frontend limpa a sessão e volta ao `/login` ao receber `401`.
 - `JWT_SECRET` vem do ambiente; o valor padrão do `application.properties` é só para desenvolvimento.
