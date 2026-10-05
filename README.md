@@ -16,6 +16,11 @@ da rede — sem precisar ir de biblioteca em biblioteca fisicamente.
 
 A especificação funcional completa está em `CONTEXTO_SISTEMA_CIRCULA_BOOK_v2.md`.
 
+## Documentação
+
+- [Manual do Desenvolvedor](MANUAL_DO_DESENVOLVEDOR.md): arquitetura, instalação, deploy, API, modelo de dados e testes.
+- [Manual do Usuário](MANUAL_DO_USUARIO.md): uso de cada tela por perfil, regras e passo a passo.
+
 ## Funcionalidades principais
 
 - Busca de livros em todo o acervo da rede
