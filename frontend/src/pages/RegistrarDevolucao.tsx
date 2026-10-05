@@ -117,7 +117,7 @@ export default function RegistrarDevolucao() {
       />
       <TituloPagina
         titulo="Registrar Devolução"
-        subtitulo={`${bibliotecaNome ?? ""} · UC10 - Registrar devolução`}
+        subtitulo={`${bibliotecaNome ?? ""} · registre a devolução e a condição do exemplar`}
       />
 
       {erro && <Erro mensagem={erro} />}
@@ -127,7 +127,7 @@ export default function RegistrarDevolucao() {
         esquerda={
           <>
             <SectionCard titulo="1. Buscar exemplar emprestado">
-              <Campo label="Nome do usuário, título ou código do exemplar">
+              <Campo label="Nome do usuário, título ou nº do exemplar">
                 <Entrada
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}

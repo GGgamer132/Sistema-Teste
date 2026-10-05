@@ -298,7 +298,7 @@ export default function EmprestimosBiblioteca() {
             <Entrada
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="🔎 Usuário, título ou código do exemplar..."
+              placeholder="🔎 Usuário, título ou nº do exemplar..."
             />
           </div>
           <div className="w-[190px]">

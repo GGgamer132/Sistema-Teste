@@ -225,7 +225,7 @@ test.describe("Telas que usavam ator fixo agora usam a sessão", () => {
     await expect(page.getByText("Biblioteca Central · acompanhe")).toBeVisible();
     for (const [link, texto] of [
       ["Registrar Empréstimo", "Biblioteca Central · identifique"],
-      ["Registrar Devolução", "Biblioteca Central · UC10"],
+      ["Registrar Devolução", "Biblioteca Central · registre a devolução"],
     ]) {
       await page.getByRole("link", { name: link }).click();
       await expect(page.getByText(texto)).toBeVisible();
