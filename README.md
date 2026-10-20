@@ -8,13 +8,15 @@ projeto da disciplina de Projeto e Construção de Sistemas — CEFET/RJ 2026.2.
 Esta é a **versão reduzida** do Circula Book, preparada para avaliação. Ela contém
 apenas estes fluxos:
 
-1. **Login** com os usuários já cadastrados na base;
+1. **Login** e **autocadastro** de usuários comuns na tela de login;
 2. **Busca de livros** em todo o acervo da rede;
 3. **Detalhes do livro**, com a disponibilidade em cada biblioteca;
 4. **Reserva** (fila de espera por biblioteca, com retirada na mesma biblioteca);
 5. **Minhas reservas**, onde o usuário acompanha e cancela as próprias reservas;
 6. **Empréstimo** registrado pelo bibliotecário;
-7. **Devolução** registrada pelo bibliotecário, que atende automaticamente o 1º da fila.
+7. **Devolução** registrada pelo bibliotecário, que atende automaticamente o 1º da fila;
+8. **Cadastro de exemplares** pelo bibliotecário, na própria biblioteca;
+9. **Cadastros do administrador**: livros, categorias, bibliotecas e bibliotecários.
 
 ## Documentação
 
@@ -25,8 +27,9 @@ apenas estes fluxos:
 
 | Perfil            | O que faz                                                      |
 | ----------------- | -------------------------------------------------------------- |
-| **Usuário comum** | Busca livros, vê os detalhes, reserva quando não há exemplar livre e acompanha/cancela as próprias reservas |
-| **Bibliotecário** | Registra empréstimos e devoluções na própria biblioteca        |
+| **Usuário comum** | Cria a própria conta, busca livros, vê os detalhes, reserva quando não há exemplar livre e acompanha/cancela as próprias reservas |
+| **Bibliotecário** | Registra empréstimos e devoluções e cadastra exemplares na própria biblioteca |
+| **Administrador** | Cadastra e edita livros, categorias e bibliotecas; cadastra, desativa e reativa bibliotecários |
 
 ## Tecnologias utilizadas
 
@@ -59,6 +62,7 @@ Senha de todos: `senha123`.
 
 | Perfil        | Nome                                 | E-mail                                    |
 | ------------- | ------------------------------------ | ----------------------------------------- |
+| Administrador | Admin                                | `admin@circulabook.com`                   |
 | Bibliotecário | Bibliotecário Central                | `bibliotecariocentral@circulabook.com`    |
 | Bibliotecário | Bibliotecário Vila Isabel            | `bibliotecariovilaisabel@circulabook.com` |
 | Usuário       | Usuário 1 (sem nenhum registro)      | `usuario1@circulabook.com`                |

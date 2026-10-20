@@ -1,7 +1,9 @@
 # Manual do Desenvolvedor — Circula Book (versão reduzida)
 
-Esta versão contém só estes fluxos: login, busca de livros, detalhes do livro, reserva,
-minhas reservas (acompanhar e cancelar), empréstimo e devolução, com dois perfis (COMUM e BIBLIOTECARIO).
+Esta versão contém só estes fluxos: login e autocadastro, busca de livros, detalhes do livro,
+reserva, minhas reservas (acompanhar e cancelar), empréstimo, devolução, cadastro de exemplares
+e os cadastros do administrador (livros, categorias, bibliotecas e bibliotecários), com três
+perfis (COMUM, BIBLIOTECARIO e ADMIN).
 
 ## Sumário
 
@@ -31,11 +33,14 @@ central. Os services são especialistas que leem e escrevem esse estado:
 - `EstadoExemplarService` é o único que muda `exemplar.status`, validando a transição na tabela de
   `StatusExemplar`, e mantém a marca de fila (`sincronizarMarcaDeFila`).
 - `FilaEsperaService` é chamado de forma síncrona, na mesma transação, sempre que um exemplar fica
-  livre (devolução, expiração ou cancelamento de reserva pronta): sem fila o exemplar fica `DISPONIVEL`; com fila fica
+  livre (devolução, expiração ou cancelamento de reserva pronta, cadastro de exemplar): sem fila o exemplar fica `DISPONIVEL`; com fila fica
   `RESERVADO` e a reserva do 1º passa a `DISPONIVEL` com 3 dias para retirada. Um `@Scheduled`
   (a cada minuto) expira as reservas prontas vencidas.
-- `ReservaService` (entrar na fila, listar e cancelar as próprias reservas), `EmprestimoService` (empréstimo, devolução, atraso e bloqueio) e
-  `LivroService` (busca e disponibilidade por biblioteca).
+- `ReservaService` (entrar na fila, listar e cancelar as próprias reservas), `EmprestimoService` (empréstimo, devolução, atraso e bloqueio),
+  `LivroService` (busca e disponibilidade por biblioteca) e `ExemplarService` (entrada de exemplares
+  no acervo, que passa pelo `FilaEsperaService`).
+- Cadastros sem efeito no estado dos exemplares: `AuthService` (login e autocadastro de COMUM),
+  `CatalogoService` (livros e categorias) e `RedeService` (bibliotecas e bibliotecários).
 
 Convenções: código, mensagens e telas em português; status são `String` comparadas por literal;
 erros de regra voltam como `400` com texto puro, que o frontend mostra direto.
@@ -107,9 +112,10 @@ O `CorsConfig` libera a origem `http://localhost:5173` para `/api/**`.
 backend/circula-book/src/main/
   java/com/circulabook/
     config/       SecurityConfig (JWT e perfis), CorsConfig, Ator (quem chama, lido do token)
-    controller/   Auth, Livro, Categoria, Reserva, Emprestimo, Exemplar, Usuario
+    controller/   Auth, Livro, Categoria, Biblioteca, Reserva, Emprestimo, Exemplar, Usuario
     service/      AuthService, LivroService, ReservaService, EmprestimoService,
-                  FilaEsperaService, EstadoExemplarService
+                  FilaEsperaService, EstadoExemplarService, ExemplarService,
+                  CatalogoService, RedeService
     repository/   Spring Data JPA (consultas derivadas)
     model/        Entidades JPA (Lombok) e StatusExemplar
     dto/          Payloads de requisição e resposta
@@ -118,8 +124,9 @@ frontend/src/
   api/client.ts   cliente HTTP único (token, 401 -> login, qs(), datas)
   auth/           AuthContext, RotaProtegida, TELA_INICIAL por perfil
   components/     Layout, Header (menu por perfil), TabelaPaginada, ModalConfirmacao, ui.tsx
-  pages/          Login, BuscaLivros, ResultadosBusca, DetalhesLivro, ReservarLivro, MinhasReservas,
-                  RegistrarEmprestimo, RegistrarDevolucao
+  pages/          Login, Cadastro, BuscaLivros, ResultadosBusca, DetalhesLivro, ReservarLivro,
+                  MinhasReservas, RegistrarEmprestimo, RegistrarDevolucao, CadastrarExemplar,
+                  AdminCatalogo, AdminCategorias, AdminBibliotecas, AdminBibliotecarios
   App.tsx         rotas agrupadas por perfil
   types.ts        espelho do JSON do backend
 ```
@@ -132,9 +139,9 @@ frontend/src/
 | --- | --- | --- |
 | `categoria` | `id`, `nome`, `descricao` | 1 categoria → N livros |
 | `livro` | `id`, `titulo`, `autor`, `isbn` (único), `editora`, `ano_publicacao`, `sinopse`, `categoria_id` | N livros → 1 categoria (opcional) |
-| `biblioteca` | `id`, `nome`, `endereco`, `email`, `telefone`, `criada_em` | — |
-| `usuario` | `id`, `nome`, `email` (único), `senha_hash` (BCrypt), `tipo` (`COMUM`/`BIBLIOTECARIO`), `biblioteca_id`, `bloqueado_ate`, `criado_em` | N bibliotecários → 1 biblioteca (nulo para COMUM) |
-| `exemplar` | `id`, `livro_id`, `biblioteca_id`, `status`, `adicionado_em` | N exemplares → 1 livro; N → 1 biblioteca |
+| `biblioteca` | `id`, `nome`, `endereco`, `email`, `telefone`, `ativa`, `criada_em` | — |
+| `usuario` | `id`, `nome`, `email` (único), `senha_hash` (BCrypt), `tipo` (`COMUM`/`BIBLIOTECARIO`/`ADMIN`), `biblioteca_id`, `ativo`, `bloqueado_ate`, `criado_em` | N bibliotecários → 1 biblioteca (nulo para COMUM e ADMIN) |
+| `exemplar` | `id`, `livro_id`, `biblioteca_id`, `status`, `estado_conservacao` (`NOVO`/`BOM`/`USADO`), `adicionado_em` | N exemplares → 1 livro; N → 1 biblioteca |
 | `emprestimo` | `id`, `exemplar_id`, `usuario_id`, `biblioteca_id`, `data_emprestimo`, `data_prev_devolucao`, `data_devolucao`, `status` | N → 1 exemplar; N → 1 usuário; N → 1 biblioteca |
 | `reserva` | `id`, `livro_id`, `usuario_id`, `biblioteca_fila_id`, `exemplar_id`, `data_reserva`, `data_expiracao`, `status` | N → 1 livro; N → 1 usuário; N → 1 biblioteca (fila e retirada); N → 0..1 exemplar (preenchido quando a reserva fica pronta) |
 
@@ -145,16 +152,28 @@ explícitos, datas relativas a `CURRENT_TIMESTAMP` e termina com `setval` das se
 
 ## 6. Referência da API
 
-Base `/api`. Todas as rotas, menos o login, exigem `Authorization: Bearer <token>`.
+Base `/api`. Todas as rotas, menos o login e o autocadastro, exigem `Authorization: Bearer <token>`.
 Qualquer rota fora desta tabela é negada (`401` sem token, `403` com token).
 
 | Método e rota | Perfil | Descrição |
 | --- | --- | --- |
-| `POST /auth/login` | público | `{email, senha}` → `{token, expiraEm, usuario}`; `401` se inválido |
+| `POST /auth/login` | público | `{email, senha}` → `{token, expiraEm, usuario}`; `401` se inválido, `403` se o usuário está inativo |
+| `POST /auth/cadastro` | público | `{nome, email, senha}` → mesma resposta do login; sempre cria `COMUM` (`tipo`/`perfil` enviados são ignorados); `400` com e-mail repetido ou senha com menos de 6 caracteres |
 | `GET /auth/me` | autenticado | Dados da sessão do token |
 | `GET /livros/busca?termo&autor&isbn&categoriaId&anoDe&anoAte` | COMUM | Busca com filtros opcionais |
 | `GET /livros/{id}` | COMUM | Detalhes + `disponibilidade` por biblioteca |
-| `GET /categorias` | COMUM | Categorias (filtro e atalhos da busca) |
+| `GET /livros` | BIBLIOTECARIO, ADMIN | Catálogo completo (cadastro de exemplares e tela Livros) |
+| `POST /livros`, `PUT /livros/{id}` | ADMIN | `{titulo, autor, isbn, editora, anoPublicacao, categoriaId, sinopse}`; ISBN único |
+| `GET /categorias` | COMUM, ADMIN | Categorias (filtro e atalhos da busca; formulário de livro) |
+| `POST /categorias`, `PUT /categorias/{id}` | ADMIN | `{nome, descricao}`; nome único (sem diferenciar maiúsculas) |
+| `GET /bibliotecas` | ADMIN | Bibliotecas ativas |
+| `GET /bibliotecas/todas` | ADMIN | Todas, inclusive as inativas |
+| `POST /bibliotecas`, `PUT /bibliotecas/{id}` | ADMIN | `{nome, endereco, email, telefone}` |
+| `PATCH /bibliotecas/{id}/desativar`, `PATCH /bibliotecas/{id}/ativar` | ADMIN | Só muda `ativa`; acervo e registros não são alterados |
+| `GET /usuarios/bibliotecarios` | ADMIN | Bibliotecários da rede |
+| `POST /usuarios/bibliotecarios` | ADMIN | `{nome, email, senha, bibliotecaId}`; biblioteca ativa obrigatória; `tipo`/`perfil` diferente de `BIBLIOTECARIO` → `400` |
+| `PATCH /usuarios/bibliotecarios/{id}/desativar`, `PATCH /usuarios/bibliotecarios/{id}/ativar` | ADMIN | Muda `ativo`; inativo não faz login e o token dele deixa de valer |
+| `POST /exemplares` | BIBLIOTECARIO | `{livroId, conservacao (NOVO, BOM, USADO), quantidade (pelo menos 1)}`; cria na biblioteca do token (`403` se `bibliotecaId` for outra) e devolve a lista criada |
 | `GET /reservas/posicao/{livroId}?bibliotecaId` | COMUM | Posição que o usuário ocuparia na fila |
 | `POST /reservas` | COMUM | `{livroId, bibliotecaId}`; o usuário vem do token; devolve a reserva com `posicaoFila` |
 | `GET /reservas/minhas` | COMUM | Reservas ativas do usuário do token: `{id, livroId, titulo, autor, bibliotecaId, biblioteca, posicao, status, dataReserva, retireAte}` |
@@ -174,6 +193,7 @@ Qualquer rota fora desta tabela é negada (`401` sem token, `403` com token).
 
 | De | Para | Quando |
 | --- | --- | --- |
+| (novo) | `DISPONIVEL` / `RESERVADO` | Cadastro do exemplar (sem fila / separado para o 1º da fila) |
 | `DISPONIVEL` | `EMPRESTADO` | Empréstimo |
 | `EMPRESTADO` | `DISPONIVEL` | Devolução sem fila |
 | `EMPRESTADO` | `EMPRESTADO_RESERVADO` | Alguém entrou na fila do título na biblioteca |
@@ -210,10 +230,14 @@ de bloqueio (somados a um bloqueio ainda vigente).
 - **JWT HS256** (Spring Security stateless + OAuth2 Resource Server). O login confere a senha com
   BCrypt e emite um token de 8 horas com `sub` = id do usuário, `perfil` e, para bibliotecários,
   `bibliotecaId`.
-- O token só é aceito se a assinatura e a validade conferem e o usuário ainda existe na base.
-- O claim `perfil` vira a role (`ROLE_COMUM`, `ROLE_BIBLIOTECARIO`), aplicada por rota no
+- O token só é aceito se a assinatura e a validade conferem e o usuário ainda existe na base e
+  está ativo (desativar um bibliotecário derruba a sessão dele na hora).
+- O autocadastro (`/auth/cadastro`) é público e só cria `COMUM`; bibliotecários são criados pelo
+  ADMIN, e o ADMIN existe apenas no seed.
+- O claim `perfil` vira a role (`ROLE_COMUM`, `ROLE_BIBLIOTECARIO`, `ROLE_ADMIN`), aplicada por rota no
   `SecurityConfig` (seção 6). O ator vem sempre do token (`Ator.de(jwt)`), nunca de parâmetros:
-  a reserva e o cancelamento usam o id do token (só o dono cancela) e o bibliotecário fica restrito à sua biblioteca nos controllers.
+  a reserva e o cancelamento usam o id do token (só o dono cancela) e o bibliotecário fica restrito
+  à sua biblioteca nos controllers (inclusive no cadastro de exemplares).
 - Respostas: `401` "Sessão inválida ou expirada. Faça login novamente." e `403` "Acesso negado
   para o seu perfil.". O frontend limpa a sessão e volta ao `/login` ao receber `401`.
 - `JWT_SECRET` vem do ambiente; o valor padrão do `application.properties` é só para desenvolvimento.
@@ -230,7 +254,8 @@ Indicações do que desenhar (os diagramas não fazem parte deste repositório):
    conexão JDBC do backend com o banco.
 2. **Modelo lógico do banco** — as sete tabelas da seção 5 com chaves primárias, colunas-chave e
    chaves estrangeiras, e as cardinalidades: categoria 1–N livro; livro 1–N exemplar;
-   biblioteca 1–N exemplar; biblioteca 1–N usuário (só bibliotecários, 0..1 do lado do usuário);
+   biblioteca 1–N exemplar; biblioteca 1–N usuário (só bibliotecários, 0..1 do lado do usuário,
+   nulo para COMUM e ADMIN);
    usuário 1–N empréstimo; exemplar 1–N empréstimo; biblioteca 1–N empréstimo; usuário 1–N
    reserva; livro 1–N reserva; biblioteca 1–N reserva; exemplar 0..1–N reserva.
 3. **Diagrama de sequência do ciclo reserva → devolução com fila → empréstimo** — participantes:

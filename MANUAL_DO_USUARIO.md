@@ -2,7 +2,8 @@
 
 O Circula Book conecta bibliotecas comunitárias: o usuário encontra um livro em qualquer
 biblioteca da rede e, se todos os exemplares estiverem emprestados, entra na fila de espera
-daquela biblioteca. O bibliotecário registra empréstimos e devoluções no balcão.
+daquela biblioteca. O bibliotecário registra empréstimos e devoluções no balcão e dá entrada
+nos exemplares da sua biblioteca. O administrador cuida dos cadastros da rede.
 
 ## Sumário
 
@@ -17,10 +18,16 @@ daquela biblioteca. O bibliotecário registra empréstimos e devoluções no bal
 ## 1. Acesso
 
 - **Entrar:** abra `http://localhost:5173`, informe e-mail e senha e clique em **Entrar**.
-  O Usuário comum vai para **Buscar livros**; o Bibliotecário, para **Empréstimo**.
+  O Usuário comum vai para **Buscar livros**; o Bibliotecário, para **Empréstimo**; o
+  Administrador, para **Livros**.
+- **Criar conta:** na tela de login, clique em **Cadastre-se**. Informe nome, e-mail, senha
+  (mínimo de 6 caracteres) e a confirmação da senha e clique em **Cadastrar**. A conta criada é
+  sempre de **Usuário comum** e você já entra no sistema. Bibliotecários são cadastrados pelo
+  Administrador.
 - **Sair:** botão **Sair** no topo da tela.
 - A sessão dura 8 horas. Depois disso o sistema pede login de novo.
-- Não é possível criar conta pela tela: use as contas de demonstração abaixo.
+- Um bibliotecário desativado pelo Administrador não consegue entrar, e a sessão aberta dele
+  deixa de valer na hora.
 
 ### Contas de demonstração
 
@@ -28,6 +35,7 @@ Senha de todas: `senha123`.
 
 | Perfil | Nome | E-mail | Situação inicial |
 | --- | --- | --- | --- |
+| Administrador | Admin | `admin@circulabook.com` | Administração da rede |
 | Bibliotecário | Bibliotecário Central | `bibliotecariocentral@circulabook.com` | Biblioteca Central |
 | Bibliotecário | Bibliotecário Vila Isabel | `bibliotecariovilaisabel@circulabook.com` | Biblioteca Comunitária de Vila Isabel |
 | Usuário | Usuário 1 | `usuario1@circulabook.com` | Nenhum empréstimo nem reserva |
@@ -64,7 +72,7 @@ O sistema é reiniciado com estes dados sempre que o servidor sobe.
   Ao cancelar uma reserva pronta, o exemplar separado passa para o próximo da fila ou volta a
   ficar disponível. Reservas já retiradas, expiradas ou canceladas não aparecem na lista.
 
-### 2.2 Bibliotecário (menu: **Empréstimo** e **Devolução**)
+### 2.2 Bibliotecário (menu: **Empréstimo**, **Devolução** e **Cadastrar Exemplares**)
 
 - **Empréstimo:** (1) digite ao menos 2 letras do nome ou e-mail do usuário e selecione-o;
   a coluna da direita mostra se ele está apto ou bloqueado; (2) escolha o exemplar na lista
@@ -74,8 +82,30 @@ O sistema é reiniciado com estes dados sempre que o servidor sobe.
   com selo vermelho), confira os dias de atraso e o bloqueio calculado e clique em
   **Confirmar Devolução**. A mensagem final informa se o exemplar voltou ao acervo ou se ficou
   reservado para o 1º da fila.
+- **Cadastrar Exemplares:** (1) busque o livro no catálogo e clique em **Selecionar** (só
+  aparecem livros já cadastrados pelo Administrador); (2) escolha a conservação (**Novo**,
+  **Bom** ou **Usado**) e a quantidade (pelo menos 1, sem limite máximo); (3) clique em
+  **Cadastrar Exemplares** e confirme. Os exemplares entram sempre na sua biblioteca e a
+  mensagem lista os números criados. Se houver fila do título na sua biblioteca, os primeiros
+  exemplares já ficam reservados para quem está na fila.
 
-Cada perfil só abre as próprias telas: se tentar abrir uma tela do outro perfil, o sistema
+### 2.3 Administrador (menu: **Livros**, **Categorias**, **Bibliotecas** e **Bibliotecários**)
+
+- **Livros:** cadastra livros (título e autor obrigatórios; ISBN, editora, ano, categoria e
+  sinopse opcionais) e edita os existentes pelo botão **Editar** da lista. O ISBN não pode se
+  repetir. Um livro novo aparece na busca como "Indisponível: sem exemplares" até algum
+  bibliotecário cadastrar exemplares dele.
+- **Categorias:** cadastra e edita categorias (nome obrigatório e único, descrição opcional).
+- **Bibliotecas:** cadastra e edita bibliotecas (nome obrigatório; endereço, e-mail e telefone
+  opcionais). **Desativar** só marca a biblioteca como inativa: o acervo e os registros não
+  mudam, e ela deixa de aparecer na escolha de biblioteca do cadastro de bibliotecário.
+  **Reativar** desfaz.
+- **Bibliotecários:** cadastra bibliotecários com nome, e-mail, senha inicial (mínimo de 6
+  caracteres) e biblioteca, que precisa estar ativa. **Desativar** impede o login dele;
+  **Reativar** devolve o acesso. O Administrador não cadastra usuários comuns: eles se cadastram
+  na tela de login.
+
+Cada perfil só abre as próprias telas: se tentar abrir uma tela de outro perfil, o sistema
 volta para a sua tela inicial.
 
 ---
@@ -100,7 +130,10 @@ volta para a sua tela inicial.
   fila ou pronta para retirada; quem estava atrás na fila sobe uma posição.
 - **Exemplar reservado** só pode ser emprestado para quem o reservou; o empréstimo encerra a
   reserva.
-- O bibliotecário só registra empréstimos e devoluções da **própria biblioteca**.
+- O bibliotecário só registra empréstimos, devoluções e novos exemplares da **própria
+  biblioteca**.
+- **Cadastros da rede:** só o Administrador cadastra livros, categorias, bibliotecas e
+  bibliotecários.
 
 ---
 
@@ -147,6 +180,13 @@ volta para a sua tela inicial.
   (1º) na Central. Cancele o Harry Potter: o exemplar volta a ficar disponível na Vila Isabel.
 - **Devolução sem fila:** devolva **Grande Sertão: Veredas — Usuário 2**: o exemplar volta a ficar
   disponível.
+- **Novo livro até a estante:** entre como `admin@circulabook.com`, cadastre um livro em **Livros**;
+  depois entre como `bibliotecariovilaisabel@circulabook.com` e, em **Cadastrar Exemplares**,
+  selecione esse livro e cadastre 2 exemplares. Na busca do usuário comum o livro passa a aparecer
+  disponível na Vila Isabel.
+- **Cadastro de exemplar que atende a fila:** entre como `bibliotecariocentral@circulabook.com` e
+  cadastre 1 exemplar de **O Hobbit**: ele já fica reservado para o Usuário 3, que estava na fila.
+- **Criar conta:** na tela de login, clique em **Cadastre-se** e crie um usuário novo.
 
 > Sugestão de diagrama: um **diagrama de sequência** do ciclo "reserva → devolução com fila →
 > empréstimo ao 1º da fila" (Usuário, Bibliotecário, Sistema) ajuda a entender os fluxos 4.1 a 4.3.
@@ -170,3 +210,10 @@ volta para a sua tela inicial.
 | Este exemplar está reservado para … | O exemplar está separado para outra pessoa da fila. |
 | Esta reserva não pode mais ser cancelada. | A reserva já foi retirada, expirou ou foi cancelada. |
 | Só é possível registrar empréstimos/devoluções … da sua biblioteca. | O exemplar ou empréstimo é de outra biblioteca. |
+| Já existe uma conta com este e-mail. | O e-mail informado no cadastro já está em uso. |
+| A confirmação não confere com a senha. | A senha e a confirmação digitadas no cadastro são diferentes. |
+| Usuário inativo. Procure a administração da rede. | O bibliotecário foi desativado pelo Administrador. |
+| Já existe um livro com o ISBN … | O ISBN informado já pertence a outro livro. |
+| Já existe a categoria "…". | Já há uma categoria com esse nome. |
+| A … está inativa. | Não é possível cadastrar bibliotecário em biblioteca desativada. |
+| A quantidade deve ser de pelo menos 1 exemplar. | A quantidade de exemplares precisa ser 1 ou mais. |
