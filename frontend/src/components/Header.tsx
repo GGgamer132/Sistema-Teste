@@ -25,6 +25,13 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
   BIBLIOTECARIO: [
     { rotulo: "Empréstimo", to: "/biblioteca/emprestimo" },
     { rotulo: "Devolução", to: "/biblioteca/devolucao" },
+    { rotulo: "Cadastrar Exemplares", to: "/biblioteca/exemplares" },
+  ],
+  ADMIN: [
+    { rotulo: "Livros", to: "/admin/catalogo" },
+    { rotulo: "Categorias", to: "/admin/categorias" },
+    { rotulo: "Bibliotecas", to: "/admin/bibliotecas" },
+    { rotulo: "Bibliotecários", to: "/admin/bibliotecarios" },
   ],
 };
 
@@ -34,6 +41,7 @@ const EM_LINHA = { nav: "hidden md:flex", botao: "md:hidden" };
 const ICONE: Record<Perfil, string> = {
   COMUM: "👤",
   BIBLIOTECARIO: "🧑‍💼",
+  ADMIN: "🛡️",
 };
 
 export default function Header() {
