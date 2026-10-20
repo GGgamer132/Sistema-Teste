@@ -138,6 +138,29 @@ export interface MinhaReserva {
   retireAte: string | null;
 }
 
+export interface MeuEmprestimo {
+  id: number;
+  exemplarId: number;
+  livroId: number;
+  titulo: string;
+  autor: string;
+  bibliotecaId: number;
+  biblioteca: string;
+  dataEmprestimo: string;
+  dataPrevDevolucao: string;
+  diasAtraso: number;
+  atrasado: boolean;
+}
+
+/** GET /api/conta/emprestimos. */
+export interface MeusEmprestimos {
+  emprestimos: MeuEmprestimo[];
+  total: number;
+  limite: number;
+  bloqueado: boolean;
+  bloqueadoAte: string | null;
+}
+
 /** Resposta de /api/emprestimos/situacao/{id} — alimenta os alertas da tela de empréstimo. */
 export interface SituacaoUsuario {
   usuarioId: number;

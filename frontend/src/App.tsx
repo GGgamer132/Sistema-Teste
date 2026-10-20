@@ -14,6 +14,7 @@ import BuscaLivros from "./pages/BuscaLivros";
 import ResultadosBusca from "./pages/ResultadosBusca";
 import DetalhesLivro from "./pages/DetalhesLivro";
 import ReservarLivro from "./pages/ReservarLivro";
+import MeusEmprestimos from "./pages/MeusEmprestimos";
 import MinhasReservas from "./pages/MinhasReservas";
 import RegistrarEmprestimo from "./pages/RegistrarEmprestimo";
 import RegistrarDevolucao from "./pages/RegistrarDevolucao";
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/resultados" element={<ResultadosBusca />} />
         <Route path="/livro/:livroId" element={<DetalhesLivro />} />
         <Route path="/livro/:livroId/reservar" element={<ReservarLivro />} />
+        <Route path="/meus-emprestimos" element={<MeusEmprestimos />} />
         <Route path="/minhas-reservas" element={<MinhasReservas />} />
       </Route>
 

@@ -78,6 +78,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/reservas").hasRole(COMUM)
                 .requestMatchers(HttpMethod.PATCH, "/api/reservas/*/cancelar").hasRole(COMUM)
 
+                // Meus empréstimos: sempre do usuário do token
+                .requestMatchers(HttpMethod.GET, "/api/conta/emprestimos").hasRole(COMUM)
+
                 // Empréstimo e devolução: bibliotecário (recorte pela biblioteca no controller)
                 .requestMatchers(HttpMethod.GET, "/api/exemplares/biblioteca/*",
                                  "/api/usuarios/comuns", "/api/emprestimos/ativos",
