@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Biblioteca, Usuario } from "../types";
 import {
-  Badge, Botao, Callout, Campo, Carregando, Entrada, Erro, SectionCard, Selecao,
+  Badge, Botao, Campo, Carregando, Entrada, Erro, SectionCard, Selecao,
   Sucesso, TituloPagina, Trilha,
 } from "../components/ui";
 import TabelaPaginada, { type Coluna } from "../components/TabelaPaginada";
@@ -153,10 +153,7 @@ export default function AdminBibliotecarios() {
             </Selecao>
           </Campo>
         </div>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
-          <Callout tipo="info" titulo="Somente bibliotecários">
-            Usuários da comunidade se cadastram sozinhos na tela de login.
-          </Callout>
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-4">
           <Botao disabled={!podeCriar} onClick={() => setPendente({ tipo: "criar" })}>
             Cadastrar bibliotecário
           </Botao>
